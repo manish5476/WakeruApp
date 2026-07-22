@@ -1,0 +1,27 @@
+# Dependencies and generated JavaScript bundles
+node_modules/
+coverage/
+*.log
+
+# Native build outputs
+apps/mobile/android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/
+
+# Local configuration and developer tooling
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+.DS_Store
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.keystore
+*.jks
+
+# Test artifacts
+artifacts/
+test-results/

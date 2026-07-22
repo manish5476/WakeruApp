@@ -1,0 +1,31 @@
+{
+  "name": "tripsplit-native",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.11.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "android": "pnpm --filter @tripsplit/mobile android",
+    "ios": "pnpm --filter @tripsplit/mobile ios",
+    "start": "pnpm --filter @tripsplit/mobile start",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm --filter @tripsplit/mobile lint",
+    "test": "pnpm --filter @tripsplit/mobile test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.2"
+  },
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}": "prettier --write"
+  }
+}

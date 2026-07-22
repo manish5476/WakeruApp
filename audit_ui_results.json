@@ -1,0 +1,578 @@
+[
+  {
+    "file": "Accordion.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex\\Accordion.tsx",
+    "hasExpo": false,
+    "lines": 173,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex",
+    "contentHead": "/**\r  * ACCORDION COMPONENT\r  * ============================================================\r  * Premium accordion with smooth animations, icons\r  * Multiple/single expand modes, accessibility-first\r ",
+    "isDuplicate": false
+  },
+  {
+    "file": "Dialog.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex\\Dialog.tsx",
+    "hasExpo": false,
+    "lines": 221,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex",
+    "contentHead": "/**\r  * DIALOG COMPONENT\r  * ============================================================\r  * Alert dialog for confirmations, warnings, success messages\r  * Simple, fast, focused interactions\r  * ====",
+    "isDuplicate": true
+  },
+  {
+    "file": "Dropdown.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex\\Dropdown.tsx",
+    "hasExpo": false,
+    "lines": 220,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex",
+    "contentHead": "/**\r  * DROPDOWN COMPONENT\r  * ============================================================\r  * Premium dropdown menu with animations, keyboard support\r  * Multiple selection, search, custom rendering",
+    "isDuplicate": false
+  },
+  {
+    "file": "Modal.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex\\Modal.tsx",
+    "hasExpo": false,
+    "lines": 234,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex",
+    "contentHead": "/**\r  * MODAL COMPONENT\r  * ============================================================\r  * Premium modal dialog with glass effects, animations\r  * Customizable sizes, scrollable content, action butt",
+    "isDuplicate": false
+  },
+  {
+    "file": "Toast.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex\\Toast.tsx",
+    "hasExpo": false,
+    "lines": 212,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\complex",
+    "contentHead": "/**\r  * TOAST COMPONENT\r  * ============================================================\r  * Non-intrusive notifications with auto-dismiss\r  * Multiple types, actions, accessibility-first\r  * ========",
+    "isDuplicate": false
+  },
+  {
+    "file": "Box.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core\\Box.tsx",
+    "hasExpo": false,
+    "lines": 104,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core",
+    "contentHead": "/**\r  * BOX COMPONENT\r  * ============================================================\r  * Flexible layout container with styling utilities\r  * Replaces View for most layout needs with semantic props\r",
+    "isDuplicate": false
+  },
+  {
+    "file": "Button.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core\\Button.tsx",
+    "hasExpo": false,
+    "lines": 99,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core",
+    "contentHead": "/**\r  * BUTTON COMPONENT\r  * ============================================================\r  * Premium button with multiple variants, sizes, animations\r  * Glass morphism support, loading states, disab",
+    "isDuplicate": true
+  },
+  {
+    "file": "GlassCard.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core\\GlassCard.tsx",
+    "hasExpo": false,
+    "lines": 63,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core",
+    "contentHead": "/**\r  * GLASS CARD COMPONENT\r  * ============================================================\r  * Premium frosted glass effect card with glassmorphism\r  * Supports light/dark modes, multiple glass lev",
+    "isDuplicate": true
+  },
+  {
+    "file": "Text.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core\\Text.tsx",
+    "hasExpo": false,
+    "lines": 85,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\core",
+    "contentHead": "/**\r  * TEXT COMPONENT\r  * ============================================================\r  * Premium typography component with preset styles\r  * Heading levels (h1-h6), body, label, caption variants\r  ",
+    "isDuplicate": false
+  },
+  {
+    "file": "Avatar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display\\Avatar.tsx",
+    "hasExpo": false,
+    "lines": 125,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display",
+    "contentHead": "/**\r  * AVATAR COMPONENT\r  * ============================================================\r  * Profile avatar with image, initials, status indicator\r  * Multiple sizes, fallback support, badge overlay\r",
+    "isDuplicate": true
+  },
+  {
+    "file": "Badge.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display\\Badge.tsx",
+    "hasExpo": false,
+    "lines": 103,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display",
+    "contentHead": "/**\r  * BADGE COMPONENT\r  * ============================================================\r  * Inline badge for status, labels, counts\r  * Multiple variants, sizes, animated pulse option\r  * ===========",
+    "isDuplicate": true
+  },
+  {
+    "file": "Card.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display\\Card.tsx",
+    "hasExpo": false,
+    "lines": 121,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display",
+    "contentHead": "/**\r  * CARD COMPONENT\r  * ============================================================\r  * Elegant card container with optional header, footer\r  * Image support, press handler, glass morphism option\r",
+    "isDuplicate": true
+  },
+  {
+    "file": "Progress.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display\\Progress.tsx",
+    "hasExpo": false,
+    "lines": 154,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\display",
+    "contentHead": "/**\r  * PROGRESS COMPONENT\r  * ============================================================\r  * Progress bar with percentage, animation, label\r  * Indeterminate mode, color variants, sizes\r  * =======",
+    "isDuplicate": false
+  },
+  {
+    "file": "Checkbox.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form\\Checkbox.tsx",
+    "hasExpo": false,
+    "lines": 109,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form",
+    "contentHead": "/**\r  * CHECKBOX COMPONENT\r  * ============================================================\r  * Accessible checkbox with label, animation, multiple states\r  * Indeterminate state support, keyboard nav",
+    "isDuplicate": false
+  },
+  {
+    "file": "DatePicker.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form\\DatePicker.tsx",
+    "hasExpo": false,
+    "lines": 293,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form",
+    "contentHead": "/**\r  * DATE PICKER COMPONENT\r  * ============================================================\r  * Premium date picker with calendar view, range selection\r  * Touch-optimized, accessible, animated tra",
+    "isDuplicate": false
+  },
+  {
+    "file": "Input.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form\\Input.tsx",
+    "hasExpo": false,
+    "lines": 131,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form",
+    "contentHead": "/**\r  * INPUT COMPONENT\r  * ============================================================\r  * Premium text input with validation, icons, glass effects\r  * Focus states, error states, placeholder suppor",
+    "isDuplicate": true
+  },
+  {
+    "file": "Radio.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form\\Radio.tsx",
+    "hasExpo": false,
+    "lines": 152,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form",
+    "contentHead": "/**\r  * RADIO COMPONENT\r  * ============================================================\r  * Premium radio button with label, animation, group support\r  * Keyboard navigation, accessibility-first desi",
+    "isDuplicate": false
+  },
+  {
+    "file": "TimePicker.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form\\TimePicker.tsx",
+    "hasExpo": false,
+    "lines": 215,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\form",
+    "contentHead": "/**\r  * TIME PICKER COMPONENT\r  * ============================================================\r  * Premium time picker with hour/minute selection\r  * 12/24 hour format support, accessible, animated\r  ",
+    "isDuplicate": false
+  },
+  {
+    "file": "index.ts",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\index.ts",
+    "hasExpo": false,
+    "lines": 77,
+    "dir": "d:/Split/New/TripSplit/src/UIcomponents",
+    "contentHead": "/**\r  * PREMIUM COMPONENT LIBRARY - EXPORTS\r  * ============================================================\r  * 30+ production-ready React Native components\r  * Glass morphism, animations, full acces",
+    "isDuplicate": true
+  },
+  {
+    "file": "Tabs.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\navigation\\Tabs.tsx",
+    "hasExpo": false,
+    "lines": 160,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\navigation",
+    "contentHead": "/**\r  * TABS COMPONENT\r  * ============================================================\r  * Tab navigation with smooth animations, icons, badges\r  * Keyboard navigation, scrollable for many tabs\r  * =",
+    "isDuplicate": false
+  },
+  {
+    "file": "SearchBar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\specialized\\SearchBar.tsx",
+    "hasExpo": false,
+    "lines": 136,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\specialized",
+    "contentHead": "/**\r  * SEARCH BAR COMPONENT\r  * ============================================================\r  * Search input with suggestions, filters, clear button\r  * Autocomplete support, debounced search\r  * ==",
+    "isDuplicate": true
+  },
+  {
+    "file": "Skeleton.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\specialized\\Skeleton.tsx",
+    "hasExpo": false,
+    "lines": 114,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\specialized",
+    "contentHead": "/**\r  * SKELETON COMPONENT\r  * ============================================================\r  * Loading placeholder with shimmer animation\r  * Flexible sizing, multiple shapes, composition support\r  *",
+    "isDuplicate": false
+  },
+  {
+    "file": "button.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\ui\\button.tsx",
+    "hasExpo": false,
+    "lines": 59,
+    "dir": "d:\\Split\\New\\TripSplit\\src\\UIcomponents\\ui",
+    "contentHead": "import { Button as ButtonPrimitive } from '@base-ui/react/button'\r import { cva, type VariantProps } from 'class-variance-authority'\r \r import { cn } from '@/lib/utils'\r \r const buttonVariants = cva(\r",
+    "isDuplicate": false
+  },
+  {
+    "file": "AmountDisplay.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\AmountDisplay.tsx",
+    "hasExpo": false,
+    "lines": 169,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/AmountDisplay.tsx\r import React from 'react';\r import { View, StyleSheet, ViewStyle } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typ",
+    "isDuplicate": false
+  },
+  {
+    "file": "AppShell.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\AppShell.tsx",
+    "hasExpo": false,
+    "lines": 30,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "/**\r  * AppShell — DEPRECATED\r  *\r  * The GlobalHeader + AppSidebar are now mounted directly in\r  * src/app/(app)/_layout.tsx at the correct navigator level.\r  *\r  * This file is kept only as a re-exp",
+    "isDuplicate": false
+  },
+  {
+    "file": "AppSidebar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\AppSidebar.tsx",
+    "hasExpo": true,
+    "lines": 582,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "import React, {\r     useRef,\r     useEffect,\r     useState,\r     useCallback,\r } from 'react';\r import {\r     View,\r     Text,\r     TouchableOpacity,\r     StyleSheet,\r     Platform,\r     Animated,\r   ",
+    "isDuplicate": false
+  },
+  {
+    "file": "Avatar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Avatar.tsx",
+    "hasExpo": false,
+    "lines": 242,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Avatar.tsx\r import React, { useState, useRef } from 'react';\r import { \r     View, \r     Image, \r     StyleSheet, \r     ViewStyle, \r     TouchableOpacity, \r     Modal, \r     Anima",
+    "isDuplicate": true
+  },
+  {
+    "file": "AvatarGroup.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\AvatarGroup.tsx",
+    "hasExpo": false,
+    "lines": 71,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "import React from 'react';\r import { View, Image, Text, StyleSheet } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r \r interface AvatarGroupProps {\r     urls: string[]",
+    "isDuplicate": false
+  },
+  {
+    "file": "Badge.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Badge.tsx",
+    "hasExpo": false,
+    "lines": 64,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Badge.tsx\r import React from 'react';\r import { View, StyleSheet, ViewStyle } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typography ",
+    "isDuplicate": true
+  },
+  {
+    "file": "BottomSheet.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\BottomSheet.tsx",
+    "hasExpo": false,
+    "lines": 74,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "import React, { forwardRef, useCallback } from 'react';\r import { StyleSheet, View } from 'react-native';\r import {\r     BottomSheetModal,\r     BottomSheetBackdrop,\r     BottomSheetProps,\r } from '@go",
+    "isDuplicate": false
+  },
+  {
+    "file": "BottomTabBar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\BottomTabBar.tsx",
+    "hasExpo": true,
+    "lines": 212,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/navigation/BottomTabBar.tsx\r import React, { useState, useEffect, useCallback } from 'react';\r import { View, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';\r imp",
+    "isDuplicate": false
+  },
+  {
+    "file": "BudgetRing.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\BudgetRing.tsx",
+    "hasExpo": false,
+    "lines": 388,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "\r // components/ui/BudgetRing.tsx\r import React from 'react';\r import { View, StyleSheet } from 'react-native';\r import Svg, {\r   Circle,\r   G,\r   Defs,\r   LinearGradient as SvgLinearGradient,\r   Stop",
+    "isDuplicate": false
+  },
+  {
+    "file": "Button.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Button.tsx",
+    "hasExpo": false,
+    "lines": 211,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Button.tsx\r import React from 'react';\r import {\r     TouchableOpacity,\r     TouchableOpacityProps,\r     ActivityIndicator,\r     View,\r     StyleSheet,\r } from 'react-native';\r im",
+    "isDuplicate": true
+  },
+  {
+    "file": "Card.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Card.tsx",
+    "hasExpo": false,
+    "lines": 82,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Card.tsx\r import React from 'react';\r import { View, Pressable, ViewStyle, StyleProp, StyleSheet } from 'react-native';\r import Animated, { useAnimatedStyle, useSharedValue, withS",
+    "isDuplicate": true
+  },
+  {
+    "file": "Container.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Container.tsx",
+    "hasExpo": false,
+    "lines": 41,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Container.tsx\r import React from 'react';\r import { View, ViewStyle, StyleSheet } from 'react-native';\r import { useResponsive } from '../../hooks/useResponsive';\r import { useThe",
+    "isDuplicate": false
+  },
+  {
+    "file": "CountryPicker.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\CountryPicker.tsx",
+    "hasExpo": false,
+    "lines": 182,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/CountryPicker.tsx\r import React, { useState, useMemo, useEffect } from 'react';\r import { View, Text, TextInput, ScrollView, Pressable, StyleSheet, Modal, Platform } from 'react-n",
+    "isDuplicate": false
+  },
+  {
+    "file": "Dialog.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Dialog.tsx",
+    "hasExpo": false,
+    "lines": 178,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Dialog.tsx\r import React, { useEffect } from 'react';\r import {\r     Modal,\r     View,\r     StyleSheet,\r     TouchableWithoutFeedback,\r     ModalProps,\r     Dimensions,\r     Platf",
+    "isDuplicate": true
+  },
+  {
+    "file": "EmptyState.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\EmptyState.tsx",
+    "hasExpo": false,
+    "lines": 87,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/EmptyState.tsx\r import React from 'react';\r import { View, StyleSheet } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typography } from",
+    "isDuplicate": false
+  },
+  {
+    "file": "ExpenseCard.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\ExpenseCard.tsx",
+    "hasExpo": false,
+    "lines": 142,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/expenses/ExpenseCard.tsx\r import React from 'react';\r import { View, StyleSheet } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typography",
+    "isDuplicate": false
+  },
+  {
+    "file": "ExpenseDetailsModal.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\ExpenseDetailsModal.tsx",
+    "hasExpo": true,
+    "lines": 642,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/expenses/ExpenseDetailsModal.tsx\r import React, { useEffect, useCallback } from 'react';\r import { View, StyleSheet, Modal, Pressable, ScrollView, Dimensions } from 'react-native';\r ",
+    "isDuplicate": false
+  },
+  {
+    "file": "FAB.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\FAB.tsx",
+    "hasExpo": false,
+    "lines": 122,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/FAB.tsx\r import React from 'react';\r import {\r     TouchableOpacity,\r     TouchableOpacityProps,\r     ActivityIndicator,\r     View,\r     StyleSheet,\r } from 'react-native';\r impor",
+    "isDuplicate": false
+  },
+  {
+    "file": "GlassCard.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\GlassCard.tsx",
+    "hasExpo": true,
+    "lines": 527,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/GlassCard.tsx\r import React, { useMemo, useRef } from 'react';\r import {\r   View,\r   StyleSheet,\r   Platform,\r   ViewStyle,\r   StyleProp,\r   TouchableOpacity,\r   TouchableOpacityP",
+    "isDuplicate": true
+  },
+  {
+    "file": "GlobalBackground.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\GlobalBackground.tsx",
+    "hasExpo": true,
+    "lines": 480,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/layout/GlobalBackground.tsx\r import React, { useMemo } from 'react';\r import { StyleSheet, View, Platform, ImageBackground } from 'react-native';\r import { LinearGradient } from 'exp",
+    "isDuplicate": false
+  },
+  {
+    "file": "GlobalHeader.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\GlobalHeader.tsx",
+    "hasExpo": true,
+    "lines": 368,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/navigation/GlobalHeader.tsx\r import React, { useState } from 'react';\r import {\r     View,\r     Text,\r     TouchableOpacity,\r     StyleSheet,\r     Platform,\r     Image,\r     Pressabl",
+    "isDuplicate": false
+  },
+  {
+    "file": "Grid.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Grid.tsx",
+    "hasExpo": false,
+    "lines": 46,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Grid.tsx\r import React from 'react';\r import { View, ViewStyle } from 'react-native';\r import { useResponsive } from '../../hooks/useResponsive';\r import { useTheme } from '../../",
+    "isDuplicate": false
+  },
+  {
+    "file": "IconButton.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\IconButton.tsx",
+    "hasExpo": false,
+    "lines": 121,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/IconButton.tsx\r import React from 'react';\r import {\r     TouchableOpacity,\r     TouchableOpacityProps,\r     ActivityIndicator,\r     View,\r     StyleSheet,\r } from 'react-native';",
+    "isDuplicate": false
+  },
+  {
+    "file": "ImageRepositionModal.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\ImageRepositionModal.tsx",
+    "hasExpo": true,
+    "lines": 198,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/ImageRepositionModal.tsx\r import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';\r import {\r     Modal,\r     View,\r     Text,\r     StyleSheet,\r     Image",
+    "isDuplicate": false
+  },
+  {
+    "file": "index.ts",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\index.ts",
+    "hasExpo": false,
+    "lines": 23,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "export { Container } from './Container';\r export { Row } from './Row';\r export { Card } from './Card';\r export { Grid } from './Grid';\r export { Section } from './Section';\r export { Typography } from",
+    "isDuplicate": true
+  },
+  {
+    "file": "Input.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Input.tsx",
+    "hasExpo": false,
+    "lines": 127,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Input.tsx\r import React, { useState } from 'react';\r import { TextInput, TextInputProps, View, StyleSheet } from 'react-native';\r import { useTheme } from '../../providers/ThemePr",
+    "isDuplicate": true
+  },
+  {
+    "file": "InteractiveWrapper.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\InteractiveWrapper.tsx",
+    "hasExpo": false,
+    "lines": 56,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/InteractiveWrapper.tsx\r import React from 'react';\r import { Pressable, ViewStyle, StyleProp, Platform } from 'react-native';\r import Animated, { useSharedValue, useAnimatedStyle,",
+    "isDuplicate": false
+  },
+  {
+    "file": "List.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\List.tsx",
+    "hasExpo": false,
+    "lines": 74,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/ListItem.tsx\r import React from 'react';\r import { View, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';\r import { Typography } from './Typography';\r imp",
+    "isDuplicate": false
+  },
+  {
+    "file": "MetricTile.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\MetricTile.tsx",
+    "hasExpo": false,
+    "lines": 139,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/MetricTile.tsx\r import React from 'react';\r import { View, StyleSheet } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typography } from",
+    "isDuplicate": false
+  },
+  {
+    "file": "PopoverTooltip.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\PopoverTooltip.tsx",
+    "hasExpo": false,
+    "lines": 101,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/PopoverTooltip.tsx\r import React, { useState, useRef } from 'react';\r import { View, TouchableOpacity, Dimensions, StyleProp, ViewStyle, Platform } from 'react-native';\r import { ",
+    "isDuplicate": false
+  },
+  {
+    "file": "ProgressBar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\ProgressBar.tsx",
+    "hasExpo": false,
+    "lines": 112,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/ProgressBar.tsx\r import React, { useEffect } from 'react';\r import { View, StyleSheet, ViewStyle } from 'react-native';\r import Animated, { useSharedValue, useAnimatedStyle, withS",
+    "isDuplicate": false
+  },
+  {
+    "file": "Row.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Row.tsx",
+    "hasExpo": false,
+    "lines": 48,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Row.tsx\r import React from 'react';\r import { View, ViewStyle } from 'react-native';\r import { useResponsive } from '../../hooks/useResponsive';\r import { useTheme } from '../../p",
+    "isDuplicate": false
+  },
+  {
+    "file": "SearchBar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\SearchBar.tsx",
+    "hasExpo": false,
+    "lines": 103,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/SearchBar.tsx\r import React from 'react';\r import { StyleSheet, View, TextInput, Platform } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import",
+    "isDuplicate": true
+  },
+  {
+    "file": "Section.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Section.tsx",
+    "hasExpo": false,
+    "lines": 52,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Section.tsx\r import React from 'react';\r import { View, ViewStyle, StyleSheet } from 'react-native';\r import { useResponsive } from '../../hooks/useResponsive';\r import { useTheme",
+    "isDuplicate": false
+  },
+  {
+    "file": "SegmentedControl.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\SegmentedControl.tsx",
+    "hasExpo": false,
+    "lines": 23,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "import React from 'react';\r import { TabBar, TabItem } from './TabBar';\r \r interface SegmentedControlProps {\r     options: string[];\r     selectedValue: string;\r     onChange: (value: string) => void;",
+    "isDuplicate": false
+  },
+  {
+    "file": "SettlementCard.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\SettlementCard.tsx",
+    "hasExpo": false,
+    "lines": 97,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/settlements/SettlementCard.tsx\r import React from 'react';\r import { View, StyleSheet } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typo",
+    "isDuplicate": false
+  },
+  {
+    "file": "StatCard.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\StatCard.tsx",
+    "hasExpo": false,
+    "lines": 123,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/StatCard.tsx\r import React from 'react';\r import { View, StyleSheet } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typography } from '",
+    "isDuplicate": false
+  },
+  {
+    "file": "TabBar.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\TabBar.tsx",
+    "hasExpo": false,
+    "lines": 207,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/TabBar.tsx\r import React, { useEffect } from 'react';\r import { View, StyleSheet, Pressable, Platform, ScrollView, ViewStyle } from 'react-native';\r import Animated, { useSharedVa",
+    "isDuplicate": false
+  },
+  {
+    "file": "TripCard.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\TripCard.tsx",
+    "hasExpo": true,
+    "lines": 177,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/trips/TripCard.tsx\r import React from 'react';\r import { View, Image, StyleSheet } from 'react-native';\r import { LinearGradient } from 'expo-linear-gradient';\r import { useTheme } f",
+    "isDuplicate": false
+  },
+  {
+    "file": "Typography.tsx",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Typography.tsx",
+    "hasExpo": false,
+    "lines": 80,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/Typography.tsx\r import React from 'react';\r import { Text, TextProps } from 'react-native';\r import Animated from 'react-native-reanimated';\r import { useTheme } from '../../provi",
+    "isDuplicate": false
+  },
+  {
+    "file": "Untitled-1.ts",
+    "path": "d:\\Split\\New\\TripSplit\\src\\components\\ui\\Untitled-1.ts",
+    "hasExpo": true,
+    "lines": 3433,
+    "dir": "d:/Split/New/TripSplit/src/components/ui",
+    "contentHead": "// src/components/ui/AmountDisplay.tsx\r import React from 'react';\r import { View, StyleSheet, ViewStyle } from 'react-native';\r import { useTheme } from '../../providers/ThemeProvider';\r import { Typ",
+    "isDuplicate": false
+  }
+]
