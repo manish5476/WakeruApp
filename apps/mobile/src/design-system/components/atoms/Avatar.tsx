@@ -1,48 +1,80 @@
-import React from 'react';
-import { View, ViewStyle, Image, ImageSourcePropType } from 'react-native';
-import { useTheme } from '../../../theme';
-import { Text } from '../primitives/Text';
+/**
+ * Avatar Component
+ * User profile picture display with initials fallback
+ */
 
-export interface AvatarProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  source?: ImageSourcePropType;
-  fallbackInitials?: string;
+import React from 'react';
+import { Image, ImageStyle, StyleProp, View, ViewStyle } from 'react-native';
+import { useTheme } from '../../hooks/useTheme';
+import { RADIUS } from '../../tokens/tokens';
+import Text from '../primitives/Text';
+
+type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+interface AvatarProps {
+  source?: { uri: string };
+  name?: string;
+  size?: AvatarSize;
+  style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
-export const Avatar = ({ size = 'md', source, fallbackInitials }: AvatarProps) => {
-  const { tokens } = useTheme();
+const AVATAR_SIZES: Record<AvatarSize, number> = {
+  xs: 24,
+  sm: 32,
+  md: 48,
+  lg: 64,
+  xl: 96,
+};
 
-  const getSize = () => {
-    switch (size) {
-      case 'sm': return 32;
-      case 'md': return 48;
-      case 'lg': return 64;
-      case 'xl': return 96;
-      default: return 48;
-    }
+export const Avatar: React.FC<AvatarProps> = ({
+  source,
+  name = 'U',
+  size = 'md',
+  style,
+  testID,
+}) => {
+  const { colors } = useTheme();
+  const avatarSize = AVATAR_SIZES[size];
+
+  // Get initials from name
+  const getInitials = (fullName: string): string => {
+    return fullName
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
-  const dimensions = getSize();
-
-  const style: ViewStyle = {
-    width: dimensions,
-    height: dimensions,
-    borderRadius: tokens.radius.circle,
-    backgroundColor: tokens.colors.surfaceVariant,
+  const containerStyle: ViewStyle = {
+    width: avatarSize,
+    height: avatarSize,
+    borderRadius: RADIUS.full,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   };
 
+  const imageStyle: ImageStyle = {
+    width: avatarSize,
+    height: avatarSize,
+  };
+
+  const textSize =
+    size === 'xs' ? 'label' : size === 'sm' ? 'bodySmall' : 'body';
   return (
-    <View style={style}>
+    <View style={[containerStyle, style]} testID={testID}>
       {source ? (
-        <Image source={source} style={{ width: '100%', height: '100%' }} />
+        <Image source={source} style={imageStyle} />
       ) : (
-        <Text variant={size === 'sm' ? 'bodySmall' : 'headingM'} color={tokens.colors.textSecondary}>
-          {fallbackInitials ? fallbackInitials.substring(0, 2).toUpperCase() : '?'}
+        <Text variant={textSize} color={colors.textInverted} align="center">
+          {getInitials(name)}
         </Text>
       )}
     </View>
   );
 };
+
+export default Avatar;

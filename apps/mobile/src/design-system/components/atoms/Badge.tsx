@@ -1,45 +1,117 @@
-import React from 'react';
-import { View, ViewStyle } from 'react-native';
-import { useTheme } from '../../../theme';
-import { Text } from '../primitives/Text';
+/**
+ * Badge Component
+ * Small label for categorization and status
+ */
 
-export interface BadgeProps {
-  label: string | number;
-  variant?: 'primary' | 'success' | 'warning' | 'error' | 'default';
-  size?: 'sm' | 'md';
+import React from 'react';
+import { ViewStyle, StyleProp } from 'react-native';
+import { useTheme } from '../../hooks/useTheme';
+import { RADIUS, SPACING } from '../../tokens/tokens';
+import Box from '../primitives/Box';
+import Text from '../primitives/Text';
+
+type BadgeVariant =
+  'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
+type BadgeSize = 'sm' | 'md' | 'lg';
+
+interface BadgeProps {
+  label: string;
+  variant?: BadgeVariant;
+  size?: BadgeSize;
+  style?: StyleProp<ViewStyle>;
+  icon?: React.ReactNode;
 }
 
-export const Badge = ({ label, variant = 'default', size = 'md' }: BadgeProps) => {
-  const { tokens } = useTheme();
+const BADGE_SIZES = {
+  sm: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  md: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  lg: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+} as const;
 
-  const getVariantStyles = (): { bg: string; text: string } => {
+export const Badge: React.FC<BadgeProps> = ({
+  label,
+  variant = 'default',
+  size = 'md',
+  style,
+  icon,
+}) => {
+  const { colors } = useTheme();
+
+  const getBadgeStyle = (): ViewStyle => {
+    const baseStyle: ViewStyle = {
+      ...BADGE_SIZES[size],
+      borderRadius: RADIUS.full,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.xs,
+    };
+
     switch (variant) {
-      case 'primary': return { bg: tokens.colors.primary, text: '#FFF' };
-      case 'success': return { bg: tokens.colors.success, text: '#FFF' };
-      case 'warning': return { bg: tokens.colors.warning, text: '#000' };
-      case 'error': return { bg: tokens.colors.error, text: '#FFF' };
-      default: return { bg: tokens.colors.surfaceVariant, text: tokens.colors.text };
+      case 'primary':
+        return {
+          ...baseStyle,
+          backgroundColor: colors.primary,
+        };
+      case 'secondary':
+        return {
+          ...baseStyle,
+          backgroundColor: colors.secondary,
+        };
+      case 'success':
+        return {
+          ...baseStyle,
+          backgroundColor: colors.accent,
+        };
+      case 'warning':
+        return {
+          ...baseStyle,
+          backgroundColor: colors.warning,
+        };
+      case 'danger':
+        return {
+          ...baseStyle,
+          backgroundColor: colors.danger,
+        };
+      case 'default':
+      default:
+        return {
+          ...baseStyle,
+          backgroundColor: colors.surfaceAlt,
+        };
     }
   };
 
-  const vStyles = getVariantStyles();
-  const height = size === 'sm' ? 20 : 24;
-  
-  const style: ViewStyle = {
-    backgroundColor: vStyles.bg,
-    height,
-    borderRadius: tokens.radius.pill,
-    paddingHorizontal: tokens.spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
+  const getTextColor = (): string => {
+    if (
+      ['primary', 'secondary', 'success', 'warning', 'danger'].includes(variant)
+    ) {
+      return colors.textInverted;
+    }
+    return colors.text;
   };
 
   return (
-    <View style={style}>
-      <Text variant={size === 'sm' ? 'caption' : 'bodySmall'} color={vStyles.text} weight="medium">
+    <Box
+      style={[getBadgeStyle(), style]}
+      flexDirection="row"
+      alignItems="center"
+      gap="xs"
+    >
+      {icon}
+      <Text variant="labelSmall" color={getTextColor()} uppercase>
         {label}
       </Text>
-    </View>
+    </Box>
   );
 };
+
+export default Badge;

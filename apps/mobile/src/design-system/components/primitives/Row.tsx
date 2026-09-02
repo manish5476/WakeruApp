@@ -1,9 +1,9 @@
 import React from 'react';
 import { ViewStyle } from 'react-native';
-import { Box, BoxProps } from './Box';
+import { Box, BoxProps } from '../primitives/Box';
 
 export interface RowProps extends BoxProps {
-  spacing?: keyof typeof import('../../tokens/spacing').spacing;
+  spacing?: keyof typeof import('../../tokens/tokens').SPACING;
   wrap?: boolean;
 }
 
@@ -19,7 +19,7 @@ export const Row = ({
     flexDirection: 'row',
     alignItems,
     flexWrap: wrap ? 'wrap' : 'nowrap',
-    gap: spacing ? require('../../tokens').spacing[spacing] : undefined,
+    gap: spacing ? require('../../tokens/tokens').SPACING[spacing] : undefined,
   };
 
   return (

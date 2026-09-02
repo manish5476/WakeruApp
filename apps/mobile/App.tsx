@@ -1,3 +1,6 @@
-import { AppRoot } from './src/app/bootstrap/AppRoot';
+import React from 'react';
+import { AppBootstrap } from './src/app/bootstrap';
 
-export default AppRoot;
+export default function App() {
+  return <AppBootstrap />;
+}

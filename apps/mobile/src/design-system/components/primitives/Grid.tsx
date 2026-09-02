@@ -1,10 +1,10 @@
 import React from 'react';
 import { ViewStyle } from 'react-native';
-import { Box, BoxProps } from './Box';
+import { Box, BoxProps } from '../primitives/Box';
 
 export interface GridProps extends BoxProps {
   columns?: number;
-  spacing?: keyof typeof import('../../tokens/spacing').spacing;
+  spacing?: keyof typeof import('../../tokens/tokens').SPACING;
 }
 
 export const Grid = ({
@@ -17,7 +17,7 @@ export const Grid = ({
   const dynamicStyle: ViewStyle = {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing ? require('../../tokens').spacing[spacing] : undefined,
+    gap: spacing ? require('../../tokens/tokens').SPACING[spacing] : undefined,
   };
 
   // Basic grid implementation for React Native

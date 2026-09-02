@@ -1,10 +1,14 @@
 import React from 'react';
-import { RootNavigator } from '@/navigation';
+import { EnvironmentLoader } from './EnvironmentLoader';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
 
-/**
- * Intentionally has no product UI. Routes are attached here only when a
- * feature slice is approved for implementation.
- */
 export function AppBootstrap() {
-  return <RootNavigator />;
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <EnvironmentLoader />
+    </GestureHandlerRootView>
+  );
 }
+
+const styles = StyleSheet.create({ root: { flex: 1 } });

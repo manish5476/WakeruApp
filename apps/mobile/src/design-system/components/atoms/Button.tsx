@@ -1,96 +1,167 @@
-import React from 'react';
-import { TouchableOpacity, TouchableOpacityProps, ActivityIndicator, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '../../../theme';
-import { Text } from '../primitives/Text';
-import { Box } from '../primitives/Box';
-import { Row } from '../primitives/Row';
+/**
+ * Button Component
+ * Primary interactive component with multiple variants
+ */
 
-export interface ButtonProps extends TouchableOpacityProps {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
-  label: string;
-  loading?: boolean;
+import { SPACING, RADIUS, SHADOWS } from '@/design-system/tokens/tokens';
+import { useTheme } from '../../hooks/useTheme';
+import React, { ReactNode, useState } from 'react';
+import {
+  Pressable,
+  ViewStyle,
+  TextStyle,
+  ActivityIndicator,
+  View,
+  StyleProp,
+} from 'react-native';
+import { Text } from '../primitives/Text';
+
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'outline' | 'ghost';
+type ButtonSize = 'sm' | 'md' | 'lg';
+
+interface ButtonProps {
+  onPress: () => void | Promise<void>;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   disabled?: boolean;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  loading?: boolean;
+  icon?: ReactNode;
+  iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
+  testID?: string;
 }
 
-export const Button = ({
+const BUTTON_SIZES = {
+  sm: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    height: 32,
+  },
+  md: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    height: 44,
+  },
+  lg: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    height: 56,
+  },
+} as const;
+
+export const Button: React.FC<ButtonProps> = ({
+  onPress,
+  children,
+  style,
   variant = 'primary',
   size = 'md',
-  label,
-  loading = false,
   disabled = false,
-  leftIcon,
-  rightIcon,
+  loading = false,
+  icon,
+  iconPosition = 'left',
   fullWidth = false,
-  style,
-  ...rest
-}: ButtonProps) => {
-  const { tokens } = useTheme();
+  testID,
+}) => {
+  const { colors } = useTheme();
+  const [isPressed, setIsPressed] = useState(false);
 
-  const getVariantStyles = (): { bg: string; text: string; border?: string } => {
+  const getButtonStyle = (): ViewStyle => {
+    const baseStyle: ViewStyle = {
+      ...BUTTON_SIZES[size],
+      borderRadius: RADIUS.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: SPACING.sm,
+      ...SHADOWS.md,
+      opacity: disabled ? 0.5 : 1,
+      ...(fullWidth && { width: '100%' }),
+    };
+
     switch (variant) {
       case 'primary':
-        return { bg: tokens.colors.primary, text: '#FFF' };
+        return {
+          ...baseStyle,
+          backgroundColor: isPressed
+            ? colors.interactivePressed
+            : colors.interactive,
+        };
       case 'secondary':
-        return { bg: tokens.colors.surfaceVariant, text: tokens.colors.text };
+        return {
+          ...baseStyle,
+          backgroundColor: colors.secondary,
+          opacity: isPressed ? 0.8 : 1,
+        };
       case 'outline':
-        return { bg: tokens.colors.transparent, text: tokens.colors.primary, border: tokens.colors.border };
+        return {
+          ...baseStyle,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderColor: colors.border,
+        };
       case 'ghost':
-        return { bg: tokens.colors.transparent, text: tokens.colors.text };
-      case 'danger':
-        return { bg: tokens.colors.error, text: '#FFF' };
+        return {
+          ...baseStyle,
+          backgroundColor: 'transparent',
+        };
+      case 'tertiary':
+        return {
+          ...baseStyle,
+          backgroundColor: colors.surfaceAlt,
+        };
       default:
-        return { bg: tokens.colors.primary, text: '#FFF' };
+        return baseStyle;
     }
   };
 
-  const getSizeStyles = (): { height: number; paddingHorizontal: keyof typeof tokens.spacing } => {
-    switch (size) {
-      case 'sm': return { height: 36, paddingHorizontal: 'md' };
-      case 'md': return { height: 48, paddingHorizontal: 'lg' };
-      case 'lg': return { height: 56, paddingHorizontal: 'xl' };
-      default: return { height: 48, paddingHorizontal: 'lg' };
+  const getTextColor = (): string => {
+    if (variant === 'primary' || variant === 'secondary') {
+      return colors.textInverted;
+    }
+    return colors.text;
+  };
+
+  const handlePress = async () => {
+    if (disabled || loading) return;
+    try {
+      await Promise.resolve(onPress());
+    } catch (error) {
+      console.error('Button press error:', error);
     }
   };
 
-  const variantStyles = getVariantStyles();
-  const sizeStyles = getSizeStyles();
-  const opacity = disabled || loading ? 0.6 : 1;
+  const textContent = (
+    <Text variant="button" color={getTextColor()}>
+      {children}
+    </Text>
+  );
 
-  const dynamicStyle: ViewStyle = {
-    height: sizeStyles.height,
-    backgroundColor: variantStyles.bg,
-    borderRadius: tokens.radius.md,
-    borderWidth: variant === 'outline' ? 1 : 0,
-    borderColor: variantStyles.border,
-    width: fullWidth ? '100%' : 'auto',
-    opacity,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: tokens.spacing[sizeStyles.paddingHorizontal],
-  };
+  const content = (
+    <>
+      {icon && iconPosition === 'left' && icon}
+      {loading ? <ActivityIndicator color={getTextColor()} /> : textContent}
+      {icon && iconPosition === 'right' && icon}
+    </>
+  );
 
   return (
-    <TouchableOpacity
-      style={[dynamicStyle, style]}
+    <Pressable
+      onPress={handlePress}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       disabled={disabled || loading}
-      activeOpacity={0.8}
-      {...rest}
+      style={[getButtonStyle(), style]}
+      testID={testID}
     >
-      {loading ? (
-        <ActivityIndicator color={variantStyles.text} />
-      ) : (
-        <Row spacing="sm">
-          {leftIcon}
-          <Text variant="label" color={variantStyles.text}>
-            {label}
-          </Text>
-          {rightIcon}
-        </Row>
-      )}
-    </TouchableOpacity>
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', gap: SPACING.sm }}
+      >
+        {content}
+      </View>
+    </Pressable>
   );
 };
+
+export default Button;

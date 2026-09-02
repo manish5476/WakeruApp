@@ -1,27 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../../core/api/services';
 import { queryKeys } from './queryKeys';
-import { useAuthStore } from '../stores/auth.store';
+import { useAuthStore } from '../../state/auth';
 
 // ============================================================
 // Profile
 // ============================================================
 
 export function useProfile() {
-    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
 
-    return useQuery({
-        queryKey: queryKeys.auth.profile,
-        queryFn: async () => {
-            if (!isAuthenticated) {
-                return null;
-            }
-            const response = await authApi.getProfile();
-            return response.data?.user;
-        },
-        enabled: isAuthenticated,
-        staleTime: 1000 * 60 * 10, // 10 minutes
-    });
+  return useQuery({
+    queryKey: queryKeys.auth.profile,
+    queryFn: async () => {
+      if (!isAuthenticated) {
+        return null;
+      }
+      const response = await authApi.getProfile();
+      return response.data?.user;
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
 }
 
 // ============================================================
@@ -29,22 +29,22 @@ export function useProfile() {
 // ============================================================
 
 export function useUpdateProfile() {
-    const queryClient = useQueryClient();
-    const setUser = useAuthStore((s) => s.setUser);
+  const queryClient = useQueryClient();
+  const setUser = useAuthStore(s => s.setUser);
 
-    return useMutation({
-        mutationFn: async (data: any) => {
-            const response = await authApi.updateProfile(data);
-            return response.data?.user;
-        },
-        onSuccess: (user: any) => {
-            if (user) {
-                setUser(user);
-                queryClient.setQueryData(queryKeys.auth.profile, user);
-                queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile });
-            }
-        },
-    });
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const response = await authApi.updateProfile(data);
+      return response.data?.user;
+    },
+    onSuccess: (user: any) => {
+      if (user) {
+        setUser(user);
+        queryClient.setQueryData(queryKeys.auth.profile, user);
+        queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile });
+      }
+    },
+  });
 }
 
 // ============================================================
@@ -52,35 +52,35 @@ export function useUpdateProfile() {
 // ============================================================
 
 export function useSetUpiId() {
-    const queryClient = useQueryClient();
-    const setUser = useAuthStore((s) => s.setUser);
+  const queryClient = useQueryClient();
+  const setUser = useAuthStore(s => s.setUser);
 
-    return useMutation({
-        mutationFn: async (upiId: string) => {
-            const response = await authApi.setUpiId(upiId);
-            return response.data?.user;
-        },
-        onSuccess: (user: any) => {
-            if (user) {
-                setUser(user);
-                queryClient.setQueryData(queryKeys.auth.profile, user);
-            }
-        },
-    });
+  return useMutation({
+    mutationFn: async (upiId: string) => {
+      const response = await authApi.setUpiId(upiId);
+      return response.data?.user;
+    },
+    onSuccess: (user: any) => {
+      if (user) {
+        setUser(user);
+        queryClient.setQueryData(queryKeys.auth.profile, user);
+      }
+    },
+  });
 }
 
 export function useVerifyUpi() {
-    const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: async () => {
-            const response = await authApi.verifyUpi();
-            return response.data?.upiVerified;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile });
-        },
-    });
+  return useMutation({
+    mutationFn: async () => {
+      const response = await authApi.verifyUpi();
+      return response.data?.upiVerified;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile });
+    },
+  });
 }
 
 // ============================================================
@@ -88,11 +88,11 @@ export function useVerifyUpi() {
 // ============================================================
 
 export function useUpdateFcmToken() {
-    return useMutation({
-        mutationFn: async (fcmToken: string) => {
-            return authApi.updateFcmToken(fcmToken);
-        },
-    });
+  return useMutation({
+    mutationFn: async (fcmToken: string) => {
+      return authApi.updateFcmToken(fcmToken);
+    },
+  });
 }
 
 // ============================================================
@@ -100,14 +100,14 @@ export function useUpdateFcmToken() {
 // ============================================================
 
 export function useDeleteAccount() {
-    const logout = useAuthStore((s) => s.logout);
+  const logout = useAuthStore(s => s.logout);
 
-    return useMutation({
-        mutationFn: async () => {
-            return authApi.deleteAccount();
-        },
-        onSuccess: () => {
-            logout();
-        },
-    });
+  return useMutation({
+    mutationFn: async () => {
+      return authApi.deleteAccount();
+    },
+    onSuccess: () => {
+      logout();
+    },
+  });
 }

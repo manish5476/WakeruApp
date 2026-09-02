@@ -1,72 +1,116 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
-import { ThemeRegistry, ThemeName } from './ThemeRegistry';
-import { ThemeStorage } from './ThemeStorage';
-import { ThemeTokens } from '../tokens';
+/**
+ * Theme Provider Component
+ * Wraps the app and provides theme context to all children
+ */
 
-interface ThemeContextValue {
-  themeName: ThemeName;
-  tokens: ThemeTokens;
-  setTheme: (name: ThemeName) => void;
-  isSystem: boolean;
-  setSystemTheme: (useSystem: boolean) => void;
-}
+import React, { useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  ThemeContext,
+  ThemeContextType,
+  AVAILABLE_THEMES,
+} from './ThemeContext';
+import {
+  LIGHT_THEME,
+  DARK_THEME,
+  AMOLED_THEME,
+  GLASS_LIGHT_THEME,
+  GLASS_DARK_THEME,
+  OCEAN_THEME,
+  ThemeName,
+  SemanticColors,
+} from '../tokens/colors';
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+const THEME_STORAGE_KEY = '@tripsplit_theme';
+const DEFAULT_THEME: ThemeName = 'light';
 
-export interface ThemeProviderProps {
+const getThemeColors = (themeName: ThemeName): SemanticColors => {
+  switch (themeName) {
+    case 'light':
+      return LIGHT_THEME;
+    case 'dark':
+      return DARK_THEME;
+    case 'amoled':
+      return AMOLED_THEME;
+    case 'glass-light':
+      return GLASS_LIGHT_THEME;
+    case 'glass-dark':
+      return GLASS_DARK_THEME;
+    case 'ocean':
+      return OCEAN_THEME;
+    default:
+      return LIGHT_THEME;
+  }
+};
+
+const isDarkTheme = (theme: ThemeName): boolean => {
+  return ['dark', 'amoled', 'glass-dark', 'ocean'].includes(theme);
+};
+
+interface ThemeProviderProps {
   children: ReactNode;
-  defaultTheme?: ThemeName;
+  initialTheme?: ThemeName;
 }
 
-export const ThemeProvider = ({ children, defaultTheme = 'light' }: ThemeProviderProps) => {
-  const systemColorScheme = useColorScheme();
-  const [themeName, setThemeNameState] = useState<ThemeName>(defaultTheme);
-  const [isSystem, setIsSystem] = useState<boolean>(true);
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({
+  children,
+  initialTheme = DEFAULT_THEME,
+}) => {
+  const [theme, setThemeState] = useState<ThemeName>(initialTheme);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Load saved theme on app start
   useEffect(() => {
-    const savedTheme = ThemeStorage.getTheme();
-    if (savedTheme) {
-      if (savedTheme === 'system') {
-        setIsSystem(true);
-        setThemeNameState(systemColorScheme || 'light');
-      } else {
-        setIsSystem(false);
-        setThemeNameState(savedTheme);
+    const loadTheme = async () => {
+      try {
+        const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (savedTheme && AVAILABLE_THEMES.includes(savedTheme as ThemeName)) {
+          setThemeState(savedTheme as ThemeName);
+        }
+      } catch (error) {
+        console.error('Failed to load theme:', error);
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      setIsSystem(true);
-      setThemeNameState(systemColorScheme || 'light');
-    }
-  }, [systemColorScheme]);
+    };
 
-  const setTheme = (name: ThemeName) => {
-    setIsSystem(false);
-    setThemeNameState(name);
-    ThemeStorage.setTheme(name);
+    loadTheme();
+  }, []);
+
+  const setTheme = async (newTheme: ThemeName): Promise<void> => {
+    if (!AVAILABLE_THEMES.includes(newTheme)) {
+      console.warn(`Invalid theme: ${newTheme}`);
+      return;
+    }
+
+    try {
+      setThemeState(newTheme);
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } catch (error) {
+      console.error('Failed to save theme:', error);
+    }
   };
 
-  const setSystemTheme = (useSystem: boolean) => {
-    setIsSystem(useSystem);
-    if (useSystem) {
-      ThemeStorage.setTheme('system');
-      setThemeNameState(systemColorScheme || 'light');
-    }
+  const colors = getThemeColors(theme);
+
+  const contextValue: ThemeContextType = {
+    theme,
+    colors,
+    isDark: isDarkTheme(theme),
+    setTheme,
+    availableThemes: AVAILABLE_THEMES,
   };
 
-  const tokens = ThemeRegistry.getTheme(themeName);
+  if (isLoading) {
+    // Return a minimal loading view
+    return null;
+  }
 
   return (
-    <ThemeContext.Provider value={{ themeName, tokens, setTheme, isSystem, setSystemTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
-export const useTheme = (): ThemeContextValue => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};
+export default ThemeProvider;

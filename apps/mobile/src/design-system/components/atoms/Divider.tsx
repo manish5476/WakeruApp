@@ -1,37 +1,45 @@
-import React from 'react';
-import { View, ViewStyle } from 'react-native';
-import { useTheme } from '../../../theme';
+/**
+ * Divider Component
+ * Visual separator for content
+ */
 
-export interface DividerProps {
+import React from 'react';
+import { View, ViewStyle, StyleProp } from 'react-native';
+import { useTheme } from '../../hooks/useTheme';
+import { SPACING } from '../../tokens/tokens';
+
+interface DividerProps {
   orientation?: 'horizontal' | 'vertical';
   thickness?: number;
-  color?: string;
-  marginVertical?: keyof typeof import('../../../tokens/spacing').spacing;
-  marginHorizontal?: keyof typeof import('../../../tokens/spacing').spacing;
+  margin?: keyof typeof SPACING;
+  style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
-export const Divider = ({
+export const Divider: React.FC<DividerProps> = ({
   orientation = 'horizontal',
   thickness = 1,
-  color,
-  marginVertical,
-  marginHorizontal,
-}: DividerProps) => {
-  const { tokens } = useTheme();
+  margin = 'md',
+  style,
+  testID,
+}) => {
+  const { colors } = useTheme();
 
-  const style: ViewStyle = {
-    backgroundColor: color || tokens.colors.divider,
-    marginVertical: marginVertical ? tokens.spacing[marginVertical] : 0,
-    marginHorizontal: marginHorizontal ? tokens.spacing[marginHorizontal] : 0,
+  const dividerStyle: ViewStyle = {
+    backgroundColor: colors.border,
+    ...(orientation === 'horizontal' && {
+      height: thickness,
+      width: '100%',
+      marginVertical: SPACING[margin],
+    }),
+    ...(orientation === 'vertical' && {
+      width: thickness,
+      height: '100%',
+      marginHorizontal: SPACING[margin],
+    }),
   };
 
-  if (orientation === 'horizontal') {
-    style.height = thickness;
-    style.width = '100%';
-  } else {
-    style.width = thickness;
-    style.height = '100%';
-  }
-
-  return <View style={style} />;
+  return <View style={[dividerStyle, style]} testID={testID} />;
 };
+
+export default Divider;
