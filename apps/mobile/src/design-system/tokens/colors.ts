@@ -226,7 +226,7 @@ export const DARK_THEME: SemanticColors = {
 // AMOLED Dark theme (for OLED screens)
 export const AMOLED_THEME: SemanticColors = {
   background: PRIMITIVES.black,
-  surface: NEUTRAL[950] || '#0A0A0A',
+  surface: NEUTRAL[900] || '#0A0A0A',
   surfaceAlt: NEUTRAL[900],
   surfaceInverted: NEUTRAL[50],
 

@@ -1,126 +1,197 @@
-# TripSplit Native Platform Architecture & Implementation Plan
+# TripSplit — Expo to Bare React Native CLI Migration & Monorepo Architecture Refactor
 
-The objective is to establish a world-class, production-ready Platform Architecture for the React Native CLI project (`TripSplitNative`). This architecture goes beyond a simple UI library; it enforces a strict separation of concerns, domain-driven feature modules, robust native integrations, and a deeply scalable Design System.
+This implementation plan details the full migration of the **TripSplit** mobile application from an Expo managed codebase to a **Bare React Native CLI monorepo architecture** (`TripSplitNative`), preserving all user flows, financial calculations, theme aesthetics (Glassmorphic dark mode), authentication, state management, and navigation.
 
-> [!CAUTION]
-> **User Review Required**
-> Please review this updated, platform-focused architecture and the 15-phase execution plan. Once approved, we will begin execution strictly phase by phase.
+---
 
-## 1. Global Folder Structure
-We will adopt a modular, domain-driven structure to prevent the Design System from becoming a dumping ground for business logic.
+## User Review Required
 
-```
-src/
-├── app/              # Screen combinations and navigation roots
-├── core/             # Core business logic, networking, and state management
-├── design-system/    # Pure, business-agnostic UI foundation
-├── features/         # Domain-driven feature modules (e.g., /expenses, /trips)
-├── shared/           # Cross-feature shared logic
-├── native/           # Native module wrappers (permissions, camera, storage)
-├── services/         # External API and third-party service integrations
-├── hooks/            # Global custom hooks
-├── utils/            # Global utility functions
-├── types/            # Global TypeScript definitions
-├── config/           # App configuration and environment variables
-├── assets/           # Static assets (images, fonts)
-├── providers/        # Global context providers
-└── navigation/       # React Navigation configurations
-```
+> [!IMPORTANT]
+> **Expo Runtime Removal & Bare Native CLI Transition**
+>
+> - The application runtime is migrating from `expo-router` / `expo start` to standard React Native CLI (`react-native run-android` / `react-native run-ios`).
+> - Firebase authentication is transitioning from the Web Firebase JS SDK to native `@react-native-firebase/app` & `@react-native-firebase/auth`.
+> - Storage is migrating to `react-native-mmkv` + `react-native-keychain`.
+> - Push Notifications use native FCM `@react-native-firebase/messaging` + `@notifee/react-native`.
 
-## 2. Design System Architecture (`src/design-system/`)
-The Design System must remain isolated from application logic. It will contain pure UI components built on a strict hierarchical foundation.
+> [!NOTE]
+> **Financial & Business Logic Preservation**
+>
+> - All financial split math (equal, percentage, shares, exact), debt simplification algorithms, currency formatting, and backend API contracts remain 100% untouched and will be housed in `@tripsplit/domain` with unit test enforcement.
+
+---
+
+## Proposed Technical Architecture & Workspace Packages
+
+### 1. Monorepo Package Breakdown
 
 ```
-design-system/
-├── theme/            # ThemeProvider, ThemeRegistry, ThemeManager, ThemeStorage
-├── tokens/           # Raw design tokens (colors, spacing, radius, etc.)
-├── motion/           # transitions, springs, presets, gestures, microInteractions
-├── surfaces/         # glass, blur, overlay, shadow, border, gradient
-├── icons/            # IconProvider, IconRegistry (abstracted away from libraries)
-├── fonts/            # Custom font configuration and loading
-├── components/       # UI Components (Primitives -> Patterns)
-├── layouts/          # Responsive grids, adaptive containers
-├── providers/        # Design-system specific providers (ResponsiveProvider)
-├── hooks/            # UI-specific hooks (useResponsive, useTheme)
-└── utils/            # UI-specific utilities (style merging)
+TripSplitNative/
+├── apps/mobile/
+│   ├── android/                        # Bare Android Native App (Kotlin, AGP 8.x)
+│   ├── ios/                            # Bare iOS Native App (Swift, Pods)
+│   ├── src/
+│   │   ├── app/                        # Route screen compositions & root shell
+│   │   ├── features/                   # Feature domain modules (Auth, Trips, Expenses, etc.)
+│   │   ├── navigation/                 # React Navigation v7 Stacks & Tabs
+│   │   ├── core/                       # Axios API client, QueryClient, Zustand stores
+│   │   └── config/                     # Environment configuration (react-native-config)
+│   └── package.json
+├── packages/
+│   ├── design-system/                  # @tripsplit/design-system (Tokens, Glass UI, Theme Engine, Atoms/Molecules)
+│   ├── domain/                         # @tripsplit/domain (Entities, Split Algorithms, Financial Calculations)
+│   └── platform/                       # @tripsplit/platform (MMKV storage, Biometrics, Share, Camera, Location)
 ```
 
-## 3. Strict Component Hierarchy
-Nothing should skip layers. Components will be built in the following order:
+---
 
-**Design Tokens ➔ Theme ➔ Primitives ➔ Atoms ➔ Molecules ➔ Organisms ➔ Patterns ➔ Feature Components (in `features/`) ➔ Screens (in `app/`)**
+## Detailed Step-by-Step Implementation Sequence
 
-### Components Layer (`design-system/components/`)
-- **Primitives**: Base elements (View wrappers, Text wrappers)
-- **Atoms**: `Button`, `Badge`, `Avatar`, `Divider`, `Switch`, `Progress`, `Spinner`
-- **Molecules**: `TextInput`, `Dropdown`, `CheckboxGroup`, `FilePicker`, `SearchInput`
-- **Organisms**: `SurfaceCard`, `GlassCard`, `StatCard`, `MetricCard`, `InfoCard`, `BottomSheet`, `Dialog`
-- **Patterns**: `ExpenseSummaryPattern`, `TripHeroPattern`, `AnalyticsHeaderPattern`, `SettlementPattern` (Combinations of organisms)
-- **Templates**: Reusable page layouts without data
-- **Missing Categories to Add**: Calendar, Charts, Maps, Media, Carousels, Timeline, OTP, Currency Input, Permissions, Network State UI, Location UI, Gesture Containers, Keyboard Handlers.
+### Phase 1 — Comprehensive Audit & Baseline Documentation [COMPLETED]
 
-### Feature Components (`src/features/[feature]/components/`)
-Components that understand business logic (e.g., `ExpenseCard`, `TripCard`, `BudgetCard`) will live here and compose Design System components (e.g., using a `SurfaceCard` internally).
+- [x] Complete inventory of Expo packages and imports (`docs/EXPO_MIGRATION_AUDIT.md`).
+- [x] Audit of native dependencies, Gradle, CocoaPods, and Hermes.
+- [x] Establishment of monorepo workspace package structure.
 
-## 4. Platform Systems
+---
 
-### Theme Engine
-- **Files**: `ThemeProvider`, `ThemeRegistry`, `ThemeManager`, `ThemeStorage`, `ThemeTokens`, `ThemeHelpers`
-- **Support**: Dynamic colors, AMOLED, Brand themes, User themes, Future white-labeling.
+### Phase 2 — Core Monorepo Package Refactoring
 
-### Motion System (`design-system/motion/`)
-- **Files**: `transitions.ts`, `springs.ts`, `presets.ts`, `sharedTransitions.ts`, `gestures.ts`, `microInteractions.ts`. All animated components must use these presets.
+#### [MODIFY] [packages/domain/src/index.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/index.ts)
 
-### Typography System
-Strict hierarchy: `Display XL`, `Display L`, `Display M`, `Heading XL`, `Heading L`, `Heading M`, `Heading S`, `Body XL`, `Body L`, `Body`, `Body Small`, `Caption`, `Label`, `Code`, `Numeric`.
+#### [NEW] [packages/domain/src/splits/expenseSplits.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/splits/expenseSplits.ts)
 
-### Responsive System
-- **Files**: `ResponsiveProvider`, `Breakpoints`, `ResponsiveGrid`, `AdaptiveContainer`, `AdaptiveStack`, `AdaptiveSpacing`.
+#### [NEW] [packages/domain/src/splits/expenseSplits.test.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/splits/expenseSplits.test.ts)
 
-### Icon System
-- **Files**: `Icon`, `IconRegistry`, `IconProvider`. This abstraction ensures we can swap underlying libraries (Lucide, Material, Phosphor) without touching components.
+#### [NEW] [packages/domain/src/settlements/debtSimplification.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/settlements/debtSimplification.ts)
 
-## 5. Native, Widgets & Utilities
+#### [NEW] [packages/domain/src/models/user.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/models/user.ts)
 
-### Native Module Layer (`src/native/`)
-Wrappers for native capabilities: `permissions`, `camera`, `contacts`, `notifications`, `storage`, `location`, `biometric`, `widgets`, `sharing`, `downloads`.
+#### [NEW] [packages/domain/src/models/trip.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/models/trip.ts)
 
-### Widget Support (`src/widgets/`)
-Immediate setup for iOS/Android widgets: `providers/`, `models/`, `bridge/`, `timeline/`, `cache/`, `render/`.
+#### [NEW] [packages/domain/src/models/expense.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/models/expense.ts)
 
-### Hooks (`src/hooks/`)
-`useDebounce`, `useThrottle`, `useNetwork`, `useOnline`, `useKeyboard`, `useBottomSheet`, `useModal`, `useToast`, `useTheme`, `useAppearance`, `useResponsive`, `usePermission`, `useInfiniteScroll`, `useRefreshControl`, `useImagePicker`, `useCamera`, `useClipboard`, `usePrevious`, `useFocus`, `useSafeArea`.
+#### [NEW] [packages/domain/src/models/settlement.ts](file:///d:/Split/New/TripSplitNative/packages/domain/src/models/settlement.ts)
 
-### Utilities (`src/utils/`)
-`currency`, `date`, `validation`, `storage`, `permission`, `clipboard`, `maps`, `location`, `string`, `number`, `formatter`, `image`, `share`, `device`, `platform`, `logger`, `analytics`.
+- Extract pure financial math, currency converters, debt simplification graph algorithm, and validation schemas from `TripSplit/src` into `@tripsplit/domain`.
+- Ensure zero UI / React Native dependencies in domain logic. Add Jest unit tests for all split methods.
 
-### Providers (`src/providers/`)
-`ThemeProvider`, `ToastProvider`, `ModalProvider`, `BottomSheetProvider`, `DialogProvider`, `OverlayProvider`, `NavigationProvider`, `NetworkProvider`, `AnalyticsProvider`, `LocalizationProvider`, `PermissionProvider`.
+---
 
-## 6. Execution Plan (15 Phases)
-To prevent later refactoring and keep the system coherent, we will execute strictly in this order:
+#### [MODIFY] [packages/design-system/src/index.tsx](file:///d:/Split/New/TripSplitNative/packages/design-system/src/index.tsx)
 
-- **Phase 1**: Foundation (Folder structure, basic tooling)
-- **Phase 2**: Theme Engine (Provider, Registry, Manager)
-- **Phase 3**: Tokens (Colors, spacing, radius, breakpoints)
-- **Phase 4**: Typography (Strict hierarchy)
-- **Phase 5**: Layout System (Surfaces, Glass, Responsive grids)
-- **Phase 6**: Primitive Components (Base UI wrappers)
-- **Phase 7**: Atoms (Buttons, Badges, Avatars)
-- **Phase 8**: Molecules (Inputs, Dropdowns)
-- **Phase 9**: Organisms (Generic Cards, Modals, Lists)
-- **Phase 10**: Navigation Components (Headers, Tabs)
-- **Phase 11**: Feedback Components (Toasts, Dialogs, Loading)
-- **Phase 12**: Feature Components (Domain-specific implementations)
-- **Phase 13**: Developer Playground (Internal Storybook-like testing environment)
-- **Phase 14**: Documentation (Component usage guidelines)
-- **Phase 15**: Screen Migration (Moving logic from Expo to CLI)
+#### [NEW] [packages/design-system/src/theme/glass.ts](file:///d:/Split/New/TripSplitNative/packages/design-system/src/theme/glass.ts)
 
-## 7. Automated Verification
-As we build, we will verify:
-- ✅ No duplicate components or styles
-- ✅ No unused tokens or icons
-- ✅ Full accessibility labels
-- ✅ Strict Theme & Dark Mode compliance
-- ✅ Responsive compliance across device sizes
-- ✅ 60fps animation performance using `react-native-reanimated`
+#### [NEW] [packages/design-system/src/components/GlassCard.tsx](file:///d:/Split/New/TripSplitNative/packages/design-system/src/components/GlassCard.tsx)
+
+#### [NEW] [packages/design-system/src/components/BalanceSummaryCard.tsx](file:///d:/Split/New/TripSplitNative/packages/design-system/src/components/BalanceSummaryCard.tsx)
+
+#### [NEW] [packages/design-system/src/components/TripCard.tsx](file:///d:/Split/New/TripSplitNative/packages/design-system/src/components/TripCard.tsx)
+
+#### [NEW] [packages/design-system/src/components/ExpenseRow.tsx](file:///d:/Split/New/TripSplitNative/packages/design-system/src/components/ExpenseRow.tsx)
+
+- Port the "Pure White & Pure Dark Glassmorphic" design tokens from `TripSplit/src/theme/index.ts` into `@tripsplit/design-system`.
+- Build reusable UI atoms (Button, Badge, Input, Card, Text, Avatar, Chip, Modal, Sheet) and organisms (GlassCard, BalanceSummaryCard, TripCard, ExpenseRow).
+
+---
+
+#### [MODIFY] [packages/platform/src/index.ts](file:///d:/Split/New/TripSplitNative/packages/platform/src/index.ts)
+
+#### [NEW] [packages/platform/src/storage/mmkv.ts](file:///d:/Split/New/TripSplitNative/packages/platform/src/storage/mmkv.ts)
+
+#### [NEW] [packages/platform/src/storage/keychain.ts](file:///d:/Split/New/TripSplitNative/packages/platform/src/storage/keychain.ts)
+
+#### [NEW] [packages/platform/src/notifications/firebaseMessaging.ts](file:///d:/Split/New/TripSplitNative/packages/platform/src/notifications/firebaseMessaging.ts)
+
+#### [NEW] [packages/platform/src/biometrics/biometricAuth.ts](file:///d:/Split/New/TripSplitNative/packages/platform/src/biometrics/biometricAuth.ts)
+
+#### [NEW] [packages/platform/src/haptics/haptics.ts](file:///d:/Split/New/TripSplitNative/packages/platform/src/haptics/haptics.ts)
+
+#### [NEW] [packages/platform/src/share/share.ts](file:///d:/Split/New/TripSplitNative/packages/platform/src/share/share.ts)
+
+- Construct native adapters for persistent MMKV storage, Keychain token management, native FCM messaging, biometrics, haptics, and native share.
+
+---
+
+### Phase 3 — Navigation & Feature Migration in `apps/mobile`
+
+#### [NEW] [apps/mobile/src/navigation/RootNavigator.tsx](file:///d:/Split/New/TripSplitNative/apps/mobile/src/navigation/RootNavigator.tsx)
+
+#### [NEW] [apps/mobile/src/navigation/AuthNavigator.tsx](file:///d:/Split/New/TripSplitNative/apps/mobile/src/navigation/AuthNavigator.tsx)
+
+#### [NEW] [apps/mobile/src/navigation/AppNavigator.tsx](file:///d:/Split/New/TripSplitNative/apps/mobile/src/navigation/AppNavigator.tsx)
+
+#### [NEW] [apps/mobile/src/navigation/MainTabNavigator.tsx](file:///d:/Split/New/TripSplitNative/apps/mobile/src/navigation/MainTabNavigator.tsx)
+
+#### [NEW] [apps/mobile/src/navigation/types.ts](file:///d:/Split/New/TripSplitNative/apps/mobile/src/navigation/types.ts)
+
+- Replace `expo-router` with typed React Navigation v7 routes.
+- Implement stack and tab structure mapping all screens from reference Expo app:
+  - **Auth**: Onboarding, Login, Register, SetPassword, ForgotPassword.
+  - **Main Tabs**: Home (Dashboard), Trips, Expenses, Finance, Notifications, Profile.
+  - **Trip Flow**: TripDetail, CreateTrip, Planner, Itinerary, Stops, Members, TripAnalytics, Settlements, AddExpense, EditExpense.
+  - **Social / Settings**: Friends, Invitations, PersonDetail, Appearance, Privacy, Security.
+
+---
+
+#### [MODIFY] [apps/mobile/src/core/network/HttpClient.ts](file:///d:/Split/New/TripSplitNative/apps/mobile/src/core/network/HttpClient.ts)
+
+#### [MODIFY] [apps/mobile/src/shared/hooks/useAuth.ts](file:///d:/Split/New/TripSplitNative/apps/mobile/src/shared/hooks/useAuth.ts)
+
+#### [NEW] [apps/mobile/src/features/authentication/authStore.ts](file:///d:/Split/New/TripSplitNative/apps/mobile/src/features/authentication/authStore.ts)
+
+- Centralize Axios HTTP client with request/response interceptors, automatic JWT refresh token cycle, error normalization, and MMKV session persistence.
+- Integrate native Firebase Auth (`@react-native-firebase/auth` + `@react-native-google-signin/google-signin`).
+
+---
+
+### Phase 4 — Feature Screen Porting & Verification
+
+#### Feature Modules to Port & Wire Up:
+
+1. **Authentication**: Onboarding, Login, Register, Google One-Tap Sign-In, Password Reset.
+2. **Dashboard**: Net balance card, recent expenses, active trip carousel, quick action FABs.
+3. **Trips**: Trip list filter (active/planning/completed), trip creation wizard, trip detail tabs (Planner, Expenses, Settlements, Analytics, Stops).
+4. **Expenses**: Expense log, filter by category/member/date, add/edit expense with split calculator (equal, percentage, shares), receipt photo picker.
+5. **Settlements**: Minimum debt settlement transaction list, mark paid flow, dispute settlement.
+6. **Finance**: Budget progress, category breakdown charts, monthly trend graphs.
+7. **Profile & Settings**: Profile editor, UPI ID verification, dark mode / AMOLED theme toggle, biometrics toggle, data backup export.
+
+---
+
+### Phase 5 — Native Build & Document Delivery
+
+#### Deliverables:
+
+- `docs/EXPO_MIGRATION_AUDIT.md` (Audit matrix, Expo package replacements, risk assessment)
+- `docs/NATIVE_ARCHITECTURE.md` (Target architecture, monorepo packages, state flow)
+- `docs/EXPO_DEPENDENCY_MIGRATION.md` (Mapping table for every replaced package)
+- `docs/BUILD_AND_RELEASE.md` (Android & iOS release build instructions)
+- `docs/NATIVE_CONFIGURATION.md` (Gradle, AndroidManifest, Info.plist, Firebase config)
+- `docs/MIGRATION_VERIFICATION.md` (Test status, native build status, feature verification checklist)
+
+---
+
+## Verification Plan
+
+### Automated Testing
+
+- **TypeScript**: `pnpm typecheck` (Strict mode across workspace).
+- **Unit Tests**: `pnpm test` (Jest unit test suite in `@tripsplit/domain` for split math, debt graph algorithms, formatters).
+- **Linting**: `pnpm lint` (ESLint & Prettier checks).
+
+### Native Build Verification
+
+- **Android**: Execute `npx react-native run-android` or `./gradlew assembleDebug` in `apps/mobile/android`.
+- **iOS**: Execute `npx react-native run-ios` or `pod install` in `apps/mobile/ios`.
+
+### Functional Verification Checklist
+
+- [ ] User login & registration (Email + Google Sign-In via native Firebase).
+- [ ] Session restoration on app launch.
+- [ ] Dashboard balance calculation & trip list rendering.
+- [ ] Trip creation & member invitation flow.
+- [ ] Expense addition with equal, percentage, and shares split math.
+- [ ] Debt settlement calculation & mark paid flow.
+- [ ] Push notification token registration & foreground/background delivery.
+- [ ] Theme toggling (Light, Dark, Glassmorphism, AMOLED).

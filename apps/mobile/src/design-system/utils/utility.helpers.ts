@@ -315,10 +315,13 @@ export const a11yHelpers = {
     if (!rgb1 || !rgb2) return false;
 
     const getLuminance = (r: number, g: number, b: number) => {
-      const [rs = 0, gs = 0, bs = 0] = [r, g, b].map(val => {
+      const arr = [r, g, b].map(val => {
         const s = val / 255;
         return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
       });
+      const rs = arr[0] ?? 0;
+      const gs = arr[1] ?? 0;
+      const bs = arr[2] ?? 0;
       return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
     };
 

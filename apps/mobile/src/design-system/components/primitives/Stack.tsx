@@ -1,5 +1,11 @@
 import React, { ReactNode } from 'react';
-import { View, ViewStyle, StyleProp, FlexAlignType } from 'react-native';
+import {
+  View,
+  ViewStyle,
+  StyleProp,
+  FlexAlignType,
+  DimensionValue,
+} from 'react-native';
 import { SPACING } from '../../tokens/tokens';
 
 export interface StackProps {
@@ -17,8 +23,8 @@ export interface StackProps {
     | 'space-around'
     | 'space-evenly';
   flex?: number;
-  width?: string | number;
-  height?: string | number;
+  width?: DimensionValue;
+  height?: DimensionValue;
   backgroundColor?: string;
   borderRadius?: number;
   borderWidth?: number;

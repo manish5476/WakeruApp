@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import { useTheme } from '../../design-system/theme/ThemeProvider';
+import { useTheme } from '@tripsplit/design-system';
 import { useResponsive } from './useResponsive';
 
 // ============================================================
@@ -8,8 +8,8 @@ import { useResponsive } from './useResponsive';
 // ============================================================
 
 export function useGlobalStyles() {
-  const theme = useTheme();
-  const { isMobile, isTablet, isDesktop } = useResponsive();
+  const theme = useTheme() as any;
+  const { isDesktop } = useResponsive();
 
   return useMemo(
     () =>

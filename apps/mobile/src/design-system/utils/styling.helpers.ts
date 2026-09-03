@@ -14,9 +14,7 @@ export const createStyles = <T extends Record<string, ViewStyle | TextStyle>>(
 /**
  * Create style variants (similar to class-based variants)
  */
-export const createVariant = <
-  T extends Record<string, ViewStyle | TextStyle>,
->(variants: {
+export const createVariant = (variants: {
   base: ViewStyle | TextStyle;
   variants: Record<string, Record<string, ViewStyle | TextStyle>>;
   defaultVariants?: Record<string, string>;
@@ -47,7 +45,7 @@ export const mergeStyles = (
  * Create responsive styles based on breakpoints
  */
 export const responsive = (
-  theme: Theme,
+  _theme: Theme,
   configs: {
     xs?: ViewStyle | TextStyle;
     sm?: ViewStyle | TextStyle;

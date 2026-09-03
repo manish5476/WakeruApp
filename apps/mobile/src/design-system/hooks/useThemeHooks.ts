@@ -1,6 +1,6 @@
 // Theme-related Hooks
 import { useMemo } from 'react';
-import { useTheme } from '@/design-system/theme/ThemeContext';
+import { useTheme } from './useTheme';
 import {
   ColorTokens,
   TypographyScale,

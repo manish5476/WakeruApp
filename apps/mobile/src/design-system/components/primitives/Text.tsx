@@ -6,7 +6,7 @@
 import React, { ReactNode } from 'react';
 import { Text as RNText, TextStyle, StyleProp } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
-import { TEXT_PRESETS, createCustomTypography } from '../../fonts/typography';
+import { TEXT_PRESETS } from '../../fonts/typography';
 
 type TypographyVariant = keyof typeof TEXT_PRESETS;
 
@@ -57,6 +57,18 @@ export const Text: React.FC<TextProps> = ({
     ...baseStyle,
     ...(color ? { color } : { color: colors.text }),
     ...(align && { textAlign: align }),
+    ...(weight && {
+      fontWeight:
+        weight === 'bold'
+          ? '700'
+          : weight === 'semibold'
+            ? '600'
+            : weight === 'medium'
+              ? '500'
+              : weight === 'light'
+                ? '300'
+                : '400',
+    }),
     ...(italic && { fontStyle: 'italic' }),
     ...(opacity !== undefined && { opacity }),
   };

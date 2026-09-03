@@ -5,12 +5,12 @@ export const storage = createMMKV();
 export const MMKVStorage = {
   setItem: (key: string, value: boolean | string | number | Uint8Array) => {
     if (value instanceof Uint8Array) {
-      storage.set(key, value.buffer);
+      storage.set(key, value.buffer as ArrayBuffer);
     } else {
       storage.set(key, value);
     }
   },
-  
+
   setObject: <T>(key: string, value: T) => {
     storage.set(key, JSON.stringify(value));
   },
@@ -26,7 +26,7 @@ export const MMKVStorage = {
   getBoolean: (key: string): boolean | undefined => {
     return storage.getBoolean(key);
   },
-  
+
   getObject: <T>(key: string): T | undefined => {
     const json = storage.getString(key);
     if (!json) return undefined;
@@ -38,7 +38,7 @@ export const MMKVStorage = {
   },
 
   deleteItem: (key: string) => {
-    storage.delete(key);
+    storage.remove(key);
   },
 
   clearAll: () => {

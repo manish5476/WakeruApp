@@ -50,7 +50,7 @@ class StorageService {
   async clear(): Promise<void> {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const namespacedKeys = keys.filter(k =>
+      const namespacedKeys = keys.filter((k: string) =>
         k.startsWith(`${this.namespace}:`),
       );
       if (namespacedKeys.length > 0) {
@@ -66,8 +66,8 @@ class StorageService {
     try {
       const keys = await AsyncStorage.getAllKeys();
       return keys
-        .filter(k => k.startsWith(`${this.namespace}:`))
-        .map(k => k.replace(`${this.namespace}:`, ''));
+        .filter((k: string) => k.startsWith(`${this.namespace}:`))
+        .map((k: string) => k.replace(`${this.namespace}:`, ''));
     } catch (error) {
       console.error('Failed to get all keys:', error);
       return [];
@@ -92,7 +92,10 @@ class StorageService {
       const namespacedKeys = keys.map(k => this.getKey(k));
       const result = await AsyncStorage.multiGet(namespacedKeys);
       return result.reduce(
-        (acc, [key, value]) => {
+        (
+          acc: Record<string, T | null>,
+          [key, value]: [string, string | null],
+        ) => {
           const originalKey = key.replace(`${this.namespace}:`, '');
           acc[originalKey] = value ? (JSON.parse(value) as T) : null;
           return acc;

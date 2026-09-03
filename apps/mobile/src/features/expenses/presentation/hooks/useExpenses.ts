@@ -476,7 +476,7 @@ export function useAddComment() {
       const response = await expensesApi.addComment(expenseId, content);
       return response.data;
     },
-    onSuccess: (data, { expenseId }) => {
+    onSuccess: (_data, { expenseId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.expenses.detail(expenseId),
       });
@@ -498,7 +498,7 @@ export function useDeleteComment() {
       const response = await expensesApi.deleteComment(expenseId, commentId);
       return response.data;
     },
-    onSuccess: (data, { expenseId }) => {
+    onSuccess: (_data, { expenseId }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.expenses.detail(expenseId),
       });

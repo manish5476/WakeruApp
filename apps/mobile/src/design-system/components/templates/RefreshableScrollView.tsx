@@ -4,12 +4,9 @@ import {
   RefreshControl,
   ScrollViewProps,
   StyleSheet,
-  View,
   Animated,
 } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
-import { SPACING } from '../../tokens/tokens';
-import { Loader } from '../atoms/Loader';
 
 interface RefreshableScrollViewProps extends ScrollViewProps {
   onRefresh: () => Promise<void>;

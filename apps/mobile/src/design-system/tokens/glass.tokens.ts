@@ -1,7 +1,7 @@
 // Glassmorphism System - Light Theme
 import { GlassTokens } from '@/types/theme';
 
-const createGlassLight = (primaryColor: string): GlassTokens => ({
+const createGlassLight = (_primaryColor: string): GlassTokens => ({
   ultraThin: {
     blur: 4,
     opacity: 0.3,
@@ -136,7 +136,7 @@ const createGlassLight = (primaryColor: string): GlassTokens => ({
   },
 });
 
-const createGlassDark = (primaryColor: string): GlassTokens => ({
+const createGlassDark = (_primaryColor: string): GlassTokens => ({
   ultraThin: {
     blur: 4,
     opacity: 0.1,

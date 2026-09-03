@@ -86,14 +86,14 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
         <HStack padding="md" align="center" gap="md">
           <Text style={{ fontSize: 20 }}>{getIcon()}</Text>
           <VStack flex={1} gap="xs">
-            <Text variant="body" weight="600" color="#FFF">
+            <Text variant="body" weight="semibold" color="#FFF">
               {toast.message}
             </Text>
             {toast.action && (
               <Pressable onPress={toast.action.onPress}>
                 <Text
                   variant="caption"
-                  weight="600"
+                  weight="semibold"
                   color="#FFF"
                   style={{ textDecorationLine: 'underline' }}
                 >
@@ -134,7 +134,7 @@ export const ToastContainer: React.FC<{ style?: ViewStyle }> = ({ style }) => {
       ]}
     >
       <VStack gap="sm" padding="md">
-        {toasts.map(toast => (
+        {toasts.map((toast: any) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
         ))}
       </VStack>

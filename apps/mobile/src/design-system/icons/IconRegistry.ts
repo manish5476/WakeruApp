@@ -63,83 +63,83 @@ export class IconRegistry {
 
 // Default icon set using simple SVG-based fallbacks
 export const DEFAULT_ICONS: Record<string, IconComponent> = {
-  'arrow-left': ({ size = 24, color = 'black' }) =>
+  'arrow-left': ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  'arrow-right': ({ size = 24, color = 'black' }) =>
+  'arrow-right': ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  'arrow-up': ({ size = 24, color = 'black' }) =>
+  'arrow-up': ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  'arrow-down': ({ size = 24, color = 'black' }) =>
+  'arrow-down': ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  home: ({ size = 24, color = 'black' }) =>
+  home: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  settings: ({ size = 24, color = 'black' }) =>
+  settings: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  search: ({ size = 24, color = 'black' }) =>
+  search: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  plus: ({ size = 24, color = 'black' }) =>
+  plus: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  close: ({ size = 24, color = 'black' }) =>
+  close: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  check: ({ size = 24, color = 'black' }) =>
+  check: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  menu: ({ size = 24, color = 'black' }) =>
+  menu: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  'more-vertical': ({ size = 24, color = 'black' }) =>
+  'more-vertical': ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  'more-horizontal': ({ size = 24, color = 'black' }) =>
+  'more-horizontal': ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  bell: ({ size = 24, color = 'black' }) =>
+  bell: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  user: ({ size = 24, color = 'black' }) =>
+  user: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  edit: ({ size = 24, color = 'black' }) =>
+  edit: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  trash: ({ size = 24, color = 'black' }) =>
+  trash: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  eye: ({ size = 24, color = 'black' }) =>
+  eye: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  'eye-off': ({ size = 24, color = 'black' }) =>
+  'eye-off': ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),
-  share: ({ size = 24, color = 'black' }) =>
+  share: ({ size = 24, color: _color = 'black' }) =>
     React.createElement(View, {
       style: [styles.icon, { width: size, height: size }],
     }),

@@ -1,0 +1,17 @@
+export const fallbackCoverImages = [
+  // require('../../assets/images/cover_1.jpg'),
+  // require('../../assets/images/cover_10.png'),
+  // require('../../assets/images/cover_11.png'),
+  // require('../../assets/images/cover_12.png'),
+  // require('../../assets/images/cover_13.png'),
+  // require('../../assets/images/cover_14.png'),
+  // require('../../assets/images/cover_15.png'),
+  // require('../../assets/images/cover_2.png'),
+  // require('../../assets/images/cover_3.png'),
+  // require('../../assets/images/cover_4.png'),
+  // require('../../assets/images/cover_5.png'),
+  // require('../../assets/images/cover_6.png'),
+  // require('../../assets/images/cover_7.png'),
+  // require('../../assets/images/cover_8.png'),
+  // require('../../assets/images/cover_9.png'),
+];

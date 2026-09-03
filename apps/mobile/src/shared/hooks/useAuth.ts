@@ -1,14 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authApi } from '../../core/api/services';
 import { queryKeys } from './queryKeys';
-import { useAuthStore } from '../../state/auth';
+import { useAuthStore, AuthState } from '../../state/auth';
 
 // ============================================================
 // Profile
 // ============================================================
 
 export function useProfile() {
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
+  const isAuthenticated = useAuthStore((s: AuthState) => s.isAuthenticated);
 
   return useQuery({
     queryKey: queryKeys.auth.profile,
@@ -30,7 +30,7 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  const setUser = useAuthStore(s => s.setUser);
+  const setUser = useAuthStore((s: AuthState) => s.setUser);
 
   return useMutation({
     mutationFn: async (data: any) => {
@@ -53,7 +53,7 @@ export function useUpdateProfile() {
 
 export function useSetUpiId() {
   const queryClient = useQueryClient();
-  const setUser = useAuthStore(s => s.setUser);
+  const setUser = useAuthStore((s: AuthState) => s.setUser);
 
   return useMutation({
     mutationFn: async (upiId: string) => {
@@ -100,7 +100,7 @@ export function useUpdateFcmToken() {
 // ============================================================
 
 export function useDeleteAccount() {
-  const logout = useAuthStore(s => s.logout);
+  const logout = useAuthStore((s: AuthState) => s.logout);
 
   return useMutation({
     mutationFn: async () => {

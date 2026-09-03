@@ -6,21 +6,32 @@ import { AuthenticatedNavigator } from './AuthenticatedNavigator';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useTheme } from '@tripsplit/design-system';
 
+import { useAuthStore } from '@/state/auth.store';
+
 export function RootNavigator() {
   const { isHydrated, session } = useAuthSession();
+  const { isAuthenticated, isInitialized, initialize } = useAuthStore();
   const theme = useTheme();
 
-  if (!isHydrated) {
+  React.useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  if (!isHydrated && !isInitialized) {
     return (
-      <View style={[styles.loading, { backgroundColor: theme.color.background }]}>
+      <View
+        style={[styles.loading, { backgroundColor: theme.color.background }]}
+      >
         <ActivityIndicator size="large" color={theme.color.primary} />
       </View>
     );
   }
 
+  const isLoggedIn = !!session || isAuthenticated;
+
   return (
     <NavigationContainer>
-      {session ? <AuthenticatedNavigator /> : <GuestNavigator />}
+      {isLoggedIn ? <AuthenticatedNavigator /> : <GuestNavigator />}
     </NavigationContainer>
   );
 }

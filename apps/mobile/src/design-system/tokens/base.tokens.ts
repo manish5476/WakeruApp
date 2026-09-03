@@ -1,6 +1,6 @@
 // Base Design Tokens - Shared across all themes
 
-import { DesignTokens, TypographyScale } from '@/types/theme';
+import { TypographyScale } from '@/types/theme';
 
 export const baseTokens = {
   spacing: {

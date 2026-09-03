@@ -16,7 +16,7 @@ export interface TouchableProps {
   testID?: string;
 }
 
-export const Touchable = React.forwardRef<Pressable, TouchableProps>(
+export const Touchable = React.forwardRef<any, TouchableProps>(
   (
     {
       onPress,

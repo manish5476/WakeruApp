@@ -3,8 +3,8 @@
  * Provides animation utilities for the app
  */
 
-import { useRef, useCallback } from 'react';
-import Animated, {
+import { useCallback } from 'react';
+import {
   useSharedValue,
   withSpring,
   withTiming,
@@ -115,7 +115,7 @@ export const useRotationAnimation = (duration = TIMING_PRESETS.slow) => {
 export const useScaleAnimation = (
   initialScale = 1,
   targetScale = 1.2,
-  duration = TIMING_PRESETS.normal,
+  _duration = TIMING_PRESETS.normal,
 ) => {
   const scale = useSharedValue(initialScale);
 

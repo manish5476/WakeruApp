@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from '../client';
+import apiClient, { ApiResponse } from './client';
 import { Platform } from 'react-native';
 
 export interface IFeedbackData {
@@ -24,19 +24,22 @@ export interface IFeedbackItem {
 }
 
 export const feedbackApi = {
-  create: async (data: IFeedbackData): Promise<ApiResponse<{ feedback: IFeedbackItem }>> => {
+  create: async (
+    data: IFeedbackData,
+  ): Promise<ApiResponse<{ feedback: IFeedbackItem }>> => {
     if (data.attachments && data.attachments.length > 0) {
       const formData = new FormData();
       formData.append('rating', String(data.rating));
       formData.append('category', data.category);
       formData.append('feedback', data.feedback);
       if (data.displayName) formData.append('displayName', data.displayName);
-      if (data.deviceInfo) formData.append('deviceInfo', JSON.stringify(data.deviceInfo));
+      if (data.deviceInfo)
+        formData.append('deviceInfo', JSON.stringify(data.deviceInfo));
 
       for (let i = 0; i < data.attachments.length; i++) {
         const uri = data.attachments[i];
         const filename = `feedback-${Date.now()}-${i}.jpg`;
-        
+
         if (Platform.OS === 'web') {
           const res = await fetch(uri);
           const blob = await res.blob();
@@ -61,5 +64,3 @@ export const feedbackApi = {
     return apiClient.get('/feedback');
   },
 };
-
-

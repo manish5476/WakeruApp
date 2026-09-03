@@ -1,5 +1,5 @@
 // Layout Helper Utilities
-import { ViewStyle } from 'react-native';
+import { ViewStyle, DimensionValue } from 'react-native';
 
 export const layoutHelpers = {
   /**
@@ -108,15 +108,15 @@ export const layoutHelpers = {
   /**
    * Width constraint
    */
-  width: (value: number | string): ViewStyle => ({
-    width: typeof value === 'number' ? value : value,
+  width: (value: DimensionValue): ViewStyle => ({
+    width: value,
   }),
 
   /**
    * Height constraint
    */
-  height: (value: number | string): ViewStyle => ({
-    height: typeof value === 'number' ? value : value,
+  height: (value: DimensionValue): ViewStyle => ({
+    height: value,
   }),
 
   /**
@@ -151,8 +151,9 @@ export const layoutHelpers = {
    * Grid layout helper
    */
   grid: (columns: number, gap?: number): ViewStyle => ({
-    display: 'grid',
-    gridTemplateColumns: `repeat(${columns}, 1fr)`,
+    display: 'flex',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap,
   }),
 

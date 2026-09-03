@@ -2,6 +2,7 @@ export type Brand<T, TBrand extends string> = T & { readonly __brand: TBrand };
 
 export type UserId = Brand<string, 'UserId'>;
 export type TripId = Brand<string, 'TripId'>;
+export type ExpenseId = Brand<string, 'ExpenseId'>;
 
 export type SessionTokens = Readonly<{
   accessToken: string;
@@ -32,3 +33,6 @@ export interface SessionRepository {
   write(session: AuthSession): Promise<void>;
   clear(): Promise<void>;
 }
+
+export * from './splits/expenseSplits';
+export * from './settlements/debtSimplification';

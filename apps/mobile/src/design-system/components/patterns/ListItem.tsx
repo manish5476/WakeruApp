@@ -52,7 +52,9 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
           disabled={disabled}
           style={({ pressed }) => [
             {
-              backgroundColor: pressed ? colors.surfaceVariant : colors.surface,
+              backgroundColor: pressed
+                ? (colors as any).surfaceVariant || colors.surfaceAlt
+                : colors.surface,
               paddingVertical: SPACING.md,
               paddingHorizontal: SPACING.lg,
               opacity: disabled ? 0.5 : 1,
@@ -85,8 +87,8 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
               <HStack align="center" gap="sm">
                 <Text
                   variant="body"
-                  weight="600"
-                  color={colors.onSurface}
+                  weight="semibold"
+                  color={(colors as any).onSurface || colors.text}
                   flex={1}
                 >
                   {title}
@@ -94,7 +96,7 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
                 {badge && (
                   <View
                     style={{
-                      backgroundColor: colors.error,
+                      backgroundColor: (colors as any).error || colors.danger,
                       borderRadius: RADIUS.full,
                       width: 24,
                       height: 24,
@@ -102,7 +104,11 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
                       alignItems: 'center',
                     }}
                   >
-                    <Text variant="caption" weight="700" color={colors.onError}>
+                    <Text
+                      variant="caption"
+                      weight="bold"
+                      color={(colors as any).onError || '#FFF'}
+                    >
                       {badge}
                     </Text>
                   </View>
@@ -110,7 +116,12 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
               </HStack>
 
               {subtitle && (
-                <Text variant="caption" color={colors.onSurfaceVariant}>
+                <Text
+                  variant="caption"
+                  color={
+                    (colors as any).onSurfaceVariant || colors.textSecondary
+                  }
+                >
                   {subtitle}
                 </Text>
               )}
@@ -118,7 +129,9 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
               {description && (
                 <Text
                   variant="caption"
-                  color={colors.onSurfaceVariant}
+                  color={
+                    (colors as any).onSurfaceVariant || colors.textSecondary
+                  }
                   numberOfLines={2}
                 >
                   {description}
@@ -132,8 +145,10 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
                 {rightText && (
                   <Text
                     variant="caption"
-                    weight="600"
-                    color={colors.onSurfaceVariant}
+                    weight="semibold"
+                    color={
+                      (colors as any).onSurfaceVariant || colors.textSecondary
+                    }
                   >
                     {rightText}
                   </Text>
@@ -148,7 +163,7 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
           <View
             style={{
               height: 1,
-              backgroundColor: colors.surfaceVariant,
+              backgroundColor: (colors as any).surfaceVariant || colors.border,
               marginLeft: SPACING.lg,
               marginRight: SPACING.lg,
             }}

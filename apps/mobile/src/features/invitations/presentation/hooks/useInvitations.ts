@@ -9,12 +9,13 @@ export function usePendingInvitations() {
     queryKey: ['invitations', 'pending'],
     queryFn: async () => {
       const response = await invitationsApi.getPending();
+      const res = response as any;
 
       // Handle ALL possible response formats
-      if (Array.isArray(response)) return response;
-      if (response?.data?.invitations) return response.data.invitations;
-      if (Array.isArray(response?.data)) return response.data;
-      if (response?.invitations) return response.invitations;
+      if (Array.isArray(res)) return res;
+      if (res?.data?.invitations) return res.data.invitations;
+      if (Array.isArray(res?.data)) return res.data;
+      if (res?.invitations) return res.invitations;
 
       return [];
     },
@@ -35,7 +36,8 @@ export function useSendInvitation() {
       message?: string;
     }) => {
       const response = await invitationsApi.send(tripId, toUserId, message);
-      return response.data?.invitation || response?.invitation;
+      const res = response as any;
+      return res?.data?.invitation || res?.invitation;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invitations'] });

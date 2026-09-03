@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -16,11 +16,13 @@ export interface Toast {
 class ToastManager {
   private listeners: Set<(toasts: Toast[]) => void> = new Set();
   private toasts: Toast[] = [];
-  private timeouts: Map<string, NodeJS.Timeout> = new Map();
+  private timeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   subscribe(listener: (toasts: Toast[]) => void) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   private notify() {

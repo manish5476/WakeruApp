@@ -1,26 +1,30 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { View, Text } from 'react-native';
-
-export type GuestStackParamList = {
-  Login: undefined;
-  SignUp: undefined;
-};
-
-export type GuestNavigationProp = NativeStackNavigationProp<GuestStackParamList>;
+import type { GuestStackParamList } from './types';
+import LoginScreen from '@/features/authentication/presentation/screens/LoginScreen';
+import RegisterScreen from '@/features/authentication/presentation/screens/RegisterScreen';
+import ForgotPasswordScreen from '@/features/authentication/presentation/screens/ForgotPasswordScreen';
+import SetPasswordScreen from '@/features/authentication/presentation/screens/SetPasswordScreen';
+import OnboardingScreen from '@/features/authentication/presentation/screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator<GuestStackParamList>();
 
-// Placeholders
-function LoginScreen() { return <View><Text>Login</Text></View>; }
-function SignUpScreen() { return <View><Text>SignUp</Text></View>; }
-
 export function GuestNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="Login"
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+      }}
+    >
       <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="SetPassword" component={SetPasswordScreen} />
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
     </Stack.Navigator>
   );
 }
+
+export default GuestNavigator;

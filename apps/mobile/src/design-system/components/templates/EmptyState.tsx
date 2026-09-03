@@ -47,10 +47,10 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
 
           {/* Title */}
           <Text
-            variant="heading3"
-            weight="700"
-            color={colors.onSurface}
-            textAlign="center"
+            variant="title"
+            weight="bold"
+            color={(colors as any).onSurface || colors.text}
+            align="center"
           >
             {title}
           </Text>
@@ -59,8 +59,8 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
           {message && (
             <Text
               variant="body"
-              color={colors.onSurfaceVariant}
-              textAlign="center"
+              color={(colors as any).onSurfaceVariant || colors.textSecondary}
+              align="center"
               numberOfLines={3}
               style={{ maxWidth: '90%' }}
             >
@@ -71,11 +71,12 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
           {/* Action */}
           {action && (
             <Button
-              label={action.label}
               onPress={action.onPress}
               variant="primary"
               style={{ marginTop: SPACING.md }}
-            />
+            >
+              {action.label}
+            </Button>
           )}
         </VStack>
       </View>
