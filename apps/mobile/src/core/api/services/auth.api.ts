@@ -1,5 +1,5 @@
 import apiClient, { ApiResponse } from './client';
-import { IUser } from '@/types/user.types';
+import { IUser } from '../../types/user.types';
 
 interface TokenPair {
   accessToken: string;

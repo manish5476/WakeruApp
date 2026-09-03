@@ -1,5 +1,5 @@
-﻿import apiClient, { ApiResponse } from './client';
-import { ISettlement } from '../../types/settlement.types';
+import apiClient, { ApiResponse } from './client';
+import { ISettlement } from '@/types/settlement.types';
 
 export const settlementsApi = {
   getSettlement: async (

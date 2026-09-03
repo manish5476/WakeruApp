@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, radius, shadow, typography } from '../theme/tokens';
-import { IconTrophy, IconCheck, IconSparkles } from '../icons/LandingIcons';
+import { IconTrophy, IconCheck } from '../icons/LandingIcons';
 import AppIcon from '../../common/AppIcon';
 
 interface LeaderboardMember {
@@ -101,7 +101,11 @@ const BADGES = [
 
 export function LeaderboardSection() {
   const [selectedMember, setSelectedMember] = useState<string>('1');
-  const activeMember = MEMBERS.find(m => m.id === selectedMember) || MEMBERS[0];
+  const activeMember =
+    MEMBERS.find(m => m.id === selectedMember) || MEMBERS[0]!;
+  const m0 = MEMBERS[0]!;
+  const m1 = MEMBERS[1]!;
+  const m2 = MEMBERS[2]!;
 
   return (
     <View style={styles.card}>
@@ -121,26 +125,23 @@ export function LeaderboardSection() {
       <View style={styles.podiumContainer}>
         {/* 2nd Place */}
         <Pressable
-          onPress={() => setSelectedMember(MEMBERS[1].id)}
+          onPress={() => setSelectedMember(m1.id)}
           style={[
             styles.podiumColumn,
             styles.podiumTwo,
-            selectedMember === MEMBERS[1].id && styles.podiumActive,
+            selectedMember === m1.id && styles.podiumActive,
           ]}
         >
           <View
-            style={[
-              styles.avatarWrap,
-              { backgroundColor: MEMBERS[1].avatarColor },
-            ]}
+            style={[styles.avatarWrap, { backgroundColor: m1.avatarColor }]}
           >
             <Text style={styles.avatarLetter}>S</Text>
             <View style={[styles.rankTag, { backgroundColor: '#94A3B8' }]}>
               <Text style={styles.rankTagText}>2</Text>
             </View>
           </View>
-          <Text style={styles.podiumName}>{MEMBERS[1].name}</Text>
-          <Text style={styles.podiumPoints}>{MEMBERS[1].points} pts</Text>
+          <Text style={styles.podiumName}>{m1.name}</Text>
+          <Text style={styles.podiumPoints}>{m1.points} pts</Text>
           <View style={styles.podiumPedestalTwo}>
             <Text style={styles.pedestalRank}>🥈 2nd</Text>
           </View>
@@ -148,11 +149,11 @@ export function LeaderboardSection() {
 
         {/* 1st Place (Center / Elevated) */}
         <Pressable
-          onPress={() => setSelectedMember(MEMBERS[0].id)}
+          onPress={() => setSelectedMember(m0.id)}
           style={[
             styles.podiumColumn,
             styles.podiumOne,
-            selectedMember === MEMBERS[0].id && styles.podiumActive,
+            selectedMember === m0.id && styles.podiumActive,
           ]}
         >
           <View style={styles.crownWrapper}>
@@ -162,7 +163,7 @@ export function LeaderboardSection() {
             style={[
               styles.avatarWrap,
               styles.avatarWrapOne,
-              { backgroundColor: MEMBERS[0].avatarColor },
+              { backgroundColor: m0.avatarColor },
             ]}
           >
             <Text style={styles.avatarLetterOne}>A</Text>
@@ -171,10 +172,10 @@ export function LeaderboardSection() {
             </View>
           </View>
           <Text style={[styles.podiumName, styles.podiumNameOne]}>
-            {MEMBERS[0].name}
+            {m0.name}
           </Text>
           <Text style={[styles.podiumPoints, styles.podiumPointsOne]}>
-            {MEMBERS[0].points} pts
+            {m0.points} pts
           </Text>
           <LinearGradient
             colors={['#2563EB', '#1D4ED8']}
@@ -186,26 +187,23 @@ export function LeaderboardSection() {
 
         {/* 3rd Place */}
         <Pressable
-          onPress={() => setSelectedMember(MEMBERS[2].id)}
+          onPress={() => setSelectedMember(m2.id)}
           style={[
             styles.podiumColumn,
             styles.podiumThree,
-            selectedMember === MEMBERS[2].id && styles.podiumActive,
+            selectedMember === m2.id && styles.podiumActive,
           ]}
         >
           <View
-            style={[
-              styles.avatarWrap,
-              { backgroundColor: MEMBERS[2].avatarColor },
-            ]}
+            style={[styles.avatarWrap, { backgroundColor: m2.avatarColor }]}
           >
             <Text style={styles.avatarLetter}>R</Text>
             <View style={[styles.rankTag, { backgroundColor: '#D97706' }]}>
               <Text style={styles.rankTagText}>3</Text>
             </View>
           </View>
-          <Text style={styles.podiumName}>{MEMBERS[2].name}</Text>
-          <Text style={styles.podiumPoints}>{MEMBERS[2].points} pts</Text>
+          <Text style={styles.podiumName}>{m2.name}</Text>
+          <Text style={styles.podiumPoints}>{m2.points} pts</Text>
           <View style={styles.podiumPedestalThree}>
             <Text style={styles.pedestalRank}>🥉 3rd</Text>
           </View>

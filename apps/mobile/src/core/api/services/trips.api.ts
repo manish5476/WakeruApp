@@ -1,6 +1,6 @@
-import apiClient, { ApiResponse, PaginatedResponse } from './client';
-import { ITrip } from '../../types/trip.types';
-import { IContact, ITravelPlan } from '../../types/travelPlan.types';
+import apiClient, { ApiResponse } from './client';
+import { ITrip } from '@/types/trip.types';
+import { IContact, ITravelPlan } from '@/types/travelPlan.types';
 
 export const tripsApi = {
   // ───────────────────────────────────────────────────────────────────────────

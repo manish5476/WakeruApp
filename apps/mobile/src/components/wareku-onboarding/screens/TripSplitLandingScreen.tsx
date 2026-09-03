@@ -1,11 +1,5 @@
 import React, { useState, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  StatusBar,
-  SafeAreaView,
-} from 'react-native';
+import { StyleSheet, ScrollView, StatusBar, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 
 import { LandingNavBar } from '../components/LandingNavBar';

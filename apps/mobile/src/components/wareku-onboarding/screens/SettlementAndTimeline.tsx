@@ -7,7 +7,6 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
-  Modal,
 } from 'react-native';
 import { colors, spacing, radius, shadow, typography } from '../theme/tokens';
 import {
@@ -16,7 +15,6 @@ import {
   IconWallet,
   IconQrCode,
   IconBell,
-  IconSparkles,
 } from '../icons/LandingIcons';
 import AppIcon from '../../common/AppIcon';
 

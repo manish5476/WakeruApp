@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, spacing, radius, shadow, typography } from '../theme/tokens';
-import {
-  IconShield,
-  IconWifiOff,
-  IconCheck,
-  IconRefresh,
-} from '../icons/LandingIcons';
+import { IconWifiOff, IconCheck, IconRefresh } from '../icons/LandingIcons';
 import AppIcon from '../../common/AppIcon';
 
 export function OfflineAndSecuritySection() {

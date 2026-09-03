@@ -6,7 +6,6 @@ import {
   useWindowDimensions,
   StatusBar,
   SafeAreaView,
-  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import {
@@ -152,7 +151,7 @@ export default function OnboardingScreen() {
     return (
       <SafeAreaView style={styles.fill}>
         <StatusBar barStyle="light-content" />
-        {renderSlide(ONBOARDING_STEPS[index], index)}
+        {renderSlide(ONBOARDING_STEPS[index] || ONBOARDING_STEPS[0]!, index)}
       </SafeAreaView>
     );
   }

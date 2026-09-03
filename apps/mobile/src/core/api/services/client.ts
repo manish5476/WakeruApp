@@ -1,17 +1,12 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
-import config from '../../config';
-import { storage } from '../../utils/storage';
-
-// Lazy getter to avoid circular dependency: client.ts ↔ auth.store.ts ↔ api/index.ts
-const getAuthStore = () => require('../../stores/auth.store').useAuthStore;
+import config from '@/config';
+import { storage, SecureStorage } from '@/core/storage';
 
 // ============================================================
 // Types
 // ============================================================
 
 export interface ApiResponse<T = any> {
-  invitations: any;
-  invitation: any;
   success: boolean;
   message?: string;
   data?: T;
@@ -24,12 +19,7 @@ export interface ApiResponse<T = any> {
 }
 
 export interface PaginatedResponse<T> {
-  expenses?: T[];
-  notifications?: T[];
-  receipts?: T[];
-  trips?: T[];
-  users?: T[];
-  totalAmount?: number;
+  data?: T[];
   pagination: {
     total: number;
     page: number;
@@ -65,6 +55,7 @@ export class ApiError extends Error {
 class ApiClient {
   private client: AxiosInstance;
   private refreshPromise: Promise<string> | null = null;
+  private logoutCallback: (() => void) | null = null;
 
   constructor() {
     this.client = axios.create({
@@ -79,34 +70,23 @@ class ApiClient {
     this.setupInterceptors();
   }
 
+  // Set this callback when the Auth Store initializes
+  public setLogoutCallback(callback: () => void) {
+    this.logoutCallback = callback;
+  }
+
   // ============================================================
   // Interceptors
   // ============================================================
 
   private setupInterceptors(): void {
-    // ── DEV LOGGING — curl-style request/response ─────────────
-    // Never emit request/response bodies: they can contain credentials and
-    // financial or personal information. Use a dedicated redacted logger if
-    // request diagnostics are needed in the future.
-    const DEBUG_API = false;
-    if (__DEV__ && DEBUG_API) {
+    const DEBUG_API = config.IS_DEV;
+
+    if (DEBUG_API) {
       this.client.interceptors.request.use(axiosConfig => {
         const method = (axiosConfig.method ?? 'GET').toUpperCase();
         const url = `${axiosConfig.baseURL ?? ''}${axiosConfig.url ?? ''}`;
-        const body = axiosConfig.data
-          ? JSON.stringify(axiosConfig.data, null, 2)
-          : '';
-        const curlBody = body ? ` \\\n  -d '${body}'` : '';
-        const authHeader = (axiosConfig.headers?.Authorization as
-          string | undefined)
-          ? ` \\\n  -H 'Authorization: ${axiosConfig.headers.Authorization}'`
-          : '';
-
-        console.log(
-          `\n🌐 [API REQUEST]\ncurl -X ${method} '${url}'` +
-            ` \\\n  -H 'Content-Type: application/json'` +
-            `${authHeader}${curlBody}\n`,
-        );
+        console.log(`\n🌐 [API REQUEST] ${method} ${url}`);
         return axiosConfig;
       });
 
@@ -114,12 +94,8 @@ class ApiClient {
         response => {
           const method = (response.config.method ?? 'GET').toUpperCase();
           const url = `${response.config.baseURL ?? ''}${response.config.url ?? ''}`;
-          const status = response.status;
-          const emoji = status < 300 ? '✅' : status < 400 ? '↪️' : '❌';
           console.log(
-            `\n${emoji} [API RESPONSE] ${method} ${url}\n` +
-              `   Status: ${status}\n` +
-              `   Body: ${JSON.stringify(response.data, null, 2)}\n`,
+            `\n✅ [API RESPONSE] ${method} ${url} - Status: ${response.status}`,
           );
           return response;
         },
@@ -127,11 +103,7 @@ class ApiClient {
           const method = (error.config?.method ?? 'GET').toUpperCase();
           const url = `${error.config?.baseURL ?? ''}${error.config?.url ?? ''}`;
           const status = error.response?.status ?? 'NETWORK_ERR';
-          console.log(
-            `\n❌ [API ERROR] ${method} ${url}\n` +
-              `   Status: ${status}\n` +
-              `   Body: ${JSON.stringify(error.response?.data, null, 2)}\n`,
-          );
+          console.log(`\n❌ [API ERROR] ${method} ${url} - Status: ${status}`);
           return Promise.reject(error);
         },
       );
@@ -140,12 +112,11 @@ class ApiClient {
     // Request interceptor — attach access token and idempotency key
     this.client.interceptors.request.use(
       async axiosConfig => {
-        const tokens = await storage.getTokens();
+        const tokens = await SecureStorage.getTokens();
         if (tokens?.accessToken) {
           axiosConfig.headers.Authorization = `Bearer ${tokens.accessToken}`;
         }
 
-        // Attach Idempotency-Key for mutations if not already present
         const method = axiosConfig.method?.toUpperCase() || 'GET';
         const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
         if (isMutation && !axiosConfig.headers['Idempotency-Key']) {
@@ -173,7 +144,6 @@ class ApiClient {
           _retry?: boolean;
         };
 
-        // Handle 401 — try to refresh token
         if (error.response?.status === 401) {
           if (!originalRequest._retry) {
             originalRequest._retry = true;
@@ -186,17 +156,14 @@ class ApiClient {
               };
               return this.client(originalRequest);
             } catch (refreshError) {
-              // Refresh failed — logout
-              getAuthStore().getState().logout();
+              if (this.logoutCallback) this.logoutCallback();
               return Promise.reject(refreshError);
             }
           } else {
-            // Already retried and failed again with 401, force logout
-            getAuthStore().getState().logout();
+            if (this.logoutCallback) this.logoutCallback();
           }
         }
 
-        // Normalize error
         const apiError = this.normalizeError(error);
         return Promise.reject(apiError);
       },
@@ -208,14 +175,13 @@ class ApiClient {
   // ============================================================
 
   private async refreshAccessToken(): Promise<string> {
-    // Deduplicate concurrent refresh attempts
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
 
     this.refreshPromise = (async () => {
       try {
-        const tokens = await storage.getTokens();
+        const tokens = await SecureStorage.getTokens();
         if (!tokens?.refreshToken) {
           throw new Error('No refresh token available');
         }
@@ -228,7 +194,7 @@ class ApiClient {
         const newTokens = response.data.data?.tokens;
         if (!newTokens) throw new Error('No tokens in response');
 
-        await storage.saveTokens(newTokens);
+        await SecureStorage.saveTokens(newTokens);
         return newTokens.accessToken;
       } finally {
         this.refreshPromise = null;
@@ -247,17 +213,13 @@ class ApiClient {
       const data = error.response.data as any;
       const errData = data.error;
 
-      // Backend might send { message: "..." } or { error: "..." } or { error: { message: "..." } }
       let message =
         data.message ||
         (typeof errData === 'string' ? errData : errData?.message);
-
       if (!message) {
-        // If it's a string (like HTML page), just show a snippet of it
         if (typeof data === 'string') {
           message = data.length > 100 ? data.substring(0, 100) + '...' : data;
         } else {
-          // Otherwise stringify the object so we can debug it
           message = JSON.stringify(data);
         }
       }
@@ -340,10 +302,7 @@ class ApiClient {
     formData: FormData,
     onProgress?: (progress: number) => void,
   ): Promise<T> {
-    // We use fetch here to bypass Axios's notorious issues with React Native FormData polyfills.
-    // Axios tends to either stringify it (if Content-Type is application/json) or
-    // strip the multipart boundary (if Content-Type is forced to multipart/form-data).
-    const tokens = await storage.getTokens();
+    const tokens = await SecureStorage.getTokens();
     const headers: Record<string, string> = {
       Accept: 'application/json',
     };
@@ -364,7 +323,7 @@ class ApiClient {
     const response = await fetch(`${config.API_URL}${url}`, {
       method: 'POST',
       headers,
-      body: formData, // fetch will automatically add Content-Type: multipart/form-data; boundary=...
+      body: formData,
     });
 
     const data = await response.json();
@@ -385,10 +344,6 @@ class ApiClient {
     return data as T;
   }
 }
-
-// ============================================================
-// Singleton Export
-// ============================================================
 
 export const apiClient = new ApiClient();
 export default apiClient;

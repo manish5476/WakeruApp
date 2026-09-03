@@ -9,7 +9,7 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import { colors, spacing, radius, shadow, typography } from '../theme/tokens';
-import { IconCamera, IconCheck, IconSparkles } from '../icons/LandingIcons';
+import { IconCamera, IconCheck } from '../icons/LandingIcons';
 import AppIcon from '../../common/AppIcon';
 
 interface ReceiptItem {
@@ -21,7 +21,6 @@ interface ReceiptItem {
 
 export function ReceiptScanner() {
   const [isScanning, setIsScanning] = useState(false);
-  const [scanned, setScanned] = useState(true); // Default to scanned so user immediately sees interactive itemized split
   const scanLineY = useSharedValue(0);
 
   const [items, setItems] = useState<ReceiptItem[]>([
@@ -47,7 +46,7 @@ export function ReceiptScanner() {
   ]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
 
     if (isScanning) {
       scanLineY.value = withRepeat(

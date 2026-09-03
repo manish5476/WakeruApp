@@ -41,7 +41,7 @@ const MAP_STOPS = [
 
 export function InteractiveMapSection() {
   const [activeStop, setActiveStop] = useState(2);
-  const current = MAP_STOPS[activeStop];
+  const current = MAP_STOPS[activeStop] || MAP_STOPS[0]!;
   const polylinePoints = MAP_STOPS.map(s => `${s.x},${s.y}`).join(' ');
 
   return (

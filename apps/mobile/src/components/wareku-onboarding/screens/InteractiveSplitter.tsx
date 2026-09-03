@@ -58,7 +58,7 @@ const USERS = [
 
 export function InteractiveSplitter() {
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyOption>(
-    CURRENCIES[0],
+    CURRENCIES[0]!,
   );
   const [splitMode, setSplitMode] = useState<SplitMode>('equal');
   const [baseAmount, setBaseAmount] = useState<number>(4800);
@@ -77,7 +77,7 @@ export function InteractiveSplitter() {
     '4': 1,
   });
 
-  const [customPcts, setCustomPcts] = useState<Record<string, number>>({
+  const [customPcts] = useState<Record<string, number>>({
     '1': 25,
     '2': 35,
     '3': 20,

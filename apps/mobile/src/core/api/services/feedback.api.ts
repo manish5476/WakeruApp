@@ -38,6 +38,7 @@ export const feedbackApi = {
 
       for (let i = 0; i < data.attachments.length; i++) {
         const uri = data.attachments[i];
+        if (!uri) continue;
         const filename = `feedback-${Date.now()}-${i}.jpg`;
 
         if (Platform.OS === 'web') {

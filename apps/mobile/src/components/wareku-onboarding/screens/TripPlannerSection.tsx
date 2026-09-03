@@ -17,7 +17,6 @@ import {
   IconHotel,
   IconCheck,
 } from '../icons/LandingIcons';
-import AppIcon from '../../common/AppIcon';
 
 if (
   Platform.OS === 'android' &&

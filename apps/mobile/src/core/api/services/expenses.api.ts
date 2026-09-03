@@ -1,5 +1,5 @@
 import apiClient, { ApiResponse, PaginatedResponse } from './client';
-import { IExpense } from '../../types/expense.types';
+import { IExpense } from '@/types/expense.types';
 
 export const expensesApi = {
   create: async (data: any): Promise<ApiResponse<{ expense: IExpense }>> => {
