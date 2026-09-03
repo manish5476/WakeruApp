@@ -1,12 +1,6 @@
-﻿// src/components/navigation/BottomTabBar.tsx
+// src/components/navigation/BottomTabBar.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Platform,
-  Text,
-} from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -113,7 +107,6 @@ export function BottomTabBar({
       >
         <GlassCard style={styles.pillContainer} intensity={30}>
           {state.routes.map((route, index) => {
-            const { options } = descriptors[route.key];
             const isFocused = state.index === index;
 
             if (route.name === 'create')

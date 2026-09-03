@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosError } from 'axios';
 import config from '@/config';
-import { storage, SecureStorage } from '@/core/storage';
+import { SecureStorage } from '@/core/storage';
 
 // ============================================================
 // Types

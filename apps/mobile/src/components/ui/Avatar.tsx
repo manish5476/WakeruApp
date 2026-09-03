@@ -8,8 +8,6 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
-  Dimensions,
-  Platform,
   TouchableWithoutFeedback,
 } from 'react-native';
 import { useTheme } from '../../providers/ThemeProvider';

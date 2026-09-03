@@ -1,4 +1,4 @@
-﻿// src/components/ui/GlassCard.tsx
+// src/components/ui/GlassCard.tsx
 import React, { useMemo } from 'react';
 import {
   View,
@@ -17,7 +17,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useTheme } from '../../providers/ThemeProvider';
-import type { Theme } from '../../theme';
 
 export type GlassCardVariant = 'subtle' | 'medium' | 'prominent' | 'soft';
 export type GlassCardPadding = 'none' | 'xs' | 'sm' | 'md' | 'lg' | 'xl';

@@ -10,6 +10,7 @@ module.exports = {
           'expo-linear-gradient': './src/shims/expo-linear-gradient',
           'expo-blur': './src/shims/expo-blur',
           'expo-sharing': './src/shims/expo-sharing',
+          'expo-video': './src/shims/expo-video',
         },
         root: ['./'],
       },

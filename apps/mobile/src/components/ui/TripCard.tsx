@@ -2,7 +2,6 @@
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../providers/ThemeProvider';
 import { Typography } from '../ui/Typography';
 import { AmountDisplay } from '../ui/AmountDisplay';
 import { Badge } from '../ui/Badge';
@@ -32,8 +31,6 @@ interface TripCardProps {
 }
 
 export function TripCard({ trip, onPress }: TripCardProps) {
-  const theme = useTheme();
-
   // Derived stats
   const activeMembers = trip.members?.filter(m => m.isActive !== false) || [];
   const stopCount = trip.stops?.length || 0;

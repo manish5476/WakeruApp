@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   TouchableOpacityProps,
   ActivityIndicator,
-  View,
   StyleSheet,
 } from 'react-native';
 import Animated, {

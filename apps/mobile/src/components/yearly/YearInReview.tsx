@@ -17,7 +17,6 @@ import * as Sharing from 'expo-sharing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../providers/ThemeProvider';
 import { GlassCard } from '../ui/GlassCard';
-import { Badge } from '../ui/Badge';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

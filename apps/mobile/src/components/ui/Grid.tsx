@@ -12,7 +12,7 @@ interface GridProps {
 }
 
 export function Grid({ children, cols = 2, gap, style }: GridProps) {
-  const { isMobile, isTablet, isDesktop } = useResponsive();
+  const { isTablet, isDesktop } = useResponsive();
   const theme = useTheme();
   const finalGap = gap ?? theme.spacing.md;
   let numCols =

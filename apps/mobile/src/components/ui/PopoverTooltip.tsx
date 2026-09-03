@@ -6,7 +6,6 @@ import {
   Dimensions,
   StyleProp,
   ViewStyle,
-  Platform,
 } from 'react-native';
 import { useTheme } from '../../providers/ThemeProvider';
 import { GlassCard } from './GlassCard';

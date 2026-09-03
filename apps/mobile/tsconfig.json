@@ -9,9 +9,17 @@
       "expo-router": ["src/shims/expo-router"],
       "expo-linear-gradient": ["src/shims/expo-linear-gradient"],
       "expo-blur": ["src/shims/expo-blur"],
-      "expo-sharing": ["src/shims/expo-sharing"]
+      "expo-sharing": ["src/shims/expo-sharing"],
+      "expo-video": ["src/shims/expo-video"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/node_modules", "**/Pods", "src/design-system"]
+  "exclude": [
+    "**/node_modules",
+    "**/Pods",
+    "**/design-system/**",
+    "src/design-system",
+    "**/wareku-onboarding/**",
+    "src/components/wareku-onboarding"
+  ]
 }

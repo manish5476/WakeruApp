@@ -155,7 +155,7 @@ export function GlobalBackground({
         );
         if (match) {
           const [_, r, g, b, a] = match;
-          return `rgba(${r}, ${g}, ${b}, ${parseFloat(a) * opacity})`;
+          return `rgba(${r}, ${g}, ${b}, ${parseFloat(a || '1') * opacity})`;
         }
       }
       if (color.startsWith('#')) {

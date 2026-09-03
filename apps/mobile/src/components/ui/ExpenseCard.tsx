@@ -66,7 +66,7 @@ export function ExpenseCard({
 
   const category = useMemo(() => {
     const key = expense.category?.toLowerCase() || 'other';
-    return CATEGORY_CONFIG[key] || CATEGORY_CONFIG.other;
+    return (CATEGORY_CONFIG[key] || CATEGORY_CONFIG.other)!;
   }, [expense.category]);
 
   const paidCount = expense.splits?.filter(s => s.isPaid).length || 0;
