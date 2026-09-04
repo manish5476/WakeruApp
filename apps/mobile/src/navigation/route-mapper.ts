@@ -165,6 +165,11 @@ export function mapPathToRoute(
   if (cleanPath === 'profile/reviews' || cleanPath === '(app)/profile/reviews')
     return { name: 'Reviews', params: queryParams };
   if (
+    cleanPath === 'profile/review-detail' ||
+    cleanPath === '(app)/profile/review-detail'
+  )
+    return { name: 'ReviewDetail', params: queryParams };
+  if (
     cleanPath === 'profile/sessions' ||
     cleanPath === '(app)/profile/sessions'
   )
@@ -227,6 +232,26 @@ export function mapPathToRoute(
       name: 'EditStop',
       params: { id: tripEditStopMatch[1], ...queryParams },
     };
+
+  const tripStopDetailMatch = cleanPath.match(
+    /^(?:\(app\)\/)?trips\/([^/]+)\/stops\/([^/]+)$/,
+  );
+  if (tripStopDetailMatch) {
+    if (tripStopDetailMatch[2] === 'reorder') {
+      return {
+        name: 'TripStopsReorder',
+        params: { id: tripStopDetailMatch[1], ...queryParams },
+      };
+    }
+    return {
+      name: 'TripStopDetails',
+      params: {
+        id: tripStopDetailMatch[1],
+        stopId: tripStopDetailMatch[2],
+        ...queryParams,
+      },
+    };
+  }
 
   const tripAnalyticsMatch = cleanPath.match(
     /^(?:\(app\)\/)?trips\/([^/]+)\/analytics$/,

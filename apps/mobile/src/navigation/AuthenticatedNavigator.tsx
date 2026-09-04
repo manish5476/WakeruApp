@@ -61,7 +61,10 @@ import ProfileDashboardScreen from '../app/(app)/profile/dashboard';
 import ProfileEditScreen from '../app/(app)/profile/edit';
 import FeedbackScreen from '../app/(app)/profile/feedback';
 import ReviewsScreen from '../app/(app)/profile/reviews';
+import ReviewDetailScreen from '../app/(app)/profile/review-detail';
 import SessionsScreen from '../app/(app)/profile/sessions';
+import TripStopDetailsScreen from '../app/(app)/trips/[id]/stops/[stopId]';
+import TripStopsReorderScreen from '../app/(app)/trips/[id]/stops/reorder';
 
 const Tab = createBottomTabNavigator<AuthenticatedTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -350,7 +353,13 @@ export function AuthenticatedNavigator() {
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
       <Stack.Screen name="Feedback" component={FeedbackScreen} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
+      <Stack.Screen name="ReviewDetail" component={ReviewDetailScreen} />
       <Stack.Screen name="Sessions" component={SessionsScreen} />
+      <Stack.Screen name="TripStopDetails" component={TripStopDetailsScreen} />
+      <Stack.Screen
+        name="TripStopsReorder"
+        component={TripStopsReorderScreen}
+      />
     </Stack.Navigator>
   );
 }

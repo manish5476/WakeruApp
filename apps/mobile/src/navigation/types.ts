@@ -64,7 +64,10 @@ export type RootStackParamList = {
   ProfileEdit: undefined;
   Feedback: undefined;
   Reviews: undefined;
+  ReviewDetail: { id?: string; reviewId?: string } | undefined;
   Sessions: undefined;
+  TripStopDetails: { id: string; stopId: string };
+  TripStopsReorder: { id: string };
 };
 
 export type GuestNavigationProp<T extends keyof GuestStackParamList> =

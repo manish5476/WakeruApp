@@ -130,6 +130,9 @@ importers:
       react-native-mmkv:
         specifier: ^4.2.0
         version: 4.3.2(react-native-nitro-modules@0.36.1(react-native@0.86.0(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      react-native-nitro-modules:
+        specifier: ^0.36.1
+        version: 0.36.1(react-native@0.86.0(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       react-native-reanimated:
         specifier: ^4.2.1
         version: 4.5.2(react-native-worklets@0.11.1(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -151,6 +154,9 @@ importers:
       react-native-webview:
         specifier: ^14.0.1
         version: 14.0.1(react-native@0.86.0(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
+      react-native-worklets:
+        specifier: ^0.11.1
+        version: 0.11.1(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
@@ -185,6 +191,9 @@ importers:
       '@react-native/eslint-config':
         specifier: 0.86.0
         version: 0.86.0(eslint@8.57.1)(jest@29.7.0(@types/node@26.1.1))(prettier@2.8.8)(typescript@5.9.3)
+      '@react-native/gradle-plugin':
+        specifier: ^0.87.1
+        version: 0.87.1
       '@react-native/jest-preset':
         specifier: 0.86.0
         version: 0.86.0(@babel/core@7.29.7)(react@19.2.3)
@@ -2450,6 +2459,13 @@ packages:
         integrity: sha512-a1RcfaEDqWExCGfCwadIxt4l8FvKYgFqeMf2uzeKyAOnb+vTGNIeCvifFL2MqvgaeYxlER437HbMIajGcuJ1pQ==,
       }
     engines: { node: ^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0 }
+
+  '@react-native/gradle-plugin@0.87.1':
+    resolution:
+      {
+        integrity: sha512-bZ5X2BNxaSlfp2KlDtUM910QqW9G1yTIeZXghuv4ag8SAQLzm5Mf9j5GjJfT6ax2Qo2aRT15Vi3Tro/yLGJstA==,
+      }
+    engines: { node: ^22.13.0 || ^24.3.0 || >= 26.0.0 }
 
   '@react-native/jest-preset@0.86.0':
     resolution:
@@ -10130,6 +10146,8 @@ snapshots:
   '@react-native/eslint-plugin@0.86.0': {}
 
   '@react-native/gradle-plugin@0.86.0': {}
+
+  '@react-native/gradle-plugin@0.87.1': {}
 
   '@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3)':
     dependencies:
