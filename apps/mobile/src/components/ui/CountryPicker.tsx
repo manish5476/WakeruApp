@@ -238,7 +238,7 @@ export function CountryPicker({
                   {popularCountries.map(country => (
                     <Pressable
                       key={country.code}
-                      style={({ hovered }: any) => [
+                      style={() => [
                         styles.popularPill,
                         {
                           borderColor:
@@ -284,7 +284,7 @@ export function CountryPicker({
               {filteredCountries.map(country => (
                 <Pressable
                   key={country.code}
-                  style={({ hovered }: any) => [
+                  style={() => [
                     styles.countryRow,
                     {
                       borderBottomColor: theme.colors.border,

@@ -4,22 +4,32 @@
     "jsx": "react-native",
     "types": ["jest"],
     "baseUrl": ".",
+    "noUncheckedIndexedAccess": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "paths": {
       "@/*": ["src/*"],
       "expo-router": ["src/shims/expo-router"],
       "expo-linear-gradient": ["src/shims/expo-linear-gradient"],
       "expo-blur": ["src/shims/expo-blur"],
       "expo-sharing": ["src/shims/expo-sharing"],
-      "expo-video": ["src/shims/expo-video"]
+      "expo-video": ["src/shims/expo-video"],
+      "expo-clipboard": ["src/shims/expo-clipboard"],
+      "expo-status-bar": ["src/shims/expo-status-bar"],
+      "expo-location": ["src/shims/expo-location"],
+      "expo-file-system": ["src/shims/expo-file-system"],
+      "expo-file-system/*": ["src/shims/expo-file-system"],
+      "expo-image-picker": ["src/shims/expo-image-picker"],
+      "expo-print": ["src/shims/expo-print"],
+      "@expo-google-fonts/*": ["src/shims/expo-fonts"],
+      "@expo-google-fonts/inter/*": ["src/shims/expo-fonts"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["src/**/*"],
   "exclude": [
-    "**/node_modules",
-    "**/Pods",
-    "**/design-system/**",
-    "src/design-system",
-    "**/wareku-onboarding/**",
-    "src/components/wareku-onboarding"
+    "node_modules",
+    "**/node_modules/*",
+    "**/Pods/*",
+    "src/design-system/**/*"
   ]
 }

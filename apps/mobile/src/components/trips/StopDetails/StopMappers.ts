@@ -7,7 +7,6 @@ import {
   ContributorUI,
   CategoryBreakdownUI,
   ExpenseTimelineItemUI,
-  QuickActionUI,
 } from './PresentationModels';
 
 // Country flag mapping using unicode escapes for 100% encoding safety

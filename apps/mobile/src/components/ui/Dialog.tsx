@@ -7,7 +7,6 @@ import {
   TouchableWithoutFeedback,
   ModalProps,
   Dimensions,
-  Platform,
 } from 'react-native';
 import Animated, {
   useSharedValue,

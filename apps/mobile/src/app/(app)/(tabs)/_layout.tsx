@@ -20,7 +20,7 @@ import { useTheme } from '../../../providers/ThemeProvider';
 import AppIcon from '../../../components/common/AppIcon';
 import { haptics } from '../../../utils/haptics';
 import type { Theme } from '../../../theme';
-import { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 // ============================================================
 // SIDEBAR MENU CONTEXT — exposes openSidebar to the bottom bar
@@ -222,7 +222,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      tabBar={props => <CustomBottomTabBar {...props} />}
+      tabBar={(props: any) => <CustomBottomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen

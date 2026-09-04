@@ -2,8 +2,8 @@
   "name": "@tripsplit/design-system",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
   "peerDependencies": {
     "react": "19.2.3",
     "react-native": "0.86.0"

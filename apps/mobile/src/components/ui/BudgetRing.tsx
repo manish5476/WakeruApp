@@ -46,26 +46,18 @@ export function BudgetRing({
   const remaining = Math.max(budget - spent, 0);
 
   // Determine colors based on percentage
-  let statusColor: string;
   let gradientStart: string;
   let gradientEnd: string;
 
   if (percentage > 90) {
-    statusColor = theme.colors.danger;
     gradientStart = theme.colors.danger;
-    gradientEnd = theme.colors.dangerDark || theme.colors.danger;
-  } else if (percentage > 70) {
-    statusColor = theme.colors.warning;
+    gradientEnd = '#F87171';
+  } else if (percentage > 75) {
     gradientStart = theme.colors.warning;
-    gradientEnd = theme.colors.warningDark || theme.colors.warning;
-  } else if (percentage > 40) {
-    statusColor = theme.colors.primary;
-    gradientStart = theme.colors.primary;
-    gradientEnd = theme.colors.primaryDark || theme.colors.primary;
+    gradientEnd = '#FBBF24';
   } else {
-    statusColor = theme.colors.success;
-    gradientStart = theme.colors.success;
-    gradientEnd = theme.colors.successDark || theme.colors.success;
+    gradientStart = theme.colors.primary;
+    gradientEnd = theme.colors.secondary;
   }
 
   const bgColor = theme.colors.borderLight;
@@ -203,7 +195,7 @@ export function BudgetRing({
 }
 
 // ─── Styles ──────────────────────────────────────────────────
-function ringStyles(theme: Theme) {
+function ringStyles(_theme: Theme) {
   return StyleSheet.create({
     container: {
       alignItems: 'center',

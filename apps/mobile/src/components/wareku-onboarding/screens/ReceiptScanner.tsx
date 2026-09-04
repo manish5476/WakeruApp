@@ -21,6 +21,7 @@ interface ReceiptItem {
 
 export function ReceiptScanner() {
   const [isScanning, setIsScanning] = useState(false);
+  const [, setScanned] = useState(true);
   const scanLineY = useSharedValue(0);
 
   const [items, setItems] = useState<ReceiptItem[]>([

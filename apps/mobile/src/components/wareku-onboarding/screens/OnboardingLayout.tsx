@@ -41,7 +41,7 @@ export default function OnboardingLayout({
   progress,
   backgroundVariant = 'night',
   backgroundImage,
-  _isFirstStep = false,
+  isFirstStep = false,
 }: OnboardingLayoutProps) {
   const { isDesktop } = useResponsive();
   const insets = useSafeAreaInsets();

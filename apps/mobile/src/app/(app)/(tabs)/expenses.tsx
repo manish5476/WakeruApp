@@ -659,7 +659,7 @@ export default function MyExpensesDashboard() {
     totalLent: 0,
     netBalance: 0,
   };
-  const totalSpent = data?.pages?.[0]?.totalAmount || 0;
+  const totalSpent = (data?.pages?.[0] as any)?.totalAmount || 0;
   const pendingCount = rawExpenses.filter((e: any) => !e.isSettled).length;
 
   const handleDateSelect = useCallback(

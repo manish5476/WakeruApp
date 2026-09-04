@@ -1,12 +1,6 @@
 // src/components/ui/Card.tsx
 import React from 'react';
-import {
-  View,
-  Pressable,
-  ViewStyle,
-  StyleProp,
-  StyleSheet,
-} from 'react-native';
+import { View, Pressable, ViewStyle, StyleProp } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -14,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useTheme } from '../../providers/ThemeProvider';
-import { GlassCard, GlassCardVariant } from './GlassCard';
+import { GlassCard } from './GlassCard';
 
 export type CardVariant = 'elevated' | 'outlined' | 'filled' | 'glass';
 

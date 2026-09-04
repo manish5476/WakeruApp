@@ -1193,7 +1193,7 @@ export function AppSidebar({
                 pathname={pathname}
                 onNavigate={navigate}
                 theme={theme}
-                isOpen={openSections[section.id]}
+                isOpen={openSections[section.id] ?? false}
                 onToggle={() => toggleSection(section.id)}
               />
             ))}

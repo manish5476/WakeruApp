@@ -738,8 +738,8 @@ export default function AdminFeedbackDashboard() {
               ) : (
                 <FlashList
                   data={filteredFeedbacks}
-                  keyExtractor={item => item._id}
-                  renderItem={({ item }) => (
+                  keyExtractor={(item: any) => item._id}
+                  renderItem={({ item }: { item: any }) => (
                     <ReviewCard item={item} onPress={navigateToDetail} />
                   )}
                   contentContainerStyle={[

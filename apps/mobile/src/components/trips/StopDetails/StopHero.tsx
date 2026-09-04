@@ -1,4 +1,4 @@
-﻿// src/components/trips/StopDetails/StopHero.tsx
+// src/components/trips/StopDetails/StopHero.tsx
 import React from 'react';
 import {
   View,
@@ -9,8 +9,6 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme } from '../../../providers/ThemeProvider';
-import { Badge, GlassCard } from '../../ui';
 import AppIcon from '../../common/AppIcon';
 import { StopHeroUI } from './PresentationModels';
 import Animated, { FadeIn } from 'react-native-reanimated';
@@ -20,7 +18,6 @@ interface Props {
 }
 
 export function StopHero({ data }: Props) {
-  const theme = useTheme();
   const isOverBudget = (data.progressPercentage || 0) > 100;
 
   return (

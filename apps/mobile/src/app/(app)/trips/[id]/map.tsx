@@ -102,7 +102,9 @@ export default function TripMapScreen() {
   const { data: expensesData } = useTripExpenses(id);
   const { mutate: deleteExpense } = useDeleteExpensePermanent();
   const user = useAuthStore(state => state.user);
-  const expenses = expensesData?.expenses || [];
+  const expenses =
+    (expensesData as any)?.expenses ||
+    (Array.isArray(expensesData) ? expensesData : []);
   const mapRef = useRef<LeafletMapRef>(null);
 
   // Filter states
@@ -266,11 +268,11 @@ export default function TripMapScreen() {
   const initialRegion = useMemo(() => {
     const allLats = [
       ...stopsWithLocation.map((s: any) => s.location.lat),
-      ...leafletExpenseMarkers.map(e => e.latitude),
+      ...leafletExpenseMarkers.map((e: any) => e.latitude),
     ];
     const allLngs = [
       ...stopsWithLocation.map((s: any) => s.location.lng),
-      ...leafletExpenseMarkers.map(e => e.longitude),
+      ...leafletExpenseMarkers.map((e: any) => e.longitude),
     ];
 
     if (allLats.length === 0)

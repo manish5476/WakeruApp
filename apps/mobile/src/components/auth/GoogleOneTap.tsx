@@ -1,3 +1,5 @@
+declare const process: { env: Record<string, string | undefined> };
+
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { useAuthStore } from '../../stores/auth.store';

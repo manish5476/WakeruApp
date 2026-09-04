@@ -19,7 +19,6 @@ import {
   StyleSheet,
   Pressable,
   Animated,
-  Platform,
   Share,
 } from 'react-native';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -209,10 +208,10 @@ export function TripCompletionSheet({
               styles.floatingEmoji,
               {
                 transform: [
-                  { translateY: emojiAnims[i].y },
-                  { translateX: emojiAnims[i].x },
+                  { translateY: emojiAnims[i]!.y },
+                  { translateX: emojiAnims[i]!.x },
                 ],
-                opacity: emojiAnims[i].opacity,
+                opacity: emojiAnims[i]!.opacity,
               },
             ]}
           >

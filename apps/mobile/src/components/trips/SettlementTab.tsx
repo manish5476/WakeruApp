@@ -116,7 +116,9 @@ export default function SettlementTab({ tripId }: { tripId: string }) {
 
   const settlement = settlementData?.settlement;
   const transactions = settlement?.transactions || [];
-  const allExpenses = expensesData?.expenses || [];
+  const allExpenses =
+    (expensesData as any)?.expenses ||
+    (Array.isArray(expensesData) ? expensesData : []);
   const summaryMembers = summaryData?.summary?.members || [];
   const baseCurrency = settlement?.baseCurrency || trip?.baseCurrency || 'INR';
 

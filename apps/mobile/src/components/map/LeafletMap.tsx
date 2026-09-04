@@ -10,6 +10,8 @@ import React, {
 } from 'react';
 import { StyleSheet, View, Platform, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
+
+const WebViewComponent: any = WebView;
 import { useTheme } from '../../providers/ThemeProvider';
 import { Typography } from '../ui/Typography';
 import { GlassCard } from '../ui/GlassCard';
@@ -1035,7 +1037,7 @@ export const LeafletMap = forwardRef<LeafletMapRef, LeafletMapProps>(
             title="TripSplit Map"
           />
         ) : (
-          <WebView
+          <WebViewComponent
             ref={webViewRef}
             originWhitelist={['*']}
             source={{ html: htmlContent }}

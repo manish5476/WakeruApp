@@ -1,6 +1,6 @@
-﻿// src/components/trips/StopDetails/FinancialSummary.tsx
+// src/components/trips/StopDetails/FinancialSummary.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { GlassCard } from '../../ui';
 import AppIcon from '../../common/AppIcon';

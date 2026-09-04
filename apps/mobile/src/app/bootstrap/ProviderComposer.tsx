@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../../design-system/theme/ThemeProvider';
+import { ThemeProvider } from '@tripsplit/design-system';
 import { FeatureFlagProvider } from '../../core/feature-flags';
 import { DIContainer } from '../../core/di';
 import { NavigationRoot } from './NavigationRoot';

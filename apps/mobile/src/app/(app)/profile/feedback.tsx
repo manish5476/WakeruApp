@@ -106,7 +106,7 @@ export default function GiveFeedbackScreen() {
     });
 
     if (!result.canceled && result.assets) {
-      const newUris = result.assets.map(a => a.uri);
+      const newUris = result.assets.map((a: any) => a.uri);
       setAttachments(prev => [...prev, ...newUris].slice(0, 3));
     }
   };

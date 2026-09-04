@@ -20,7 +20,7 @@ const FAB_SIZE = 60;
 
 export function BottomTabBar({
   state,
-  descriptors,
+  descriptors: _descriptors,
   navigation,
 }: BottomTabBarProps) {
   const theme = useTheme();

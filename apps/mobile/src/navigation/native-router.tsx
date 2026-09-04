@@ -109,12 +109,29 @@ export function Redirect({ href }: { href: string }) {
   return null;
 }
 
-export const Stack = {
-  Screen: () => null,
-};
+export interface ScreenProps {
+  options?: any;
+  name?: string;
+  [key: string]: any;
+}
 
-export const Tabs = {
-  Screen: () => null,
+export const Stack: {
+  ({ children }: any): React.ReactElement | null;
+  Screen: (props: ScreenProps) => React.ReactElement | null;
+} = Object.assign(({ children }: any) => <>{children}</>, {
+  Screen: (_props: ScreenProps) => null,
+});
+
+export const Tabs: {
+  ({ children }: any): React.ReactElement | null;
+  Screen: (props: ScreenProps) => React.ReactElement | null;
+} = Object.assign(({ children }: any) => <>{children}</>, {
+  Screen: (_props: ScreenProps) => null,
+});
+
+export const SplashScreen = {
+  preventAutoHideAsync: async () => true,
+  hideAsync: async () => true,
 };
 
 export default router;

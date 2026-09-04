@@ -50,7 +50,7 @@ export function ExpenseTimelineItem({
 
   const catConfig = useMemo(() => {
     const key = (item.category || 'other').toLowerCase();
-    return CATEGORY_MAP[key] || CATEGORY_MAP.other;
+    return (CATEGORY_MAP[key] || CATEGORY_MAP.other)!;
   }, [item.category]);
 
   const formattedAmount = useMemo(() => {
