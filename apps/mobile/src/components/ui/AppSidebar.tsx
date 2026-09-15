@@ -17,6 +17,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import { useUnreadCount } from '../../hooks';
 import { GlassCard } from './GlassCard';
 import AppIcon from '../common/AppIcon';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -940,7 +941,13 @@ function CreateFAB({
           Platform.OS === 'web' && ({ cursor: 'pointer' } as any),
         ]}
       >
-        <AppIcon name="plus" size={20} color="#FFF" />
+        <LinearGradient
+                    colors={['#2563EB', '#1D4ED8']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[StyleSheet.absoluteFill, { borderRadius: collapsed ? 24 : 16 }]}
+                />
+                <AppIcon name="plus" size={20} color="#FFF" />
         {!collapsed && (
           <View>
             <Text style={fabStyles.fabLabel}>Create new</Text>
@@ -1744,7 +1751,7 @@ const rootStyles = StyleSheet.create({
 //                 {...(Platform.OS === 'web' ? ({ title: 'Create new' } as any) : {})}
 //                 style={[
 //                     collapsed ? fabStyles.collapsedBtn : fabStyles.btn,
-//                     { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary },
+//                     // Gradient background used instead
 //                     Platform.OS === 'web' && ({ cursor: 'pointer' } as any),
 //                 ]}
 //             >
@@ -1761,8 +1768,8 @@ const rootStyles = StyleSheet.create({
 // }
 
 // const fabStyles = StyleSheet.create({
-//     btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8 },
-//     collapsedBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+//     btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+//     collapsedBtn: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
 //     fabLabel: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 //     fabSub: { color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '500', marginTop: 1 },
 // });

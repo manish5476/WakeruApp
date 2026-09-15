@@ -13,20 +13,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const preset = useThemeStore(s => s.preset);
 
   const theme = useMemo(() => {
-    // Handle custom / non-light-dark presets
-    if (!['light', 'dark'].includes(preset)) {
-      // Guard: if stored preset key is stale or unknown, fall through to default
-      const custom = themePresets[preset as keyof typeof themePresets];
-      if (custom) return custom;
-    }
+        let base: Theme;
+        if (!['light', 'dark'].includes(preset)) {
+            const custom = themePresets[preset as keyof typeof themePresets];
+            base = custom || (systemScheme === 'dark' ? themePresets.dark : themePresets.light);
+        } else if (mode === 'dark') {
+            base = themePresets.dark;
+        } else if (mode === 'light') {
+            base = themePresets.light;
+        } else {
+            base = systemScheme === 'dark' ? themePresets.dark : themePresets.light;
+        }
 
-    // Handle explicit manual overrides
-    if (mode === 'dark') return themePresets.dark;
-    if (mode === 'light') return themePresets.light;
-
-    // Default to system preference
-    return systemScheme === 'dark' ? themePresets.dark : themePresets.light;
-  }, [mode, preset, systemScheme]);
+        if (fontColor) {
+            return {
+                ...base,
+                colors: {
+                    ...base.colors,
+                    fontColor,
+                    textPrimary: fontColor,
+                },
+            };
+        }
+        return base;
+    }, [mode, preset, systemScheme, fontColor]);
 
   // Sync active theme back to Zustand store so it can be accessed outside of React components
   useEffect(() => {

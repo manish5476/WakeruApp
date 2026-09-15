@@ -191,6 +191,7 @@ export const colors = {
   elevated: palette.neutral[100],
 
   textPrimary: palette.neutral[900],
+  fontColor: palette.neutral[900],
   textSecondary: palette.neutral[600],
   textTertiary: palette.neutral[500],
   textInverse: '#FFFFFF',
@@ -260,6 +261,7 @@ export const darkColors = {
   elevated: palette.neutral[800],
 
   textPrimary: palette.neutral[100],
+  fontColor: palette.neutral[100],
   textSecondary: palette.neutral[300],
   textTertiary: palette.neutral[400],
   textInverse: palette.neutral[900],

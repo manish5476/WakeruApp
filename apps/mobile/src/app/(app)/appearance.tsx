@@ -232,13 +232,19 @@ export default function AppearanceScreen() {
     setBackgroundColor,
     setBackgroundImagePosition,
     setMode,
-    setBackgroundVideo,
+        fontColor,
+    setFontColor,
+setBackgroundVideo,
   } = useThemeStore();
 
   const [isRepositionVisible, setIsRepositionVisible] = useState(false);
   const [customHex, setCustomHex] = useState(backgroundColor || '#0F172A');
   const [customColors, setCustomColors] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
+  const [customFontHex, setCustomFontHex] = useState(fontColor || '#FFFFFF');
+  useEffect(() => {
+    if (fontColor) setCustomFontHex(fontColor);
+  }, [fontColor]);
 
   useEffect(() => {
     loadCustomColors();
@@ -363,12 +369,12 @@ export default function AppearanceScreen() {
           <View style={styles.mockContent}>
             <View style={styles.mockCard}>
               <View style={styles.mockCardHeader}>
-                <Text style={styles.mockCardTitle}>🌴 Goa Expedition</Text>
-                <Text style={styles.mockCardAmount}>₹24,500</Text>
+                <Text style={[styles.mockCardTitle, fontColor ? { color: fontColor } : null]}>🌴 Goa Expedition</Text>
+                <Text style={[styles.mockCardAmount, fontColor ? { color: fontColor } : null]}>₹24,500</Text>
               </View>
               <View style={styles.mockTagRow}>
                 <View style={styles.mockTag}>
-                  <Text style={styles.mockTagText}>4 Travelers</Text>
+                  <Text style={[styles.mockTagText, fontColor ? { color: fontColor } : null]}>4 Travelers</Text>
                 </View>
                 <View
                   style={[
@@ -405,12 +411,12 @@ export default function AppearanceScreen() {
           <View style={styles.mockContent}>
             <View style={styles.mockCard}>
               <View style={styles.mockCardHeader}>
-                <Text style={styles.mockCardTitle}>🌴 Goa Expedition</Text>
-                <Text style={styles.mockCardAmount}>₹24,500</Text>
+                <Text style={[styles.mockCardTitle, fontColor ? { color: fontColor } : null]}>🌴 Goa Expedition</Text>
+                <Text style={[styles.mockCardAmount, fontColor ? { color: fontColor } : null]}>₹24,500</Text>
               </View>
               <View style={styles.mockTagRow}>
                 <View style={styles.mockTag}>
-                  <Text style={styles.mockTagText}>4 Travelers</Text>
+                  <Text style={[styles.mockTagText, fontColor ? { color: fontColor } : null]}>4 Travelers</Text>
                 </View>
                 <View
                   style={[
@@ -492,6 +498,111 @@ export default function AppearanceScreen() {
             </Text>
           </View>
         </View>
+
+      {/* Font & Header Color Control Panel */}
+      <View style={[styles.panelCard, { backgroundColor: theme.colors.surface }]}>
+        <View style={styles.panelHeader}>
+          <View style={[styles.panelIconAura, { backgroundColor: '#FEF3C7' }]}>
+            <AppIcon name="type" size={16} color="#D97706" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.panelTitle, { color: theme.colors.textPrimary }]}>Font & Header Color</Text>
+            <Text style={[styles.panelSub, { color: theme.colors.textTertiary }]}>Ensure text contrast on dark/light wallpapers</Text>
+          </View>
+          {fontColor && (
+            <Pressable
+              onPress={() => {
+                haptics.light();
+                setFontColor(null);
+              }}
+              style={styles.resetFontBtn}
+            >
+              <Text style={[styles.resetFontText, { color: theme.colors.primary }]}>Reset</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* Curated Font Swatches */}
+        <View style={styles.swatchGrid}>
+          {[
+            { label: 'White', hex: '#FFFFFF' },
+            { label: 'Snow', hex: '#F4F4F5' },
+            { label: 'Platinum', hex: '#E4E4E7' },
+            { label: 'Black', hex: '#09090B' },
+            { label: 'Charcoal', hex: '#18181B' },
+            { label: 'Amber', hex: '#F59E0B' },
+            { label: 'Cyan', hex: '#06B6D4' },
+            { label: 'Emerald', hex: '#10B981' },
+            { label: 'Coral', hex: '#F43F5E' },
+            { label: 'Indigo', hex: '#818CF8' },
+            { label: 'Gold', hex: '#D4A03C' },
+            { label: 'Purple', hex: '#A855F7' },
+          ].map((item) => {
+            const activeColor = fontColor || (theme.colors as any).fontColor || theme.colors.textPrimary;
+            const isSelected = activeColor && activeColor.toLowerCase() === item.hex.toLowerCase();
+            return (
+              <Pressable
+                key={item.hex}
+                onPress={() => {
+                  haptics.light();
+                  setFontColor(item.hex);
+                  setCustomFontHex(item.hex);
+                }}
+                style={[
+                  styles.swatchCircle,
+                  { backgroundColor: item.hex },
+                  isSelected && { borderColor: theme.colors.primary, borderWidth: 3 },
+                ]}
+              >
+                {isSelected && (
+                  <AppIcon
+                    name="check"
+                    size={16}
+                    color={['#FFFFFF', '#F4F4F5', '#E4E4E7'].includes(item.hex) ? '#000000' : '#FFFFFF'}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Custom Font Hex Input */}
+        <View style={styles.urlInputRow}>
+          <View style={[styles.hexColorIndicator, { backgroundColor: customFontHex || '#FFFFFF' }]} />
+          <TextInput
+            style={[
+              styles.textInput,
+              {
+                color: theme.colors.textPrimary,
+                backgroundColor: theme.colors.background,
+                borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+              },
+            ]}
+            value={customFontHex}
+            onChangeText={(t) => {
+              setCustomFontHex(t);
+              if (/^#[0-9A-F]{6}$/i.test(t)) {
+                setFontColor(t);
+              }
+            }}
+            maxLength={7}
+            placeholder="#FFFFFF"
+            placeholderTextColor={theme.colors.textTertiary}
+            autoCapitalize="characters"
+          />
+          <Pressable
+            onPress={() => {
+              if (/^#[0-9A-F]{6}$/i.test(customFontHex)) {
+                haptics.light();
+                setFontColor(customFontHex);
+              }
+            }}
+            style={[styles.applyBtn, { backgroundColor: theme.colors.primary }]}
+          >
+            <AppIcon name="check" size={16} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
 
         <BentoSegmentControl
           activeValue={backgroundType}
@@ -1222,6 +1333,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     marginTop: 1,
+  },
+  resetFontBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  resetFontText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 
   // Segment Selector

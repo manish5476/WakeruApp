@@ -84,6 +84,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: 'rgba(142, 169, 224, 0.12)',
 
       textPrimary: '#E7E7EF',
+            fontColor: '#E7E7EF',
       textSecondary: '#B4B4C8',
       textTertiary: '#808096',
       textLink: '#A9AFF6',
@@ -136,6 +137,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: '#EEF2F8',
 
       textPrimary: '#152A3C',
+            fontColor: '#152A3C',
       textSecondary: '#3D5A75',
       textTertiary: '#7AA0CB',
       textLink: '#3D5B87',
@@ -187,6 +189,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: '#EEF2F8',
 
       textPrimary: '#3F2314',
+            fontColor: '#3F2314',
       textSecondary: '#8A5636',
       textTertiary: '#D68868',
       textLink: '#A0543D',
@@ -238,6 +241,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: '#EEF2F8',
 
       textPrimary: '#153021',
+            fontColor: '#153021',
       textSecondary: '#327256',
       textTertiary: '#83BE9C',
       textLink: '#285A44',
@@ -289,6 +293,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: '#F2F2F3',
 
       textPrimary: '#09090B',
+            fontColor: '#09090B',
       textSecondary: '#52525B',
       textTertiary: '#A0A0AA',
       textLink: '#121214',
@@ -340,6 +345,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: '#EEF2F8',
 
       textPrimary: '#3D1815',
+            fontColor: '#3D1815',
       textSecondary: '#943830',
       textTertiary: '#DC7E6D',
       textLink: '#943830',
@@ -391,6 +397,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: '#EEF2F8',
 
       textPrimary: '#43330D',
+            fontColor: '#43330D',
       textSecondary: '#96701A',
       textTertiary: '#DFAE52',
       textLink: '#755716',
@@ -442,6 +449,7 @@ export const themePresets: Record<ThemePreset, Theme> = {
       infoLight: '#EEF2F8',
 
       textPrimary: '#0A312C',
+            fontColor: '#0A312C',
       textSecondary: '#115E56',
       textTertiary: '#63C0AF',
       textLink: '#0F766E',

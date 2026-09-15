@@ -37,6 +37,7 @@ export interface UserPreferences {
     backgroundType: string;
     backgroundColor: string;
     backgroundImage: string;
+        fontColor?: string | null;
     backgroundBlur: number;
     backgroundImagePosition: {
       x: number;
