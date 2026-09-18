@@ -34,13 +34,20 @@ export const config = {
   },
 
   // Google Sign-In
-  GOOGLE_WEB_CLIENT_ID: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+  GOOGLE_WEB_CLIENT_ID:
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+    process.env.GOOGLE_WEB_CLIENT_ID ||
+    '160556151707-fec35bma6jit6l91d6r3k7fimsuoer39.apps.googleusercontent.com',
   GOOGLE_ANDROID_CLIENT_ID:
-    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+    process.env.GOOGLE_ANDROID_CLIENT_ID ||
+    '',
   GOOGLE_CLIENT_ID:
     Platform.OS === 'web'
-      ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
-      : process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      ? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+        '160556151707-fec35bma6jit6l91d6r3k7fimsuoer39.apps.googleusercontent.com'
+      : process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+        '160556151707-fec35bma6jit6l91d6r3k7fimsuoer39.apps.googleusercontent.com',
 
   // Pagination
   DEFAULT_PAGE_SIZE: 20,

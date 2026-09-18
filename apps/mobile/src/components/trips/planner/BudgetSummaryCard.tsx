@@ -93,58 +93,126 @@ export function BudgetSummaryCard({
       </View>
 
       {/* Rectangular KPI Cards Strip */}
-            <View style={styles.kpiStrip}>
-                <View style={[styles.kpiTile, { backgroundColor: theme.colors.surface, borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
-                    <View style={styles.kpiHeaderRow}>
-                        <View style={[styles.kpiIconWrap, { backgroundColor: '#EFF6FF' }]}>
-                            <AppIcon name="wallet" size={13} color="#2563EB" />
-                        </View>
-                        <View style={[styles.kpiBadgePill, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-                            <Text style={[styles.kpiBadgeText, { color: '#2563EB' }]}>BUDGET</Text>
-                        </View>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: theme.colors.textPrimary }]} numberOfLines={1}>
-                        {formatCompactCurrency(total)}
-                    </Text>
-                    <Text style={[styles.kpiSub, { color: theme.colors.textTertiary }]}>
-                        Trip limit
-                    </Text>
-                </View>
-
-                <View style={[styles.kpiTile, { backgroundColor: theme.colors.surface, borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
-                    <View style={styles.kpiHeaderRow}>
-                        <View style={[styles.kpiIconWrap, { backgroundColor: '#FEF2F2' }]}>
-                            <AppIcon name="credit-card" size={13} color="#EF4444" />
-                        </View>
-                        <View style={[styles.kpiBadgePill, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
-                            <Text style={[styles.kpiBadgeText, { color: '#EF4444' }]}>SPENT</Text>
-                        </View>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: theme.colors.textPrimary }]} numberOfLines={1}>
-                        {formatCompactCurrency(spent)}
-                    </Text>
-                    <Text style={[styles.kpiSub, { color: theme.colors.textTertiary }]}>
-                        {utilization}% utilized
-                    </Text>
-                </View>
-
-                <View style={[styles.kpiTile, { backgroundColor: theme.colors.surface, borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
-                    <View style={styles.kpiHeaderRow}>
-                        <View style={[styles.kpiIconWrap, { backgroundColor: '#ECFDF5' }]}>
-                            <AppIcon name="pie-chart" size={13} color="#10B981" />
-                        </View>
-                        <View style={[styles.kpiBadgePill, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
-                            <Text style={[styles.kpiBadgeText, { color: '#10B981' }]}>REMAINING</Text>
-                        </View>
-                    </View>
-                    <Text style={[styles.kpiValue, { color: theme.colors.textPrimary }]} numberOfLines={1}>
-                        {formatCompactCurrency(Math.max(total - spent, 0))}
-                    </Text>
-                    <Text style={[styles.kpiSub, { color: isOverBudget ? theme.colors.danger : theme.colors.textTertiary }]}>
-                        {isOverBudget ? 'Over budget' : 'Remaining'}
-                    </Text>
-                </View>
+      <View style={styles.kpiStrip}>
+        <View
+          style={[
+            styles.kpiTile,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.isDark
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(0,0,0,0.05)',
+            },
+          ]}
+        >
+          <View style={styles.kpiHeaderRow}>
+            <View style={[styles.kpiIconWrap, { backgroundColor: '#EFF6FF' }]}>
+              <AppIcon name="wallet" size={13} color="#2563EB" />
             </View>
+            <View
+              style={[
+                styles.kpiBadgePill,
+                { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
+              ]}
+            >
+              <Text style={[styles.kpiBadgeText, { color: '#2563EB' }]}>
+                BUDGET
+              </Text>
+            </View>
+          </View>
+          <Text
+            style={[styles.kpiValue, { color: theme.colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {formatCompactCurrency(total)}
+          </Text>
+          <Text style={[styles.kpiSub, { color: theme.colors.textTertiary }]}>
+            Trip limit
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.kpiTile,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.isDark
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(0,0,0,0.05)',
+            },
+          ]}
+        >
+          <View style={styles.kpiHeaderRow}>
+            <View style={[styles.kpiIconWrap, { backgroundColor: '#FEF2F2' }]}>
+              <AppIcon name="credit-card" size={13} color="#EF4444" />
+            </View>
+            <View
+              style={[
+                styles.kpiBadgePill,
+                { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+              ]}
+            >
+              <Text style={[styles.kpiBadgeText, { color: '#EF4444' }]}>
+                SPENT
+              </Text>
+            </View>
+          </View>
+          <Text
+            style={[styles.kpiValue, { color: theme.colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {formatCompactCurrency(spent)}
+          </Text>
+          <Text style={[styles.kpiSub, { color: theme.colors.textTertiary }]}>
+            {utilization}% utilized
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.kpiTile,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.isDark
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(0,0,0,0.05)',
+            },
+          ]}
+        >
+          <View style={styles.kpiHeaderRow}>
+            <View style={[styles.kpiIconWrap, { backgroundColor: '#ECFDF5' }]}>
+              <AppIcon name="pie-chart" size={13} color="#10B981" />
+            </View>
+            <View
+              style={[
+                styles.kpiBadgePill,
+                { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
+              ]}
+            >
+              <Text style={[styles.kpiBadgeText, { color: '#10B981' }]}>
+                REMAINING
+              </Text>
+            </View>
+          </View>
+          <Text
+            style={[styles.kpiValue, { color: theme.colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {formatCompactCurrency(Math.max(total - spent, 0))}
+          </Text>
+          <Text
+            style={[
+              styles.kpiSub,
+              {
+                color: isOverBudget
+                  ? theme.colors.danger
+                  : theme.colors.textTertiary,
+              },
+            ]}
+          >
+            {isOverBudget ? 'Over budget' : 'Remaining'}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.barSection}>
@@ -343,56 +411,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-      kpiStrip: {
-        flexDirection: 'row',
-        gap: 10,
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-    },
-    kpiTile: {
-        flex: 1,
-        minHeight: 78,
-        borderRadius: 16,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderWidth: 1,
-        justifyContent: 'space-between',
-    },
-    kpiHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 4,
-    },
-    kpiIconWrap: {
-        width: 22,
-        height: 22,
-        borderRadius: 6,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    kpiBadgePill: {
-        paddingHorizontal: 5,
-        paddingVertical: 1.5,
-        borderRadius: 6,
-        borderWidth: 1,
-    },
-    kpiBadgeText: {
-        fontSize: 8.5,
-        fontWeight: '800',
-        letterSpacing: 0.5,
-    },
-    kpiValue: {
-        fontSize: 17,
-        fontWeight: '900',
-        letterSpacing: -0.4,
-    },
-    kpiSub: {
-        fontSize: 10,
-        fontWeight: '500',
-        marginTop: 1,
-    },
-    breakdownGrid: {
+  kpiStrip: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  kpiTile: {
+    flex: 1,
+    minHeight: 78,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    justifyContent: 'space-between',
+  },
+  kpiHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  kpiIconWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kpiBadgePill: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  kpiBadgeText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  kpiValue: {
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  kpiSub: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  breakdownGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,

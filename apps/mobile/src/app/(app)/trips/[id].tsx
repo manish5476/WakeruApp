@@ -23,6 +23,7 @@ import {
   PressableStateCallbackType,
   Image,
   ImageBackground,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -54,6 +55,7 @@ import {
 import { useAuthStore } from '../../../stores/auth.store';
 import { useSocket } from '../../../hooks/useSocket';
 import { useTheme } from '../../../providers/ThemeProvider';
+import { showToast } from '../../../utils/toast';
 
 // UI Components
 import { InviteFriendModal } from '../../../components/trips/InviteFriendModal';
@@ -75,12 +77,22 @@ type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
 const TABS = ['Overview', 'Planner', 'Expenses', 'Stops', 'Members', 'Settle'];
 
 const TRIP_NAV_TABS = [
-    { key: 0, label: 'Overview', icon: 'layout-grid', desc: 'Summary & quick stats' },
-    { key: 1, label: 'Planner', icon: 'calendar', desc: 'Schedule & itinerary' },
-    { key: 2, label: 'Expenses', icon: 'receipt', desc: 'Split bills & records' },
-    { key: 3, label: 'Stops', icon: 'map-pin', desc: 'Destinations & places' },
-    { key: 4, label: 'Members', icon: 'users', desc: 'Travelers & permissions' },
-    { key: 5, label: 'Settle Up', icon: 'circle-check', desc: 'Balances & settlements' },
+  {
+    key: 0,
+    label: 'Overview',
+    icon: 'layout-grid',
+    desc: 'Summary & quick stats',
+  },
+  { key: 1, label: 'Planner', icon: 'calendar', desc: 'Schedule & itinerary' },
+  { key: 2, label: 'Expenses', icon: 'receipt', desc: 'Split bills & records' },
+  { key: 3, label: 'Stops', icon: 'map-pin', desc: 'Destinations & places' },
+  { key: 4, label: 'Members', icon: 'users', desc: 'Travelers & permissions' },
+  {
+    key: 5,
+    label: 'Settle Up',
+    icon: 'circle-check',
+    desc: 'Balances & settlements',
+  },
 ];
 const DEFAULT_COVER =
   'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2';
@@ -501,7 +513,11 @@ export default function TripDetailScreen() {
     haptics.medium();
     if (trip?.inviteCode) {
       try {
-        const message = `Join my trip "${trip.title}" on Wakeru!\nCode: ${trip.inviteCode}\nLink: wakeru://join/${trip.inviteCode}`;
+        const webUrl =
+          Platform.OS === 'web' && typeof window !== 'undefined'
+            ? `${window.location.origin}/join/${trip.inviteCode}`
+            : `https://tripsplit.app/join/${trip.inviteCode}`;
+        const message = `Join my trip "${trip.title}" on Wakeru!\nCode: ${trip.inviteCode}\nJoin: ${webUrl}\nApp: wakeru://join/${trip.inviteCode}`;
 
         if (Platform.OS === 'web') {
           if (navigator.share)
@@ -531,7 +547,7 @@ export default function TripDetailScreen() {
           await Share.share({ message });
         }
       } catch (err) {
-        Alert.alert('Error', 'Failed to share invite card.');
+        showToast.error('Share Failed', 'Failed to share invite card.');
       } finally {
         setIsSharing(false);
       }
@@ -542,7 +558,7 @@ export default function TripDetailScreen() {
 
   const handleGenerateReport = async () => {
     if (!trip) {
-      Alert.alert('Loading', 'Trip data is still loading...');
+      showToast.info('Loading', 'Trip data is still loading...');
       return;
     }
 
@@ -723,19 +739,23 @@ export default function TripDetailScreen() {
               printWindow.close();
             }, 250);
           } else {
-            window.alert(
-              'Popup blocked! Please allow popups to view and print the report.',
+            showToast.warning(
+              'Popup Blocked',
+              'Please allow popups to view and print the report.',
             );
           }
         } catch (error) {
-          window.alert('Could not generate PDF report');
+          showToast.error('Export Failed', 'Could not generate PDF report.');
         }
       } else {
         try {
           await Clipboard.setStringAsync(textReport);
-          window.alert('Text report copied to clipboard!');
+          showToast.success(
+            'Copied to Clipboard',
+            'Text report copied to clipboard!',
+          );
         } catch (error) {
-          window.alert('Could not copy text report');
+          showToast.error('Copy Failed', 'Could not copy text report.');
         }
       }
     } else {
@@ -753,7 +773,7 @@ export default function TripDetailScreen() {
                   title: `${trip.title} Trip Report`,
                 });
               } catch (error) {
-                Alert.alert('Error', 'Could not share text report');
+                showToast.error('Share Failed', 'Could not share text report.');
               }
             },
           },
@@ -767,7 +787,7 @@ export default function TripDetailScreen() {
                   mimeType: 'application/pdf',
                 });
               } catch (error) {
-                Alert.alert('Error', 'Could not generate PDF report');
+                showToast.error('PDF Failed', 'Could not generate PDF report.');
               }
             },
           },
@@ -2051,7 +2071,10 @@ export default function TripDetailScreen() {
             style={[
               styles.actionIconWrap,
               activeSubView === 'overview' && {
-                backgroundColor: theme.colors.primary,
+                backgroundColor: theme.isDark
+                  ? 'rgba(255,255,255,0.14)'
+                  : theme.colors.primary,
+                borderColor: theme.colors.primary,
               },
             ]}
             intensity={theme.isDark ? 15 : 8}
@@ -2060,7 +2083,11 @@ export default function TripDetailScreen() {
               name="home"
               size={18}
               color={
-                activeSubView === 'overview' ? '#FFF' : theme.colors.primary
+                activeSubView === 'overview'
+                  ? theme.isDark
+                    ? theme.colors.primary
+                    : '#FFF'
+                  : theme.colors.primary
               }
             />
           </GlassCard>
@@ -2109,7 +2136,10 @@ export default function TripDetailScreen() {
             style={[
               styles.actionIconWrap,
               activeSubView === 'summary' && {
-                backgroundColor: theme.colors.primary,
+                backgroundColor: theme.isDark
+                  ? 'rgba(255,255,255,0.14)'
+                  : theme.colors.primary,
+                borderColor: theme.colors.primary,
               },
             ]}
             intensity={theme.isDark ? 15 : 8}
@@ -2118,7 +2148,11 @@ export default function TripDetailScreen() {
               name="activity"
               size={18}
               color={
-                activeSubView === 'summary' ? '#FFF' : theme.colors.success
+                activeSubView === 'summary'
+                  ? theme.isDark
+                    ? theme.colors.primary
+                    : '#FFF'
+                  : theme.colors.success
               }
             />
           </GlassCard>
@@ -2146,7 +2180,10 @@ export default function TripDetailScreen() {
             style={[
               styles.actionIconWrap,
               activeSubView === 'analytics' && {
-                backgroundColor: theme.colors.primary,
+                backgroundColor: theme.isDark
+                  ? 'rgba(255,255,255,0.14)'
+                  : theme.colors.primary,
+                borderColor: theme.colors.primary,
               },
             ]}
             intensity={theme.isDark ? 15 : 8}
@@ -2154,7 +2191,13 @@ export default function TripDetailScreen() {
             <AppIcon
               name="bar-chart-2"
               size={18}
-              color={activeSubView === 'analytics' ? '#FFF' : theme.colors.info}
+              color={
+                activeSubView === 'analytics'
+                  ? theme.isDark
+                    ? theme.colors.primary
+                    : '#FFF'
+                  : theme.colors.info
+              }
             />
           </GlassCard>
           <Text
@@ -2181,7 +2224,10 @@ export default function TripDetailScreen() {
             style={[
               styles.actionIconWrap,
               activeSubView === 'rankings' && {
-                backgroundColor: theme.colors.primary,
+                backgroundColor: theme.isDark
+                  ? 'rgba(255,255,255,0.14)'
+                  : theme.colors.primary,
+                borderColor: theme.colors.primary,
               },
             ]}
             intensity={theme.isDark ? 15 : 8}
@@ -2190,7 +2236,11 @@ export default function TripDetailScreen() {
               name="award"
               size={18}
               color={
-                activeSubView === 'rankings' ? '#FFF' : theme.colors.warning
+                activeSubView === 'rankings'
+                  ? theme.isDark
+                    ? theme.colors.primary
+                    : '#FFF'
+                  : theme.colors.warning
               }
             />
           </GlassCard>
@@ -2218,7 +2268,10 @@ export default function TripDetailScreen() {
             style={[
               styles.actionIconWrap,
               activeSubView === 'story' && {
-                backgroundColor: theme.colors.primary,
+                backgroundColor: theme.isDark
+                  ? 'rgba(255,255,255,0.14)'
+                  : theme.colors.primary,
+                borderColor: theme.colors.primary,
               },
             ]}
             intensity={theme.isDark ? 15 : 8}
@@ -2226,7 +2279,13 @@ export default function TripDetailScreen() {
             <AppIcon
               name="play-circle"
               size={18}
-              color={activeSubView === 'story' ? '#FFF' : theme.colors.info}
+              color={
+                activeSubView === 'story'
+                  ? theme.isDark
+                    ? theme.colors.primary
+                    : '#FFF'
+                  : theme.colors.info
+              }
             />
           </GlassCard>
           <Text
@@ -2353,42 +2412,1244 @@ export default function TripDetailScreen() {
 
       {/* DEFAULT EXECUTIVE OVERVIEW */}
       {activeSubView === 'overview' && (
-                <>
-                    {/* Rectangular Executive Overview KPI Strip */}
-                    <Text style={[styles.sectionHeader, { marginTop: 12, paddingHorizontal: 4, color: theme.colors.textPrimary }]}>
-                        Executive Overview
+        <>
+          {/* Rectangular Executive Overview KPI Strip */}
+          <Text
+            style={[
+              styles.sectionHeader,
+              {
+                marginTop: 12,
+                paddingHorizontal: 4,
+                color: theme.colors.textPrimary,
+              },
+            ]}
+          >
+            Executive Overview
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginHorizontal: -16 }}
+            contentContainerStyle={[
+              styles.kpiCardsRow,
+              { paddingHorizontal: 16 },
+            ]}
+          >
+            {[
+              {
+                icon: 'wallet',
+                label: 'BUDGET',
+                value: `${formatAmount(budget, trip.baseCurrency)}`,
+                sub: dur > 0 ? `${dur} days allocated` : 'Trip limit',
+                color: '#2563EB',
+                bg: '#EFF6FF',
+              },
+              {
+                icon: 'credit-card',
+                label: 'TOTAL SPENT',
+                value: `${formatAmount(spent, trip.baseCurrency)}`,
+                sub:
+                  budget > 0
+                    ? `${progressPercent.toFixed(0)}% of budget`
+                    : 'Total expenses',
+                color: '#EF4444',
+                bg: '#FEF2F2',
+              },
+              {
+                icon: 'pie-chart',
+                label: 'REMAINING',
+                value: `${formatAmount(Math.max(budget - spent, 0), trip.baseCurrency)}`,
+                sub:
+                  budget > 0
+                    ? isOverBudget
+                      ? 'Budget exceeded'
+                      : `${formatAmount(budget - spent, trip.baseCurrency)} left`
+                    : 'Live tracking',
+                color: '#10B981',
+                bg: '#ECFDF5',
+              },
+              {
+                icon: 'calendar',
+                label: 'DAILY AVG',
+                value: `${formatAmount(dur > 0 ? spent / dur : spent, trip.baseCurrency)}`,
+                sub: dur > 0 ? `Avg per day (${dur}d)` : 'Daily estimate',
+                color: '#D97706',
+                bg: '#FEF3C7',
+              },
+            ].map((stat, i) => (
+              <GlassCard
+                key={i}
+                style={styles.rectangularKpiCard}
+                intensity={theme.isDark ? 15 : 10}
+              >
+                <View style={styles.kpiHeaderRow}>
+                  <View
+                    style={[
+                      styles.kpiIconWrap,
+                      {
+                        backgroundColor: theme.isDark
+                          ? `${stat.color}20`
+                          : stat.bg,
+                      },
+                    ]}
+                  >
+                    <AppIcon
+                      name={stat.icon as any}
+                      size={13}
+                      color={stat.color}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.kpiBadgePill,
+                      {
+                        backgroundColor: `${stat.color}15`,
+                        borderColor: `${stat.color}25`,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.kpiBadgeText, { color: stat.color }]}>
+                      {stat.label}
                     </Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={[styles.kpiCardsRow, { paddingHorizontal: 16 }]}>
-                        {[
-                            { icon: 'wallet', label: 'BUDGET', value: `${formatAmount(budget, trip.baseCurrency)}`, sub: dur > 0 ? `${dur} days allocated` : 'Trip limit', color: '#2563EB', bg: '#EFF6FF' },
-                            { icon: 'credit-card', label: 'TOTAL SPENT', value: `${formatAmount(spent, trip.baseCurrency)}`, sub: budget > 0 ? `${progressPercent.toFixed(0)}% of budget` : 'Total expenses', color: '#EF4444', bg: '#FEF2F2' },
-                            { icon: 'pie-chart', label: 'REMAINING', value: `${formatAmount(Math.max(budget - spent, 0), trip.baseCurrency)}`, sub: budget > 0 ? (isOverBudget ? 'Budget exceeded' : `${formatAmount(budget - spent, trip.baseCurrency)} left`) : 'Live tracking', color: '#10B981', bg: '#ECFDF5' },
-                            { icon: 'calendar', label: 'DAILY AVG', value: `${formatAmount(dur > 0 ? spent / dur : spent, trip.baseCurrency)}`, sub: dur > 0 ? `Avg per day (${dur}d)` : 'Daily estimate', color: '#D97706', bg: '#FEF3C7' },
-                        ].map((stat, i) => (
-                            <GlassCard
-                                key={i}
-                                style={styles.rectangularKpiCard}
-                                intensity={theme.isDark ? 15 : 10}
-                            >
-                                <View style={styles.kpiHeaderRow}>
-                                    <View style={[styles.kpiIconWrap, { backgroundColor: theme.isDark ? `${stat.color}20` : stat.bg }]}>
-                                        <AppIcon name={stat.icon as any} size={13} color={stat.color} />
-                                    </View>
-                                    <View style={[styles.kpiBadgePill, { backgroundColor: `${stat.color}15`, borderColor: `${stat.color}25` }]}>
-                                        <Text style={[styles.kpiBadgeText, { color: stat.color }]}>
-                                            {stat.label}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <Text style={[styles.kpiValue, { color: theme.colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
-                                    {stat.value}
-                                </Text>
-                                <Text style={[styles.kpiSub, { color: theme.colors.textTertiary }]} numberOfLines={1}>
-                                    {stat.sub}
-                                </Text>
-                            </GlassCard>
-                        ))}
-                    </ScrollView>
+                  </View>
+                </View>
+                <Text
+                  style={[styles.kpiValue, { color: theme.colors.textPrimary }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  {stat.value}
+                </Text>
+                <Text
+                  style={[styles.kpiSub, { color: theme.colors.textTertiary }]}
+                  numberOfLines={1}
+                >
+                  {stat.sub}
+                </Text>
+              </GlassCard>
+            ))}
+          </ScrollView>
+
+          {/* Stops Overview */}
+          <Text
+            style={[
+              styles.sectionHeader,
+              {
+                marginTop: 24,
+                paddingHorizontal: 4,
+                color: theme.colors.textPrimary,
+              },
+            ]}
+          >
+            Stops Overview
+          </Text>
+          <GlassCard
+            style={styles.overviewStopsCard}
+            intensity={theme.isDark ? 10 : 5}
+          >
+            {trip?.stops?.length > 0 ? (
+              trip.stops.map((stop: any, idx: number) => {
+                const stopBudgetHealth = stop.budgetBase
+                  ? stop.totalSpentBase > stop.budgetBase
+                    ? 'danger'
+                    : stop.totalSpentBase > stop.budgetBase * 0.8
+                      ? 'warning'
+                      : 'success'
+                  : null;
+                return (
+                  <Pressable
+                    key={stop._id}
+                    style={({ hovered }: WebPressableState) => [
+                      styles.stopSummaryRow,
+                      idx === trip.stops.length - 1 && { borderBottomWidth: 0 },
+                      Platform.OS === 'web' &&
+                        hovered &&
+                        ({ opacity: 0.8 } as any),
+                    ]}
+                    onPress={() =>
+                      router.push(`/(app)/trips/${id}/stops/${stop._id}`)
+                    }
+                  >
+                    <View style={styles.stopSummaryLeft}>
+                      <View style={styles.stopSummaryIconBox}>
+                        <Text style={styles.stopSummaryEmoji}>
+                          {stop.emoji || '📍'}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text
+                          style={[
+                            styles.stopSummaryName,
+                            { color: theme.colors.textPrimary },
+                          ]}
+                        >
+                          {stop.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.stopSummaryCount,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          {stop.expenseCount} expenses
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.stopSummaryRight}>
+                      <Text
+                        style={[
+                          styles.stopSummaryAmount,
+                          { color: theme.colors.textPrimary },
+                        ]}
+                      >
+                        {stop.totalSpentLocal.toLocaleString()} {stop.currency}
+                      </Text>
+                      {stopBudgetHealth && (
+                        <View
+                          style={[
+                            styles.healthDot,
+                            {
+                              backgroundColor:
+                                stopBudgetHealth === 'success'
+                                  ? theme.colors.success
+                                  : stopBudgetHealth === 'warning'
+                                    ? theme.colors.warning
+                                    : theme.colors.danger,
+                            },
+                          ]}
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })
+            ) : (
+              <Text
+                style={[
+                  styles.emptyText,
+                  { color: theme.colors.textSecondary, marginBottom: 12 },
+                ]}
+              >
+                No stops added yet.
+              </Text>
+            )}
+            <Pressable
+              style={({ hovered }: WebPressableState) => [
+                styles.addStopBtnOutline,
+                Platform.OS === 'web' &&
+                  hovered &&
+                  ({ backgroundColor: theme.colors.primaryBg } as any),
+              ]}
+              onPress={() => router.push(`/(app)/trips/${id}/add-stop`)}
+            >
+              <Text
+                style={[styles.addStopBtnText, { color: theme.colors.primary }]}
+              >
+                + Add New Stop
+              </Text>
+            </Pressable>
+          </GlassCard>
+        </>
+      )}
+    </View>
+  );
+
+  // ============================================================
+  // TAB 3: STOPS
+  // ============================================================
+  const renderStopsTab = () => (
+    <View style={styles.tabContent}>
+      {trip.stops.length === 0 ? (
+        <GlassCard style={styles.emptyState} intensity={theme.isDark ? 10 : 5}>
+          <Text style={styles.emptyEmoji}>📍</Text>
+          <Text
+            style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}
+          >
+            No Stops Yet
+          </Text>
+          <Text
+            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
+          >
+            Add stops to organize expenses by location.
+          </Text>
+          <Pressable
+            style={[
+              styles.primaryButton,
+              { backgroundColor: theme.colors.primary },
+            ]}
+            onPress={() => router.push(`/(app)/trips/${id}/add-stop`)}
+          >
+            <Text style={styles.primaryButtonText}>Add First Stop</Text>
+          </Pressable>
+        </GlassCard>
+      ) : (
+        <View>
+          <View style={styles.stopsHeaderRow}>
+            <View
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            >
+              <Text
+                style={[
+                  styles.stopsHeaderLeft,
+                  { color: theme.colors.textPrimary },
+                ]}
+              >
+                Total {trip.stops.length} Stops
+              </Text>
+              {trip.stops.length > 1 && (
+                <Pressable
+                  onPress={() =>
+                    router.push(`/(app)/trips/${id}/stops/reorder`)
+                  }
+                >
+                  <Text
+                    style={{
+                      color: theme.colors.primary,
+                      fontWeight: '600',
+                      fontSize: 14,
+                    }}
+                  >
+                    Reorder
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.stopsHeaderRight,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              {cs}
+              {spent.toLocaleString()}
+            </Text>
+          </View>
+
+          <View
+            style={
+              Platform.OS === 'web'
+                ? styles.webGrid
+                : {
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                  }
+            }
+          >
+            {trip.stops.map((stop: any, index: number) => (
+              <View
+                key={stop._id}
+                style={
+                  Platform.OS === 'web'
+                    ? styles.webGridItem
+                    : {
+                        width: isSmallScreen ? '100%' : '48%',
+                        marginBottom: 16,
+                      }
+                }
+              >
+                <StopCard
+                  stop={{ ...stop, baseCurrency: trip.baseCurrency }}
+                  onPress={() =>
+                    router.push(`/(app)/trips/${id}/stops/${stop._id}`)
+                  }
+                  index={index}
+                />
+              </View>
+            ))}
+          </View>
+
+          <Pressable
+            style={[
+              styles.addStopDashedBtn,
+              { borderColor: theme.colors.primary },
+            ]}
+            onPress={() => router.push(`/(app)/trips/${id}/add-stop`)}
+          >
+            <Text
+              style={[
+                styles.addStopDashedBtnText,
+                { color: theme.colors.primary },
+              ]}
+            >
+              + Add New Stop
+            </Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+
+  // ============================================================
+  // TAB 4: MEMBERS
+  // ============================================================
+  const renderMembersTab = () => (
+    <View style={styles.tabContent}>
+      <View style={{ marginBottom: 24 }}>
+        <Text
+          style={[
+            styles.sectionHeader,
+            { marginBottom: 16, color: theme.colors.textPrimary },
+          ]}
+        >
+          Travelers ({members.length})
+        </Text>
+        <View style={Platform.OS === 'web' ? styles.webGrid : { gap: 16 }}>
+          {members.map((member: any) => (
+            <View
+              key={member.userId}
+              style={Platform.OS === 'web' ? styles.webGridItem : {}}
+            >
+              <MemberRow member={member} currencySymbol={cs} />
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Join Requests */}
+      {pendingRequests && pendingRequests.length > 0 && (
+        <GlassCard
+          style={[styles.membersCard, { borderColor: theme.colors.primary }]}
+          intensity={theme.isDark ? 12 : 6}
+        >
+          <Text
+            style={[styles.sectionHeader, { color: theme.colors.textPrimary }]}
+          >
+            Requests ({pendingRequests.length})
+          </Text>
+          {pendingRequests.map((req: any, idx: number) => (
+            <View key={req._id}>
+              <View style={styles.requestRow}>
+                <View
+                  style={[
+                    styles.requestAvatar,
+                    { backgroundColor: theme.colors.primaryBg },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.requestAvatarText,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    {req.userName.charAt(0)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.requestName,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    {req.userName}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requestSub,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    Requested to join
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    style={[
+                      styles.reqBtn,
+                      { backgroundColor: theme.colors.success },
+                    ]}
+                    onPress={() => approveRequest(req._id)}
+                    disabled={isApproving}
+                  >
+                    <Text style={styles.reqBtnText}>Accept</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.reqBtn,
+                      { backgroundColor: theme.colors.danger },
+                    ]}
+                    onPress={() => rejectRequest(req._id)}
+                    disabled={isRejecting}
+                  >
+                    <Text style={styles.reqBtnText}>Deny</Text>
+                  </Pressable>
+                </View>
+              </View>
+              {idx < pendingRequests.length - 1 && (
+                <View
+                  style={[
+                    styles.divider,
+                    { backgroundColor: theme.colors.borderLight },
+                  ]}
+                />
+              )}
+            </View>
+          ))}
+        </GlassCard>
+      )}
+
+      {/* Invite Card */}
+      {trip.inviteCode ? (
+        <GlassCard
+          style={[styles.memberCard, { marginTop: 8 }]}
+          intensity={theme.isDark ? 12 : 6}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}
+          >
+            <Pressable
+              onLongPress={async () => {
+                await Clipboard.setStringAsync(trip.inviteCode);
+                Alert.alert('Copied!');
+              }}
+            >
+              <Text
+                style={[
+                  styles.inviteLabel,
+                  { color: theme.colors.textSecondary },
+                ]}
+              >
+                Invite Code
+              </Text>
+              <Text
+                style={[
+                  styles.inviteCode,
+                  {
+                    color: theme.colors.textPrimary,
+                    marginTop: 8,
+                    marginBottom: 4,
+                  },
+                ]}
+              >
+                {trip.inviteCode}
+              </Text>
+              <Text style={{ fontSize: 12, color: theme.colors.textTertiary }}>
+                Tap to copy
+              </Text>
+              {trip.inviteCodeExpiresAt && (
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: theme.colors.textTertiary,
+                    marginTop: 4,
+                  }}
+                >
+                  Valid until{' '}
+                  {format(new Date(trip.inviteCodeExpiresAt), 'MMM d, h:mm a')}
+                </Text>
+              )}
+            </Pressable>
+            <Pressable
+              style={[
+                styles.inviteShareBtn,
+                { backgroundColor: theme.colors.primaryBg },
+              ]}
+              onPress={handleShareInvite}
+            >
+              <AppIcon name="share-2" size={18} color={theme.colors.primary} />
+            </Pressable>
+          </View>
+          <Pressable
+            style={[
+              styles.primaryButton,
+              { backgroundColor: theme.colors.primary, marginTop: 16 },
+            ]}
+            onPress={() => setShowInviteFriendModal(true)}
+          >
+            <Text style={styles.primaryButtonText}>+ Invite Friends</Text>
+          </Pressable>
+        </GlassCard>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <Pressable
+            style={[
+              styles.addStopBtn,
+              { borderColor: theme.colors.border, flex: 1 },
+            ]}
+            onPress={handleInvite}
+          >
+            <Text style={[styles.addStopText, { color: theme.colors.primary }]}>
+              Generate Link
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.addStopBtn,
+              {
+                borderColor: theme.colors.primary,
+                backgroundColor: theme.colors.primary,
+                flex: 1,
+              },
+            ]}
+            onPress={() => setShowInviteFriendModal(true)}
+          >
+            <Text style={[styles.addStopText, { color: theme.colors.surface }]}>
+              Invite Friends
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Manual Search */}
+      <Text
+        style={[
+          styles.sectionHeader,
+          { marginTop: 24, color: theme.colors.textPrimary },
+        ]}
+      >
+        Add Manually
+      </Text>
+      <GlassCard style={styles.searchWrap} intensity={theme.isDark ? 10 : 5}>
+        <AppIcon name="search" size={16} color={theme.colors.textTertiary} />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.textPrimary }]}
+          placeholder="Search by email or name..."
+          placeholderTextColor={theme.colors.textTertiary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </GlassCard>
+
+      {isSearching && (
+        <GlobalLoader
+          variant="inline"
+          color={theme.colors.primary}
+          style={{ marginTop: 16 }}
+        />
+      )}
+
+      {searchResults.length > 0 && (
+        <View style={{ marginTop: 16, gap: 12 }}>
+          {searchResults.map((usr: any) => {
+            const isAlreadyMember = members.some(
+              (m: any) => m.userId === usr._id && m.isActive,
+            );
+            return (
+              <GlassCard
+                key={usr._id}
+                style={styles.searchResultCard}
+                intensity={theme.isDark ? 8 : 4}
+              >
+                <View
+                  style={[
+                    styles.requestAvatar,
+                    { backgroundColor: theme.colors.primaryBg },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.requestAvatarText,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    {usr.displayName.charAt(0)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.requestName,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    {usr.displayName}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.requestSub,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {usr.email}
+                  </Text>
+                </View>
+                {isAlreadyMember ? (
+                  <Badge label="Joined" variant="success" />
+                ) : (
+                  <Pressable
+                    style={[
+                      styles.reqBtn,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                    disabled={isAddingMember}
+                    onPress={() =>
+                      addTripMember(
+                        { tripId: id, userId: usr._id },
+                        {
+                          onSuccess: () => {
+                            setSearchQuery('');
+                            Alert.alert('Added!');
+                          },
+                        },
+                      )
+                    }
+                  >
+                    <Text style={styles.reqBtnText}>Add</Text>
+                  </Pressable>
+                )}
+              </GlassCard>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+
+  // ============================================================
+  // MAIN RENDER WRAPPER
+  // ============================================================
+
+  const renderStickyHeaderContent = () => (
+    <View style={styles.headerTopRow}>
+      <Pressable
+        onPress={() => router.back()}
+        style={[styles.iconBtn, { backgroundColor: theme.colors.surface }]}
+      >
+        <AppIcon name="arrow-left" size={18} color={theme.colors.textPrimary} />
+      </Pressable>
+      <View style={styles.headerRight}>
+        {activeMembers.length > 0 && (
+          <AvatarGroup urls={memberUrls} max={3} size={28} />
+        )}
+        <Pressable
+          onPress={() => router.push(`/(app)/trips/${id}/settings`)}
+          style={[
+            styles.iconBtn,
+            { marginLeft: 12, backgroundColor: theme.colors.surface },
+          ]}
+        >
+          <AppIcon name="settings" size={18} color={theme.colors.textPrimary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const renderCinematicHeaderText = () => (
+    <View style={styles.cinematicHeaderText}>
+      <Badge
+        label={trip.isArchived ? 'Archived' : 'Active'}
+        variant={trip.isArchived ? 'neutral' : 'success'}
+      />
+      <Text
+        style={[styles.tripTitle, { color: theme.colors.textPrimary }]}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+      >
+        {trip.title}
+      </Text>
+      <Text
+        style={[styles.tripSubtitle, { color: theme.colors.textSecondary }]}
+      >
+        {format(s, 'MMM d')} – {format(e, 'MMM d, yyyy')} • {dur} Days
+      </Text>
+    </View>
+  );
+
+  const renderDesktopSidebar = () => (
+    <View style={styles.desktopSidebar}>
+      {renderStickyHeaderContent()}
+      {renderCinematicHeaderText()}
+
+      <GlassCard
+        style={styles.desktopNavCard}
+        intensity={theme.isDark ? 20 : 10}
+      >
+        <View style={styles.desktopNavHeader}>
+          <Text
+            style={[
+              styles.desktopNavSectionTitle,
+              { color: theme.colors.textTertiary },
+            ]}
+          >
+            TRIP NAVIGATION
+          </Text>
+        </View>
+
+        <View style={styles.desktopNavItems}>
+          {TRIP_NAV_TABS.map(tab => {
+            const isActive = activeTab === tab.key;
+            const count =
+              tab.key === 3
+                ? trip?.stops?.length
+                : tab.key === 4
+                  ? activeMembers?.length
+                  : undefined;
+
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => {
+                  haptics.selection();
+                  setActiveTab(tab.key);
+                }}
+                style={({ pressed, hovered }: any) => [
+                  styles.desktopNavItem,
+                  isActive && [
+                    styles.desktopNavItemActive,
+                    {
+                      backgroundColor: theme.isDark
+                        ? 'rgba(255, 255, 255, 0.08)'
+                        : 'rgba(0, 0, 0, 0.04)',
+                      borderColor: theme.isDark
+                        ? 'rgba(255, 255, 255, 0.12)'
+                        : `${theme.colors.primary}25`,
+                    },
+                  ],
+                  pressed && { transform: [{ scale: 0.98 }] },
+                  Platform.OS === 'web' &&
+                    hovered &&
+                    !isActive && {
+                      backgroundColor: theme.isDark
+                        ? 'rgba(255, 255, 255, 0.04)'
+                        : 'rgba(0, 0, 0, 0.02)',
+                    },
+                ]}
+              >
+                {isActive && (
+                  <View
+                    style={[
+                      styles.activeTabPill,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  />
+                )}
+                <View
+                  style={[
+                    styles.desktopNavIconWrap,
+                    {
+                      backgroundColor: isActive
+                        ? theme.colors.primary
+                        : theme.isDark
+                          ? 'rgba(255, 255, 255, 0.06)'
+                          : 'rgba(0, 0, 0, 0.04)',
+                    },
+                  ]}
+                >
+                  <AppIcon
+                    name={tab.icon as any}
+                    size={16}
+                    color={
+                      isActive
+                        ? theme.isDark &&
+                          (theme.colors.primary === '#F4F4F5' ||
+                            theme.colors.primary === '#FFFFFF')
+                          ? '#18181B'
+                          : '#FFFFFF'
+                        : theme.colors.textSecondary
+                    }
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.desktopNavLabel,
+                      {
+                        color: isActive
+                          ? theme.colors.fontColor || theme.colors.textPrimary
+                          : theme.colors.textSecondary,
+                        fontWeight: isActive ? '800' : '600',
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {tab.label}
+                  </Text>
+                </View>
+                {count !== undefined && count > 0 && (
+                  <View
+                    style={[
+                      styles.desktopNavBadge,
+                      {
+                        backgroundColor: isActive
+                          ? `${theme.colors.primary}25`
+                          : theme.isDark
+                            ? 'rgba(255, 255, 255, 0.08)'
+                            : 'rgba(0, 0, 0, 0.05)',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.desktopNavBadgeText,
+                        {
+                          color: isActive
+                            ? theme.colors.fontColor || theme.colors.textPrimary
+                            : theme.colors.textTertiary,
+                        },
+                      ]}
+                    >
+                      {count}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Quick Add Expense in Sidebar */}
+        <Pressable
+          onPress={() => {
+            haptics.medium();
+            router.push(`/(app)/trips/${id}/add-expense`);
+          }}
+          style={({ pressed, hovered }: any) => [
+            styles.desktopSidebarAddBtn,
+            pressed && { transform: [{ scale: 0.98 }] },
+            Platform.OS === 'web' && hovered && { opacity: 0.9 },
+          ]}
+        >
+          <LinearGradient
+            colors={
+              theme.gradients.primary || [
+                theme.colors.primary,
+                theme.colors.secondary,
+              ]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.desktopSidebarAddGradient}
+          >
+            <AppIcon name="plus" size={15} color="#FFFFFF" />
+            <Text style={styles.desktopSidebarAddText}>Add Expense</Text>
+          </LinearGradient>
+        </Pressable>
+      </GlassCard>
+    </View>
+  );
+
+  const renderRightSummaryColumn = () => (
+    <View style={styles.desktopSummary}>
+      <View
+        style={[
+          styles.progressCard,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+            borderWidth: 1,
+            borderRadius: 20,
+            padding: 18,
+
+            ...Platform.select({
+              web: {
+                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+              } as any,
+
+              default: {
+                shadowColor: '#000',
+
+                shadowOffset: {
+                  width: 0,
+                  height: 4,
+                },
+
+                shadowOpacity: 0.1,
+                shadowRadius: 10,
+                elevation: 4,
+              },
+            }),
+          },
+        ]}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 14,
+          }}
+        >
+          <Text
+            style={[
+              styles.sectionHeader,
+              { color: theme.colors.textPrimary, marginBottom: 0 },
+            ]}
+          >
+            Trip Progress
+          </Text>
+          {budget > 0 ? (
+            <View
+              style={{
+                backgroundColor: isOverBudget ? '#FEE2E2' : '#EFF6FF',
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 999,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '800',
+                  color: isOverBudget ? '#EF4444' : '#2563EB',
+                }}
+              >
+                {isOverBudget ? 'Over Budget' : 'On Track'}
+              </Text>
+            </View>
+          ) : (
+            <View
+              style={{
+                backgroundColor: '#ECFDF5',
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 999,
+              }}
+            >
+              <Text
+                style={{ fontSize: 11, fontWeight: '800', color: '#10B981' }}
+              >
+                Live Tracking
+              </Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.progressRow}>
+          <View
+            style={[
+              styles.progressCircle,
+              {
+                borderColor:
+                  budget > 0
+                    ? isOverBudget
+                      ? theme.colors.danger
+                      : theme.colors.primary
+                    : theme.colors.primary,
+                backgroundColor: `${theme.colors.primary}10`,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.progressCircleText,
+                { color: theme.colors.textPrimary, fontWeight: '900' },
+              ]}
+            >
+              {budget > 0 ? `${progressPercent.toFixed(0)}%` : 'LIVE'}
+            </Text>
+          </View>
+          <View style={styles.progressDetails}>
+            <Text
+              style={[
+                styles.progressAmount,
+                {
+                  color: theme.colors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: '900',
+                },
+              ]}
+            >
+              {cs}
+              {spent.toLocaleString()}
+            </Text>
+            <Text
+              style={[
+                styles.progressSubtext,
+                { color: theme.colors.textSecondary, fontSize: 12 },
+              ]}
+            >
+              {budget > 0
+                ? `of ${cs}${budget.toLocaleString()} budget`
+                : 'Total expenses logged'}
+            </Text>
+            {budget > 0 && (
+              <View
+                style={[
+                  styles.progressBarBg,
+                  {
+                    backgroundColor: theme.colors.borderLight,
+                    height: 6,
+                    borderRadius: 3,
+                    marginTop: 6,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      width: `${Math.min(progressPercent, 100)}%`,
+                      backgroundColor: isOverBudget
+                        ? theme.colors.danger
+                        : theme.colors.primary,
+                      height: '100%',
+                      borderRadius: 3,
+                    },
+                  ]}
+                />
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.rightKpiGrid}>
+        {[
+          {
+            icon: 'wallet',
+            label: 'BUDGET',
+            value: `${formatAmount(budget, trip.baseCurrency)}`,
+            sub: dur > 0 ? `${dur} Days` : 'Allocated',
+            bg: '#EFF6FF',
+            color: '#2563EB',
+          },
+          {
+            icon: 'credit-card',
+            label: 'TOTAL SPENT',
+            value: `${formatAmount(spent, trip.baseCurrency)}`,
+            sub: budget > 0 ? `${progressPercent.toFixed(0)}% used` : 'Logged',
+            bg: '#FEF2F2',
+            color: '#EF4444',
+          },
+          {
+            icon: 'pie-chart',
+            label: 'REMAINING',
+            value: `${formatAmount(Math.max(budget - spent, 0), trip.baseCurrency)}`,
+            sub: isOverBudget ? 'Over' : 'Left',
+            bg: '#ECFDF5',
+            color: '#10B981',
+          },
+          {
+            icon: 'calendar',
+            label: 'DAILY AVG',
+            value: `${formatAmount(dur > 0 ? spent / dur : spent, trip.baseCurrency)}`,
+            sub: 'Per day',
+            bg: '#FEF3C7',
+            color: '#D97706',
+          },
+        ].map((stat, i) => (
+          <GlassCard
+            key={i}
+            style={styles.rightKpiCard}
+            intensity={theme.isDark ? 15 : 10}
+          >
+            <View style={styles.kpiHeaderRow}>
+              <View
+                style={[
+                  styles.kpiIconWrap,
+                  {
+                    backgroundColor: theme.isDark ? `${stat.color}20` : stat.bg,
+                  },
+                ]}
+              >
+                <AppIcon name={stat.icon as any} size={12} color={stat.color} />
+              </View>
+              <View
+                style={[
+                  styles.kpiBadgePill,
+                  {
+                    backgroundColor: `${stat.color}15`,
+                    borderColor: `${stat.color}25`,
+                  },
+                ]}
+              >
+                <Text style={[styles.kpiBadgeText, { color: stat.color }]}>
+                  {stat.label}
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={[
+                styles.kpiValue,
+                { color: theme.colors.textPrimary, fontSize: 17 },
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {stat.value}
+            </Text>
+            <Text
+              style={[
+                styles.kpiSub,
+                { color: theme.colors.textTertiary, fontSize: 10 },
+              ]}
+              numberOfLines={1}
+            >
+              {stat.sub}
+            </Text>
+          </GlassCard>
+        ))}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={{ position: 'absolute', left: -9999, top: -9999 }}>
+        <InviteCard
+          ref={inviteCardRef}
+          trip={trip}
+          userName={user?.displayName || 'Your friend'}
+        />
+      </View>
+
+      <InviteFriendModal
+        visible={showInviteFriendModal}
+        onClose={() => setShowInviteFriendModal(false)}
+        tripId={id as string}
+      />
+
+      {/* Global Gradient Background */}
+      <View style={StyleSheet.absoluteFill}>
+        <GlobalBackground />
+      </View>
+
+      {isWideDesktop ? (
+        <View style={styles.desktopLayout}>
+          {/* LEFT NAVIGATION SIDEBAR */}
+          <View style={styles.desktopSidebar}>
+            {renderStickyHeaderContent()}
+            {renderCinematicHeaderText()}
+
+            <View style={{ marginTop: 16 }}>
+              <TabBar
+                tabs={TABS.map((tab, index) => ({
+                  key: String(index),
+                  label: tab,
+                }))}
+                activeKey={String(activeTab)}
+                onTabChange={key => setActiveTab(parseInt(key, 10))}
+                variant="segmented"
+                orientation="vertical"
+              />
+            </View>
+          </View>
+
+          {/* MIDDLE MAIN CONTENT */}
+          <View style={styles.desktopMainContent}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingBottom: insets.bottom + 120,
+                paddingTop: 16,
+              }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={theme.colors.primary}
+                />
+              }
+            >
+              <View style={styles.contentBody}>
+                {activeTab === 0 && renderOverviewTab()}
+                {activeTab === 1 && (
+                  <PlannerTab
+                    tripId={id as string}
+                    showHero={false}
+                    scrollEnabled={false}
+                  />
+                )}
+                {activeTab === 2 && <ExpensesTab tripId={id as string} />}
+                {activeTab === 3 && renderStopsTab()}
+                {activeTab === 4 && renderMembersTab()}
+                {activeTab === 5 && <SettlementTab tripId={id as string} />}
+              </View>
+            </ScrollView>
           </View>
 
           {/* RIGHT SUMMARY COLUMN */}
@@ -2399,13 +3660,31 @@ export default function TripDetailScreen() {
           {/* MOBILE/TABLET LAYOUT */}
           <View style={{ zIndex: 10 }}>
             <View
-              style={[styles.headerWrapper, { paddingTop: insets.top + 16 }]}
+              style={[
+                styles.headerWrapper,
+                {
+                  paddingTop:
+                    Platform.OS === 'web'
+                      ? 16
+                      : Math.max(
+                          insets.top,
+                          Platform.OS === 'android'
+                            ? (StatusBar.currentHeight ?? 38)
+                            : 24,
+                        ) + 12,
+                },
+              ]}
             >
               {renderStickyHeaderContent()}
               {renderCinematicHeaderText()}
             </View>
 
-            <View style={styles.tabsContainer}>
+            <View
+              style={[
+                styles.tabsContainer,
+                { marginHorizontal: 16, overflow: 'hidden' },
+              ]}
+            >
               <TabBar
                 tabs={TABS.map((tab, index) => ({
                   key: String(index),
@@ -2414,8 +3693,7 @@ export default function TripDetailScreen() {
                 activeKey={String(activeTab)}
                 onTabChange={key => setActiveTab(parseInt(key, 10))}
                 scrollable={true}
-                variant="pills"
-                style={{ paddingLeft: 20 }}
+                variant="segmented"
               />
             </View>
           </View>
@@ -2438,7 +3716,13 @@ export default function TripDetailScreen() {
               ]}
             >
               {activeTab === 0 && renderOverviewTab()}
-              {activeTab === 1 && <PlannerTab tripId={id as string} />}
+              {activeTab === 1 && (
+                <PlannerTab
+                  tripId={id as string}
+                  showHero={false}
+                  scrollEnabled={false}
+                />
+              )}
               {activeTab === 2 && <ExpensesTab tripId={id as string} />}
               {activeTab === 3 && renderStopsTab()}
               {activeTab === 4 && renderMembersTab()}
@@ -2514,99 +3798,103 @@ const useStyles = () => {
         desktopSidebar: { width: 280, flexShrink: 0, paddingLeft: 16 },
         // Desktop Left Navigation
         desktopNavCard: {
-            borderRadius: 24,
-            padding: 10,
-            marginTop: 8,
-            borderWidth: 1,
-            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.6)',
+          borderRadius: 24,
+          padding: 10,
+          marginTop: 8,
+          borderWidth: 1,
+          borderColor: theme.isDark
+            ? 'rgba(255,255,255,0.08)'
+            : 'rgba(0,0,0,0.06)',
+          backgroundColor: theme.isDark
+            ? 'rgba(255,255,255,0.03)'
+            : 'rgba(255,255,255,0.6)',
         },
         desktopNavHeader: {
-            paddingHorizontal: 12,
-            paddingTop: 8,
-            paddingBottom: 6,
+          paddingHorizontal: 12,
+          paddingTop: 8,
+          paddingBottom: 6,
         },
         desktopNavSectionTitle: {
-            fontSize: 10,
-            fontWeight: '800',
-            letterSpacing: 1.2,
-            textTransform: 'uppercase',
+          fontSize: 10,
+          fontWeight: '800',
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
         },
         desktopNavItems: {
-            gap: 4,
+          gap: 4,
         },
         desktopNavItem: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: 10,
-            paddingHorizontal: 12,
-            borderRadius: 14,
-            position: 'relative',
-            borderWidth: 1,
-            borderColor: 'transparent',
-            ...Platform.select({
-                web: {
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                } as any,
-            }),
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          borderRadius: 14,
+          position: 'relative',
+          borderWidth: 1,
+          borderColor: 'transparent',
+          ...Platform.select({
+            web: {
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            } as any,
+          }),
         },
         desktopNavItemActive: {
-            // dynamic border & bg
+          // dynamic border & bg
         },
         activeTabPill: {
-            position: 'absolute',
-            left: 0,
-            top: 10,
-            bottom: 10,
-            width: 3.5,
-            borderTopRightRadius: 3,
-            borderBottomRightRadius: 3,
+          position: 'absolute',
+          left: 0,
+          top: 10,
+          bottom: 10,
+          width: 3.5,
+          borderTopRightRadius: 3,
+          borderBottomRightRadius: 3,
         },
         desktopNavIconWrap: {
-            width: 34,
-            height: 34,
-            borderRadius: 10,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: 12,
+          width: 34,
+          height: 34,
+          borderRadius: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 12,
         },
         desktopNavLabel: {
-            fontSize: 14,
-            flex: 1,
+          fontSize: 14,
+          flex: 1,
         },
         desktopNavBadge: {
-            paddingHorizontal: 8,
-            paddingVertical: 2,
-            borderRadius: 10,
-            marginLeft: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 2,
+          borderRadius: 10,
+          marginLeft: 8,
         },
         desktopNavBadgeText: {
-            fontSize: 11,
-            fontWeight: '700',
+          fontSize: 11,
+          fontWeight: '700',
         },
         desktopSidebarAddBtn: {
-            marginTop: 12,
-            borderRadius: 14,
-            overflow: 'hidden',
-            ...Platform.select({
-                web: {
-                    cursor: 'pointer',
-                } as any,
-            }),
+          marginTop: 12,
+          borderRadius: 14,
+          overflow: 'hidden',
+          ...Platform.select({
+            web: {
+              cursor: 'pointer',
+            } as any,
+          }),
         },
         desktopSidebarAddGradient: {
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingVertical: 11,
-            paddingHorizontal: 16,
-            gap: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 11,
+          paddingHorizontal: 16,
+          gap: 8,
         },
         desktopSidebarAddText: {
-            color: '#FFFFFF',
-            fontSize: 13,
-            fontWeight: '700',
+          color: '#FFFFFF',
+          fontSize: 13,
+          fontWeight: '700',
         },
         desktopMainContent: { flex: 1, height: '100%' },
         desktopSummary: {
@@ -2666,19 +3954,46 @@ const useStyles = () => {
         tabText: { fontSize: 13, fontWeight: '700' },
         tabTextActive: { fontWeight: '800' },
         tabContent: { paddingHorizontal: 20, paddingTop: 20 },
-        sectionHeader: { fontSize: 15, fontWeight: '800', marginBottom: 12 },
+        sectionHeader: {
+          fontSize: 15,
+          fontWeight: '800',
+          marginBottom: 12,
+          letterSpacing: -0.2,
+          textShadowColor: theme.isDark
+            ? 'rgba(0, 0, 0, 0.65)'
+            : 'rgba(255, 255, 255, 0.8)',
+          textShadowOffset: { width: 0, height: 1 },
+          textShadowRadius: 2,
+        },
         actionsRow: { gap: 12, marginBottom: 24, paddingHorizontal: 4 },
         actionBtn: { alignItems: 'center', gap: 6 },
         actionIconWrap: {
           width: 56,
           height: 56,
-          borderRadius: 16,
+          borderRadius: 18,
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.08)',
+          borderColor: theme.isDark
+            ? 'rgba(255,255,255,0.14)'
+            : 'rgba(0,0,0,0.08)',
+          backgroundColor: theme.isDark
+            ? 'rgba(15,23,42,0.65)'
+            : 'rgba(255,255,255,0.75)',
+          ...theme.shadows.sm,
         },
-        actionText: { fontSize: 11, fontWeight: '600' },
+        actionText: {
+          fontSize: 11,
+          fontWeight: '700',
+          textAlign: 'center',
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+          borderRadius: 8,
+          backgroundColor: theme.isDark
+            ? 'rgba(0,0,0,0.40)'
+            : 'rgba(255,255,255,0.65)',
+          overflow: 'hidden',
+        },
         progressCard: {
           padding: 20,
           borderRadius: 24,
@@ -2703,11 +4018,85 @@ const useStyles = () => {
         progressBarFill: { height: '100%', borderRadius: 3 },
 
         // Overview Tab: Quick Grid
-        quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+        // Rectangular KPI Cards (Matching Finance Center)
+        kpiCardsRow: {
+          flexDirection: 'row',
+          gap: 10,
+        },
+        rectangularKpiCard: {
+          width: 175,
+          minWidth: 175,
+          minHeight: 78,
+          borderRadius: 18,
+          paddingVertical: 10,
+          paddingHorizontal: 13,
+          borderWidth: 1,
+          borderColor: theme.isDark
+            ? 'rgba(255,255,255,0.08)'
+            : 'rgba(0,0,0,0.05)',
+          justifyContent: 'space-between',
+        },
+        rightKpiGrid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 10,
+          justifyContent: 'space-between',
+        },
+        rightKpiCard: {
+          flexBasis: '48%',
+          minHeight: 78,
+          borderRadius: 16,
+          paddingVertical: 9,
+          paddingHorizontal: 12,
+          borderWidth: 1,
+          borderColor: theme.isDark
+            ? 'rgba(255,255,255,0.08)'
+            : 'rgba(0,0,0,0.05)',
+          justifyContent: 'space-between',
+        },
+        kpiHeaderRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: 4,
+        },
+        kpiIconWrap: {
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        kpiBadgePill: {
+          paddingHorizontal: 5,
+          paddingVertical: 1.5,
+          borderRadius: 6,
+          borderWidth: 1,
+        },
+        kpiBadgeText: {
+          fontSize: 8.5,
+          fontWeight: '800',
+          letterSpacing: 0.5,
+        },
+        kpiValue: {
+          fontSize: 18,
+          fontWeight: '900',
+          letterSpacing: -0.4,
+        },
+        kpiSub: {
+          fontSize: 10,
+          fontWeight: '500',
+          marginTop: 1,
+        },
+        quickGrid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 10,
+          justifyContent: 'space-between',
+        },
         quickStatBox: {
-          flex: 1,
-          flexBasis: '22%',
-          minWidth: 75,
+          width: 105,
+          minWidth: 105,
           padding: 12,
           borderRadius: 16,
           alignItems: 'center',
@@ -2806,9 +4195,16 @@ const useStyles = () => {
           fontSize: 17,
           fontWeight: '900',
           color: '#FFF',
-          textShadowColor: 'rgba(0,0,0,0.7)',
-          textShadowOffset: { width: 1, height: 1 },
-          textShadowRadius: 3,
+          ...Platform.select({
+            web: {
+              textShadow: '1px 1px 3px rgba(0,0,0,0.7)',
+            } as any,
+            default: {
+              textShadowColor: 'rgba(0,0,0,0.7)',
+              textShadowOffset: { width: 1, height: 1 },
+              textShadowRadius: 3,
+            },
+          }),
         },
         stopCardDates: {
           fontSize: 11,

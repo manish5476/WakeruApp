@@ -1,4 +1,4 @@
-package com.tripsplitmobile
+package com.wakeru.tripsplit
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

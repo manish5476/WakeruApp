@@ -419,7 +419,15 @@ function ContactCard({
 }
 
 // â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-export default function PlannerTab({ tripId }: { tripId: string }) {
+export default function PlannerTab({
+  tripId,
+  showHero = true,
+  scrollEnabled = true,
+}: {
+  tripId: string;
+  showHero?: boolean;
+  scrollEnabled?: boolean;
+}) {
   const theme = useTheme();
 
   // â”€â”€â”€ ALL HOOKS FIRST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

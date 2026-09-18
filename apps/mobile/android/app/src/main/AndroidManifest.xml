@@ -40,5 +40,23 @@
             <data android:scheme="tripsplit" />
         </intent-filter>
       </activity>
+      <receiver android:name="com.wakeru.tripsplit.widget.QuickAddExpenseWidgetProvider" android:exported="true" android:label="Quick Add Expense">
+        <intent-filter>
+          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent-filter>
+        <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_quick_add_expense_info" />
+      </receiver>
+      <receiver android:name="com.wakeru.tripsplit.widget.TripSummaryWidgetProvider" android:exported="true" android:label="Trip Summary">
+        <intent-filter>
+          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent-filter>
+        <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_trip_summary_info" />
+      </receiver>
+      <receiver android:name="com.wakeru.tripsplit.widget.BalancesWidgetProvider" android:exported="true" android:label="Trip Balances">
+        <intent-filter>
+          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent-filter>
+        <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_balances_info" />
+      </receiver>
     </application>
 </manifest>

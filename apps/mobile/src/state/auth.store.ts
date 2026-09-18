@@ -5,6 +5,18 @@ import { authApi } from '@/core/api/services';
 import { storage } from '@/core/storage';
 import { IUser } from '@/types/user.types';
 import { TokenPair } from '@/types/auth.types';
+import { config } from '@/config';
+
+try {
+  GoogleSignin.configure({
+    webClientId:
+      config.GOOGLE_WEB_CLIENT_ID ||
+      '160556151707-fec35bma6jit6l91d6r3k7fimsuoer39.apps.googleusercontent.com',
+    offlineAccess: false,
+  });
+} catch (e) {
+  console.warn('GoogleSignin configure warning:', e);
+}
 
 export interface AuthStore {
   user: IUser | null;

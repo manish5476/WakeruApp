@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "160556151707",
+    "project_id": "wareku-9e073",
+    "storage_bucket": "wareku-9e073.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:160556151707:android:99786ab854eb5ae559a73e",
+        "android_client_info": {
+          "package_name": "com.wakeru.tripsplit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "160556151707-5e9fffjiipr10ek140fpi6jh7pc87nbi.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wakeru.tripsplit",
+            "certificate_hash": "d7b348dee0bdef69cc528b50909072d0387325f1"
+          }
+        },
+        {
+          "client_id": "160556151707-geftij2grfot8ttfusl794u357kmo297.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wakeru.tripsplit",
+            "certificate_hash": "7deb32f4a08d6b6378f8e3b2f700db7e8e6f97b1"
+          }
+        },
+        {
+          "client_id": "160556151707-fec35bma6jit6l91d6r3k7fimsuoer39.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlzEYaMWVGTudnfOgJ37JFD2ENPGl8OSo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "160556151707-fec35bma6jit6l91d6r3k7fimsuoer39.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,6 @@
-﻿/**
+import { Platform } from 'react-native';
+
+/**
  * @fileoverview
  * Engineered for premium travel/fintech applications.
  * Prioritizes: WCAG AA/AAA accessibility, 8pt grid spacing,
@@ -408,12 +410,112 @@ export const spacingAlias = {
 
 export const spacing = { ...baseSpacing, ...spacingAlias } as const;
 
-export const typography = {
-  fontFamily: {
+export type FontPreset =
+  'system' | 'inter' | 'modern' | 'rounded' | 'serif' | 'mono';
+
+export const fontFamilies: Record<
+  FontPreset,
+  {
+    sans: string;
+    mono: string;
+    display: string;
+    label: string;
+    preview: string;
+    description: string;
+    nativeSans?: string;
+    nativeMono?: string;
+  }
+> = {
+  system: {
+    sans: 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    mono: 'Courier, "Courier New", monospace',
+    display:
+      'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    label: 'System Native',
+    preview: 'Quick brown fox jumps',
+    description: 'Clean native platform default typeface',
+    nativeSans: undefined,
+    nativeMono: Platform.select({ ios: 'Courier', default: 'monospace' }),
+  },
+  inter: {
     sans: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    mono: 'JetBrains Mono, Fira Code, "Space Mono", monospace',
+    mono: 'JetBrains Mono, Fira Code, monospace',
     display:
       'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    label: 'Inter Sans',
+    preview: 'Fintech precision curves',
+    description: 'Crisp geometric sans engineered for mobile & web',
+    nativeSans: 'Inter_400Regular',
+    nativeMono: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+  },
+  modern: {
+    sans: '"Plus Jakarta Sans", "Poppins", -apple-system, BlinkMacSystemFont, sans-serif',
+    mono: 'JetBrains Mono, monospace',
+    display: '"Plus Jakarta Sans", -apple-system, sans-serif',
+    label: 'Modern Clean',
+    preview: 'Contemporary travel aura',
+    description: 'Sophisticated contemporary typography',
+    nativeSans: Platform.select({
+      ios: 'Avenir-Medium',
+      android: 'sans-serif-medium',
+      default: undefined,
+    }),
+    nativeMono: Platform.select({ ios: 'Menlo', default: 'monospace' }),
+  },
+  rounded: {
+    sans: '"SF Pro Rounded", "Quicksand", system-ui, -apple-system, sans-serif',
+    mono: '"Space Mono", monospace',
+    display: '"SF Pro Rounded", "Quicksand", system-ui, sans-serif',
+    label: 'Soft Rounded',
+    preview: 'Approachable friendly vibe',
+    description: 'Friendly curves with organic warmth',
+    nativeSans: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-rounded',
+      default: undefined,
+    }),
+    nativeMono: Platform.select({ ios: 'Courier', default: 'monospace' }),
+  },
+  serif: {
+    sans: '"Playfair Display", "Merriweather", Georgia, "Times New Roman", serif',
+    mono: '"Courier New", monospace',
+    display: '"Playfair Display", Georgia, serif',
+    label: 'Editorial Serif',
+    preview: 'Timeless luxury journal',
+    description: 'Classic editorial serif for bespoke itineraries',
+    nativeSans: Platform.select({
+      ios: 'Georgia',
+      android: 'serif',
+      default: 'serif',
+    }),
+    nativeMono: Platform.select({ ios: 'Courier', default: 'monospace' }),
+  },
+  mono: {
+    sans: '"JetBrains Mono", "Fira Code", "Space Mono", monospace',
+    mono: '"JetBrains Mono", "Fira Code", monospace',
+    display: '"JetBrains Mono", monospace',
+    label: 'Tech Monospace',
+    preview: '0123456789 Tabular Data',
+    description: 'Developer tabular monospace alignment',
+    nativeSans: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
+    nativeMono: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
+  },
+};
+
+export const typography = {
+  fontFamily: {
+    sans: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' as string,
+    mono: 'JetBrains Mono, Fira Code, "Space Mono", monospace' as string,
+    display:
+      'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' as string,
   },
   fontSize: {
     xs: 12,
