@@ -34,13 +34,9 @@ subprojects { subproject ->
             compileSdkVersion rootProject.ext.compileSdkVersion
             buildToolsVersion rootProject.ext.buildToolsVersion
         }
-    }
-    subproject.afterEvaluate {
-        if (subproject.hasProperty("android")) {
-            subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
-                subproject.android.sourceSets.each { sourceSet ->
-                    task.source(sourceSet.java.srcDirs)
-                }
+        subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+            subproject.android.sourceSets.each { sourceSet ->
+                task.source(sourceSet.java.srcDirs)
             }
         }
     }
