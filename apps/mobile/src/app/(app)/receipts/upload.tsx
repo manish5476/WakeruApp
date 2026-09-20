@@ -17,7 +17,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import { useMyTrips, useUploadReceipt } from '../../../hooks';
 import { useAuthStore } from '../../../stores/auth.store';
 import { haptics } from '../../../utils/haptics';

@@ -15,9 +15,12 @@ module.exports = {
           'expo-status-bar': './src/shims/expo-status-bar',
           'expo-location': './src/shims/expo-location',
           'expo-file-system': './src/shims/expo-file-system',
+          'expo-file-system/legacy': './src/shims/expo-file-system',
           'expo-image-picker': './src/shims/expo-image-picker',
           'expo-print': './src/shims/expo-print',
           '@expo-google-fonts': './src/shims/expo-fonts',
+          '@react-native-async-storage/async-storage':
+            './src/shims/async-storage',
           '@tripsplit/design-system':
             '../../packages/design-system/src/index.tsx',
         },
