@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../shims/async-storage';
 
 interface StorageOptions {
   namespace?: string;
@@ -76,10 +76,9 @@ class StorageService {
 
   async multiSet(items: Record<string, any>): Promise<void> {
     try {
-      const pairs = Object.entries(items).map(([key, value]) => [
-        this.getKey(key),
-        JSON.stringify(value),
-      ]);
+      const pairs: [string, string][] = Object.entries(items).map(
+        ([key, value]) => [this.getKey(key), JSON.stringify(value)],
+      );
       await AsyncStorage.multiSet(pairs);
     } catch (error) {
       console.error('Failed to set multiple items:', error);

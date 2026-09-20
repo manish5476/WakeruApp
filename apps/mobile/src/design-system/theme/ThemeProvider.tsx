@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../shims/async-storage';
 import {
   ThemeContext,
   ThemeContextType,
