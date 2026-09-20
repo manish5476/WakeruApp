@@ -5,6 +5,7 @@ import { ThemeProvider } from '@tripsplit/design-system';
 import { FeatureFlagProvider } from '../../core/feature-flags';
 import { DIContainer } from '../../core/di';
 import { NavigationRoot } from './NavigationRoot';
+import { AppServicesProvider } from './AppServices';
 
 export function ProviderComposer() {
   const queryClient = useMemo(
@@ -25,11 +26,13 @@ export function ProviderComposer() {
     <SafeAreaProvider>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <FeatureFlagProvider
-            service={DIContainer.resolve('FeatureFlagService')}
-          >
-            <NavigationRoot />
-          </FeatureFlagProvider>
+          <AppServicesProvider>
+            <FeatureFlagProvider
+              service={DIContainer.resolve('FeatureFlagService')}
+            >
+              <NavigationRoot />
+            </FeatureFlagProvider>
+          </AppServicesProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </SafeAreaProvider>
