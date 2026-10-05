@@ -20984,12 +20984,10 @@ __d(
           ? u
           : g.HermesInternal
             ? n(r(d[1]).default(u))
-            : t
-                .parse(u)
-                .map(n => ({
-                  ...n,
-                  column: null != n.column ? n.column - 1 : null,
-                }));
+            : t.parse(u).map(n => ({
+                ...n,
+                column: null != n.column ? n.column - 1 : null,
+              }));
       }));
   },
   178,

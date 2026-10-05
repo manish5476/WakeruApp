@@ -38,7 +38,12 @@ export const config = {
   // Upload
   UPLOAD: {
     MAX_IMAGE_SIZE: 10 * 1024 * 1024, // 10MB
-    ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/heic', 'image/webp'],
+    ALLOWED_IMAGE_TYPES: [
+      'image/jpeg',
+      'image/png',
+      'image/heic',
+      'image/webp',
+    ],
   },
 } as const;
 

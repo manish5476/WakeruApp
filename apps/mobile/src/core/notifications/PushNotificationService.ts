@@ -1,4 +1,6 @@
-import messaging, { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
+import messaging, {
+  FirebaseMessagingTypes,
+} from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 
 export class PushNotificationService {
@@ -9,7 +11,10 @@ export class PushNotificationService {
       authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
     if (enabled) {
-      console.log('[PushNotificationService] Authorization status:', authStatus);
+      console.log(
+        '[PushNotificationService] Authorization status:',
+        authStatus,
+      );
     }
     return enabled;
   }
@@ -19,7 +24,10 @@ export class PushNotificationService {
       const token = await messaging().getToken();
       return token;
     } catch (error) {
-      console.error('[PushNotificationService] Failed to get FCM token:', error);
+      console.error(
+        '[PushNotificationService] Failed to get FCM token:',
+        error,
+      );
       return null;
     }
   }
@@ -32,10 +40,15 @@ export class PushNotificationService {
     });
   }
 
-  static onForegroundMessage(callback?: (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => void) {
+  static onForegroundMessage(
+    callback?: (remoteMessage: FirebaseMessagingTypes.RemoteMessage) => void,
+  ) {
     return messaging().onMessage(async remoteMessage => {
-      console.log('[PushNotificationService] A new FCM message arrived in foreground!', JSON.stringify(remoteMessage));
-      
+      console.log(
+        '[PushNotificationService] A new FCM message arrived in foreground!',
+        JSON.stringify(remoteMessage),
+      );
+
       if (remoteMessage.notification) {
         await notifee.displayNotification({
           title: remoteMessage.notification.title,
@@ -59,8 +72,11 @@ export class PushNotificationService {
 
   static setBackgroundMessageHandler() {
     messaging().setBackgroundMessageHandler(async remoteMessage => {
-      console.log('[PushNotificationService] Message handled in the background!', remoteMessage);
-      // Usually, you don't need to manually display a notification here 
+      console.log(
+        '[PushNotificationService] Message handled in the background!',
+        remoteMessage,
+      );
+      // Usually, you don't need to manually display a notification here
       // if it contains a `notification` payload, the OS handles it.
       // But for data-only messages, you would use notifee.displayNotification here.
     });
@@ -70,10 +86,16 @@ export class PushNotificationService {
     return notifee.onForegroundEvent(({ type, detail }) => {
       switch (type) {
         case EventType.DISMISSED:
-          console.log('[PushNotificationService] User dismissed notification', detail.notification);
+          console.log(
+            '[PushNotificationService] User dismissed notification',
+            detail.notification,
+          );
           break;
         case EventType.PRESS:
-          console.log('[PushNotificationService] User pressed notification', detail.notification);
+          console.log(
+            '[PushNotificationService] User pressed notification',
+            detail.notification,
+          );
           // Handle deep linking or navigation here
           break;
       }

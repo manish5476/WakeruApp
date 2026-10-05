@@ -30,8 +30,18 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
+      - name: Fix datetimepicker Kotlin plugin conflict
+        run: |
+          PICKER_BUILD="apps/mobile/node_modules/@react-native-community/datetimepicker/android/build.gradle"
+          sed -i "s/apply plugin: 'org.jetbrains.kotlin.android'/\/\/ apply plugin: 'org.jetbrains.kotlin.android'/" "$PICKER_BUILD"
+          sed -i '/kotlinOptions/,/}/{ s/^/\/\//; }' "$PICKER_BUILD"
+          echo "✅ datetimepicker Kotlin patch applied"
+          grep -n "kotlin" "$PICKER_BUILD" || true
+
       - name: Inject Production Environment Variables
-        run: echo "EXPO_PUBLIC_API_URL=https://wakeru.onrender.com/api/v1" > apps/mobile/.env
+        run: |
+          echo "API_URL=https://wakeru.onrender.com/api/v1" > apps/mobile/.env
+          echo "EXPO_PUBLIC_API_URL=https://wakeru.onrender.com/api/v1" >> apps/mobile/.env
 
       - name: Grant Execute Permission for Gradlew
         run: chmod +x apps/mobile/android/gradlew

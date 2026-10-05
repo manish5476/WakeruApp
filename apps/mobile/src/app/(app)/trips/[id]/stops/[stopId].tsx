@@ -489,8 +489,11 @@ export default function StopDetailScreen() {
           keyExtractor={item => item._id}
           showsVerticalScrollIndicator={false}
           renderItem={({ item, index }) => (
-            <ExpenseCard expense={item} onPress={() => setSelectedExpenseId(item._id)} />
-                    )}
+            <ExpenseCard
+              expense={item}
+              onPress={() => setSelectedExpenseId(item._id)}
+            />
+          )}
           ListHeaderComponent={() => {
             const heroUI = mapStopToHeroUI(stop, trip);
             const summaryUI = mapStopToSummaryUI(stop, trip);

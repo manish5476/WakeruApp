@@ -211,107 +211,165 @@ export function TabBar({
   );
 }
 
-function getStyles(theme: Theme, variant: TabVariant, size: 'sm' | 'md' | 'lg', orientation: 'horizontal' | 'vertical') {
-    const sizeConfig = {
-        sm: { paddingY: 6, paddingX: 14, gap: 6, fontSize: 12 },
-        md: { paddingY: 8, paddingX: 16, gap: 6, fontSize: 13 },
-        lg: { paddingY: 10, paddingX: 20, gap: 8, fontSize: 14 },
-    };
-    const s = sizeConfig[size];
-    const isVertical = orientation === 'vertical';
+function getStyles(
+  theme: Theme,
+  variant: TabVariant,
+  size: 'sm' | 'md' | 'lg',
+  orientation: 'horizontal' | 'vertical',
+) {
+  const sizeConfig = {
+    sm: { paddingY: 6, paddingX: 14, gap: 6, fontSize: 12 },
+    md: { paddingY: 8, paddingX: 16, gap: 6, fontSize: 13 },
+    lg: { paddingY: 10, paddingX: 20, gap: 8, fontSize: 14 },
+  };
+  const s = sizeConfig[size];
+  const isVertical = orientation === 'vertical';
 
-    return StyleSheet.create({
-        container: { width: '100%' },
-        containerPills: { paddingVertical: 4 },
-        containerSegmented: { 
-            borderRadius: isVertical ? theme.borderRadius.xl : theme.borderRadius.full, 
-            padding: isVertical ? 6 : 4, 
-            overflow: 'hidden',
-            backgroundColor: theme.isDark ? 'rgba(0, 0, 0, 0.22)' : 'rgba(0, 0, 0, 0.04)',
-            borderWidth: 1,
-            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-        },
-        containerUnderline: { borderBottomWidth: 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
-        scrollContent: isVertical ? { paddingBottom: 16, gap: 4 } : { paddingRight: 16, gap: 6 },
-        tabsWrapper: { 
-            flexDirection: isVertical ? 'column' : 'row', 
-            alignItems: isVertical ? 'stretch' : 'center', 
-            position: 'relative', 
-            gap: isVertical ? 6 : 4 
-        },
-        tab: {
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            justifyContent: isVertical ? 'flex-start' : 'center',
-            paddingVertical: isVertical ? 10 : s.paddingY, 
-            paddingHorizontal: isVertical ? 14 : s.paddingX, 
-            gap: s.gap,
-            borderRadius: isVertical ? theme.borderRadius.lg : theme.borderRadius.full, 
-            position: 'relative',
-            width: isVertical ? '100%' : 'auto',
-        },
-        tabPressed: { transform: [{ scale: 0.98 }] },
-        tabHovered: { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' },
-        tabSegmented: isVertical 
-            ? { width: '100%', borderRadius: theme.borderRadius.lg } 
-            : { flex: 1, borderRadius: theme.borderRadius.full },
-        tabSegmentedActive: {
-            backgroundColor: theme.isDark 
-                ? (isVertical ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.15)') 
-                : '#FFFFFF',
-            borderWidth: 1,
-            borderColor: theme.isDark 
-                ? (isVertical ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.20)') 
-                : 'rgba(0, 0, 0, 0.08)',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: theme.isDark ? 0.25 : 0.08,
-            shadowRadius: 4,
-            elevation: 3,
-        },
-        tabPill: { 
-            borderRadius: isVertical ? theme.borderRadius.lg : theme.borderRadius.full, 
-            marginHorizontal: isVertical ? 0 : 2,
-            marginVertical: isVertical ? 2 : 0,
-            borderWidth: 1,
-            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
-            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-        },
-        tabPillActive: { 
-            backgroundColor: theme.isDark 
-                ? (isVertical ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.15)') 
-                : '#18181B',
-            borderWidth: 1,
-            borderColor: theme.isDark 
-                ? (isVertical ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.20)') 
-                : '#18181B',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: theme.isDark ? 0.25 : 0.15,
-            shadowRadius: 4,
-            elevation: 3,
-        },
-        tabUnderline: { borderRadius: 0, paddingBottom: s.paddingY + 6 },
-        tabText: { fontSize: s.fontSize, color: theme.isDark ? 'rgba(255, 255, 255, 0.65)' : theme.colors.textSecondary, fontWeight: '600' },
-        tabTextSm: { fontSize: 12 },
-        tabTextLg: { fontSize: 15 },
-        tabTextActive: { 
-            color: theme.isDark 
-                ? (theme.colors.fontColor || '#FFFFFF') 
-                : (variant === 'underline' ? theme.colors.primary : (variant === 'pills' ? '#FFFFFF' : '#0F172A')), 
-            fontWeight: '700' 
-        },
-        tabTextSegmentedActive: { 
-            color: theme.isDark 
-                ? (theme.colors.fontColor || '#FFFFFF') 
-                : '#0F172A', 
-            fontWeight: '700' 
-        },
-        indicator: { 
-            position: 'absolute', 
-            ...(isVertical ? { left: 0, width: 3, borderRadius: 2, backgroundColor: theme.isDark ? (theme.colors.fontColor || '#FFFFFF') : theme.colors.primary } : { bottom: 0, height: 3, backgroundColor: theme.isDark ? (theme.colors.fontColor || '#FFFFFF') : theme.colors.primary, borderRadius: 2 })
-        },
-    });
+  return StyleSheet.create({
+    container: { width: '100%' },
+    containerPills: { paddingVertical: 4 },
+    containerSegmented: {
+      borderRadius: isVertical
+        ? theme.borderRadius.xl
+        : theme.borderRadius.full,
+      padding: isVertical ? 6 : 4,
+      overflow: 'hidden',
+      backgroundColor: theme.isDark
+        ? 'rgba(0, 0, 0, 0.22)'
+        : 'rgba(0, 0, 0, 0.04)',
+      borderWidth: 1,
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+    },
+    containerUnderline: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.isDark
+        ? 'rgba(255,255,255,0.08)'
+        : 'rgba(0,0,0,0.06)',
+    },
+    scrollContent: isVertical
+      ? { paddingBottom: 16, gap: 4 }
+      : { paddingRight: 16, gap: 6 },
+    tabsWrapper: {
+      flexDirection: isVertical ? 'column' : 'row',
+      alignItems: isVertical ? 'stretch' : 'center',
+      position: 'relative',
+      gap: isVertical ? 6 : 4,
+    },
+    tab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: isVertical ? 'flex-start' : 'center',
+      paddingVertical: isVertical ? 10 : s.paddingY,
+      paddingHorizontal: isVertical ? 14 : s.paddingX,
+      gap: s.gap,
+      borderRadius: isVertical
+        ? theme.borderRadius.lg
+        : theme.borderRadius.full,
+      position: 'relative',
+      width: isVertical ? '100%' : 'auto',
+    },
+    tabPressed: { transform: [{ scale: 0.98 }] },
+    tabHovered: {
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.06)'
+        : 'rgba(0,0,0,0.04)',
+    },
+    tabSegmented: isVertical
+      ? { width: '100%', borderRadius: theme.borderRadius.lg }
+      : { flex: 1, borderRadius: theme.borderRadius.full },
+    tabSegmentedActive: {
+      backgroundColor: theme.isDark
+        ? isVertical
+          ? 'rgba(255, 255, 255, 0.12)'
+          : 'rgba(255, 255, 255, 0.15)'
+        : '#FFFFFF',
+      borderWidth: 1,
+      borderColor: theme.isDark
+        ? isVertical
+          ? 'rgba(255, 255, 255, 0.18)'
+          : 'rgba(255, 255, 255, 0.20)'
+        : 'rgba(0, 0, 0, 0.08)',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: theme.isDark ? 0.25 : 0.08,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    tabPill: {
+      borderRadius: isVertical
+        ? theme.borderRadius.lg
+        : theme.borderRadius.full,
+      marginHorizontal: isVertical ? 0 : 2,
+      marginVertical: isVertical ? 2 : 0,
+      borderWidth: 1,
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.04)'
+        : 'rgba(0,0,0,0.03)',
+    },
+    tabPillActive: {
+      backgroundColor: theme.isDark
+        ? isVertical
+          ? 'rgba(255, 255, 255, 0.12)'
+          : 'rgba(255, 255, 255, 0.15)'
+        : '#18181B',
+      borderWidth: 1,
+      borderColor: theme.isDark
+        ? isVertical
+          ? 'rgba(255, 255, 255, 0.18)'
+          : 'rgba(255, 255, 255, 0.20)'
+        : '#18181B',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: theme.isDark ? 0.25 : 0.15,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    tabUnderline: { borderRadius: 0, paddingBottom: s.paddingY + 6 },
+    tabText: {
+      fontSize: s.fontSize,
+      color: theme.isDark
+        ? 'rgba(255, 255, 255, 0.65)'
+        : theme.colors.textSecondary,
+      fontWeight: '600',
+    },
+    tabTextSm: { fontSize: 12 },
+    tabTextLg: { fontSize: 15 },
+    tabTextActive: {
+      color: theme.isDark
+        ? theme.colors.fontColor || '#FFFFFF'
+        : variant === 'underline'
+          ? theme.colors.primary
+          : variant === 'pills'
+            ? '#FFFFFF'
+            : '#0F172A',
+      fontWeight: '700',
+    },
+    tabTextSegmentedActive: {
+      color: theme.isDark ? theme.colors.fontColor || '#FFFFFF' : '#0F172A',
+      fontWeight: '700',
+    },
+    indicator: {
+      position: 'absolute',
+      ...(isVertical
+        ? {
+            left: 0,
+            width: 3,
+            borderRadius: 2,
+            backgroundColor: theme.isDark
+              ? theme.colors.fontColor || '#FFFFFF'
+              : theme.colors.primary,
+          }
+        : {
+            bottom: 0,
+            height: 3,
+            backgroundColor: theme.isDark
+              ? theme.colors.fontColor || '#FFFFFF'
+              : theme.colors.primary,
+            borderRadius: 2,
+          }),
+    },
+  });
 }
 
 export function useTabBar(initialKey: string, tabs: TabItem[]) {

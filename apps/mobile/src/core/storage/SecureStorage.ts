@@ -25,7 +25,7 @@ export const SecureStorage = {
       const credentials = await Keychain.getGenericPassword({
         service: SERVICE_NAME,
       });
-      
+
       if (credentials) {
         return JSON.parse(credentials.password) as Tokens;
       }

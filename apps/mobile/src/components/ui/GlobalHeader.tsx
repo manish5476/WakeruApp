@@ -234,7 +234,11 @@ export function GlobalHeader({ onMenuPress, sidebarOpen }: GlobalHeaderProps) {
               <Text
                 style={[
                   styles.breadcrumbTitle,
-                  { color: (theme.colors as any).fontColor || theme.colors.textPrimary },
+                  {
+                    color:
+                      (theme.colors as any).fontColor ||
+                      theme.colors.textPrimary,
+                  },
                 ]}
                 numberOfLines={1}
               >
@@ -311,7 +315,14 @@ export function GlobalHeader({ onMenuPress, sidebarOpen }: GlobalHeaderProps) {
               theme={theme}
             >
               <Text
-                style={[styles.actionIcon, { color: (theme.colors as any).fontColor || theme.colors.textPrimary }]}
+                style={[
+                  styles.actionIcon,
+                  {
+                    color:
+                      (theme.colors as any).fontColor ||
+                      theme.colors.textPrimary,
+                  },
+                ]}
               >
                 ⊕
               </Text>
@@ -325,7 +336,14 @@ export function GlobalHeader({ onMenuPress, sidebarOpen }: GlobalHeaderProps) {
               badgeCount={Number(unreadCount)}
             >
               <Text
-                style={[styles.actionIcon, { color: (theme.colors as any).fontColor || theme.colors.textPrimary }]}
+                style={[
+                  styles.actionIcon,
+                  {
+                    color:
+                      (theme.colors as any).fontColor ||
+                      theme.colors.textPrimary,
+                  },
+                ]}
               >
                 🔔
               </Text>

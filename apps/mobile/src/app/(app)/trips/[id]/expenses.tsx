@@ -59,32 +59,49 @@ const CATEGORY_EMOJIS: Record<string, string> = {
   other: '📌',
 };
 
-function ListFooter({ isFetchingNextPage, hasNextPage, total, loaded }: {
-    isFetchingNextPage: boolean;
-    hasNextPage: boolean;
-    total: number;
-    loaded?: number;
+function ListFooter({
+  isFetchingNextPage,
+  hasNextPage,
+  total,
+  loaded,
+}: {
+  isFetchingNextPage: boolean;
+  hasNextPage: boolean;
+  total: number;
+  loaded?: number;
 }) {
-    const theme = useTheme();
-    const styles = useStyles();
+  const theme = useTheme();
+  const styles = useStyles();
 
-    if (isFetchingNextPage) {
-        return (
-            <View style={styles.footerLoader}>
-                <GlobalLoader variant="inline" size="small" color={theme.colors.primary} />
-                <Text style={[styles.footerText, { color: theme.colors.textSecondary }]}>Loading more…</Text>
-            </View>
-        );
-    }
-    if (!hasNextPage && total > 0) {
-        return (
-            <View style={styles.footerEnd}>
-                <AppIcon name="check" size={14} color={theme.colors.success} />
-                <Text style={[styles.footerEndText, { color: theme.colors.textTertiary }]}>All {total} expenses loaded</Text>
-            </View>
-        );
-    }
-    return null;
+  if (isFetchingNextPage) {
+    return (
+      <View style={styles.footerLoader}>
+        <GlobalLoader
+          variant="inline"
+          size="small"
+          color={theme.colors.primary}
+        />
+        <Text
+          style={[styles.footerText, { color: theme.colors.textSecondary }]}
+        >
+          Loading more…
+        </Text>
+      </View>
+    );
+  }
+  if (!hasNextPage && total > 0) {
+    return (
+      <View style={styles.footerEnd}>
+        <AppIcon name="check" size={14} color={theme.colors.success} />
+        <Text
+          style={[styles.footerEndText, { color: theme.colors.textTertiary }]}
+        >
+          All {total} expenses loaded
+        </Text>
+      </View>
+    );
+  }
+  return null;
 }
 
 export default function TripExpensesScreen() {
@@ -383,11 +400,11 @@ export default function TripExpensesScreen() {
             data={expenses}
             keyExtractor={item => item._id}
             renderItem={({ item }) => (
-                        <ExpenseCard
-                            expense={item}
-                            onPress={() => router.push(`/(app)/expenses/${item._id}`)}
-                        />
-                    )}
+              <ExpenseCard
+                expense={item}
+                onPress={() => router.push(`/(app)/expenses/${item._id}`)}
+              />
+            )}
             contentContainerStyle={[
               styles.listContent,
               { paddingBottom: insets.bottom + 40 },
