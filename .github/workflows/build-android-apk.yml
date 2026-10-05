@@ -1,12 +1,15 @@
 name: Build Android APK
+
 on:
   push:
     branches: [master, main]
-  workflow_dispatch: # Allows clicking "Run workflow" manually from GitHub anytime!
+  workflow_dispatch:
+
 jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -28,29 +31,7 @@ jobs:
           cache: 'gradle'
 
       - name: Install Dependencies
-        run: pnpm install
-
-      - name: Fix Kotlin plugin conflicts across all packages
-        run: |
-          echo "Patching all node_modules to remove redundant kotlin plugin applications..."
-          find . -path "*/node_modules/*" -name "build.gradle" -type f -exec sed -i \
-            -e "s/apply plugin: 'kotlin-android'/\/\/ apply plugin: 'kotlin-android'/g" \
-            -e "s/apply plugin: 'org.jetbrains.kotlin.android'/\/\/ apply plugin: 'org.jetbrains.kotlin.android'/g" \
-            -e 's/apply plugin: "kotlin-android"/\/\/ apply plugin: "kotlin-android"/g' \
-            -e 's/apply plugin: "org.jetbrains.kotlin.android"/\/\/ apply plugin: "org.jetbrains.kotlin.android"/g' {} +
-
-          echo "Patching datetimepicker specifically for kotlinOptions..."
-          node -e "
-          const fs = require('fs');
-          const file = 'apps/mobile/node_modules/@react-native-community/datetimepicker/android/build.gradle';
-          if(fs.existsSync(file)) {
-            let content = fs.readFileSync(file, 'utf8');
-            content = content.replace(/kotlinOptions\s*\{[\s\S]*?\}/, '');
-            fs.writeFileSync(file, content);
-            console.log('Successfully removed kotlinOptions');
-          }
-          "
-          echo "Kotlin patches applied globally"
+        run: pnpm install --no-frozen-lockfile
 
       - name: Inject Production Environment Variables
         run: |
@@ -63,11 +44,11 @@ jobs:
       - name: Build Android Release APK
         run: |
           cd apps/mobile/android
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew clean assembleRelease --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TripSplit-Release-APK
           path: apps/mobile/android/app/build/outputs/apk/release/*.apk
-          retention-days: 14 # Keeps download active for 2 weeks
+          retention-days: 14
