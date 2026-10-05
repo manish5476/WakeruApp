@@ -27,5 +27,10 @@
   },
   "lint-staged": {
     "*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}": "prettier --write"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@react-native-community/datetimepicker@9.2.0": "patches/@react-native-community__datetimepicker.patch"
+    }
   }
 }
