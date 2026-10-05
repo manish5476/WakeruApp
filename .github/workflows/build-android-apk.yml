@@ -36,11 +36,18 @@ jobs:
           find . -path "*/node_modules/*" -name "build.gradle" -type f -exec sed -i -e "s/apply plugin: 'kotlin-android'/\/\/ apply plugin: 'kotlin-android'/g" -e "s/apply plugin: 'org.jetbrains.kotlin.android'/\/\/ apply plugin: 'org.jetbrains.kotlin.android'/g" -e 's/apply plugin: "kotlin-android"/\/\/ apply plugin: "kotlin-android"/g' -e 's/apply plugin: "org.jetbrains.kotlin.android"/\/\/ apply plugin: "org.jetbrains.kotlin.android"/g' {} +
 
           echo "Patching datetimepicker specifically for kotlinOptions..."
-          PICKER_BUILD="apps/mobile/node_modules/@react-native-community/datetimepicker/android/build.gradle"
-          if [ -f "$PICKER_BUILD" ]; then
-            sed -i '/kotlinOptions/,/}/{ s/^/\/\//; }' "$PICKER_BUILD"
-          fi
-          echo "✅ Kotlin patches applied globally"
+          node -e "
+          const fs = require('fs');
+          const file = 'apps/mobile/node_modules/@react-native-community/datetimepicker/android/build.gradle';
+          if(fs.existsSync(file)) {
+            let content = fs.readFileSync(file, 'utf8');
+            content = content.replace(/kotlinOptions\s*\{[\s\S]*?\}/, '');
+            fs.writeFileSync(file, content);
+            console.log('Successfully removed kotlinOptions');
+          }
+          "
+          echo "Kotlin patches applied globally"
+
       - name: Inject Production Environment Variables
         run: |
           echo "API_URL=https://wakeru.onrender.com/api/v1" > apps/mobile/.env
