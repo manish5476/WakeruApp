@@ -30,14 +30,17 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
 
-      - name: Fix datetimepicker Kotlin plugin conflict
+      - name: Fix Kotlin plugin conflicts across all packages
         run: |
-          PICKER_BUILD="apps/mobile/node_modules/@react-native-community/datetimepicker/android/build.gradle"
-          sed -i "s/apply plugin: 'org.jetbrains.kotlin.android'/\/\/ apply plugin: 'org.jetbrains.kotlin.android'/" "$PICKER_BUILD"
-          sed -i '/kotlinOptions/,/}/{ s/^/\/\//; }' "$PICKER_BUILD"
-          echo "✅ datetimepicker Kotlin patch applied"
-          grep -n "kotlin" "$PICKER_BUILD" || true
+          echo "Patching all node_modules to remove redundant kotlin plugin applications..."
+          find . -path "*/node_modules/*" -name "build.gradle" -type f -exec sed -i -e "s/apply plugin: 'kotlin-android'/\/\/ apply plugin: 'kotlin-android'/g" -e "s/apply plugin: 'org.jetbrains.kotlin.android'/\/\/ apply plugin: 'org.jetbrains.kotlin.android'/g" -e 's/apply plugin: "kotlin-android"/\/\/ apply plugin: "kotlin-android"/g' -e 's/apply plugin: "org.jetbrains.kotlin.android"/\/\/ apply plugin: "org.jetbrains.kotlin.android"/g' {} +
 
+          echo "Patching datetimepicker specifically for kotlinOptions..."
+          PICKER_BUILD="apps/mobile/node_modules/@react-native-community/datetimepicker/android/build.gradle"
+          if [ -f "$PICKER_BUILD" ]; then
+            sed -i '/kotlinOptions/,/}/{ s/^/\/\//; }' "$PICKER_BUILD"
+          fi
+          echo "✅ Kotlin patches applied globally"
       - name: Inject Production Environment Variables
         run: |
           echo "API_URL=https://wakeru.onrender.com/api/v1" > apps/mobile/.env
