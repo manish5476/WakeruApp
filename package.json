@@ -4,8 +4,8 @@
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "engines": {
-    "node": ">=22.11.0",
-    "pnpm": ">=11.0.0"
+    "node": "\u003e=22.11.0",
+    "pnpm": "\u003e=11.0.0"
   },
   "scripts": {
     "android": "pnpm --filter @tripsplit/mobile android",
@@ -27,5 +27,10 @@
   },
   "lint-staged": {
     "*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}": "prettier --write"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@react-native-community/datetimepicker@9.2.0": "patches/@react-native-community__datetimepicker@9.2.0.patch"
+    }
   }
 }
