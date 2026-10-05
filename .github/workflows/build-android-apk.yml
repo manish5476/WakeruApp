@@ -33,7 +33,11 @@ jobs:
       - name: Fix Kotlin plugin conflicts across all packages
         run: |
           echo "Patching all node_modules to remove redundant kotlin plugin applications..."
-          find . -path "*/node_modules/*" -name "build.gradle" -type f -exec sed -i -e "s/apply plugin: 'kotlin-android'/\/\/ apply plugin: 'kotlin-android'/g" -e "s/apply plugin: 'org.jetbrains.kotlin.android'/\/\/ apply plugin: 'org.jetbrains.kotlin.android'/g" -e 's/apply plugin: "kotlin-android"/\/\/ apply plugin: "kotlin-android"/g' -e 's/apply plugin: "org.jetbrains.kotlin.android"/\/\/ apply plugin: "org.jetbrains.kotlin.android"/g' {} +
+          find . -path "*/node_modules/*" -name "build.gradle" -type f -exec sed -i \
+            -e "s/apply plugin: 'kotlin-android'/\/\/ apply plugin: 'kotlin-android'/g" \
+            -e "s/apply plugin: 'org.jetbrains.kotlin.android'/\/\/ apply plugin: 'org.jetbrains.kotlin.android'/g" \
+            -e 's/apply plugin: "kotlin-android"/\/\/ apply plugin: "kotlin-android"/g' \
+            -e 's/apply plugin: "org.jetbrains.kotlin.android"/\/\/ apply plugin: "org.jetbrains.kotlin.android"/g' {} +
 
           echo "Patching datetimepicker specifically for kotlinOptions..."
           node -e "
