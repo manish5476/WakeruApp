@@ -1,6 +1,7 @@
 'use client';
 
 import React, { ReactNode, useMemo } from 'react';
+import { useContext } from 'react';
 
 /**
  * Icon Registry - Store all available icons
@@ -103,22 +104,20 @@ export const Icon: React.FC<IconWrapperProps> = ({
   fallback: Fallback,
   ...props
 }) => {
-  try {
-    const { getIcon } = useIconContext();
-    const IconComponent = getIcon(name);
+  const context = useContext(IconContext);
+  const IconComponent = context ? context.getIcon(name) : null;
 
-    if (!IconComponent && !Fallback) {
+  if (!IconComponent && !Fallback) {
+    if (__DEV__) {
       console.warn(`Icon "${name}" not found in registry`);
-      return null;
     }
-
-    const Component = IconComponent || Fallback;
-    if (!Component) return null;
-
-    return <Component size={size} color={color} {...props} />;
-  } catch {
     return null;
   }
+
+  const Component = IconComponent || Fallback;
+  if (!Component) return null;
+
+  return <Component size={size} color={color} {...props} />;
 };
 
 /**

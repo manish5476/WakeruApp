@@ -1,6 +1,29 @@
-import { createMMKV } from 'react-native-mmkv';
+const isTestEnv =
+  typeof jest !== 'undefined' || process.env.NODE_ENV === 'test';
 
-const storage = createMMKV({ id: 'async-storage-shim' });
+let storage: {
+  getString: (k: string) => string | undefined;
+  set: (k: string, v: string) => void;
+  remove: (k: string) => void;
+  clearAll: () => void;
+  getAllKeys: () => string[];
+};
+
+if (isTestEnv) {
+  const testMap = new Map<string, string>();
+  storage = {
+    getString: (k: string) => testMap.get(k),
+    set: (k: string, v: string) => testMap.set(k, String(v)),
+    remove: (k: string) => {
+      testMap.delete(k);
+    },
+    clearAll: () => testMap.clear(),
+    getAllKeys: () => Array.from(testMap.keys()),
+  };
+} else {
+  const { createMMKV } = require('react-native-mmkv');
+  storage = createMMKV({ id: 'async-storage-shim' });
+}
 
 const AsyncStorage = {
   async getItem(

@@ -32,6 +32,83 @@ interface BottomNavigationProps {
   style?: StyleProp<ViewStyle>;
 }
 
+interface NavigationItemViewProps {
+  item: BottomNavigationItem;
+  index: number;
+  activeIndex: number;
+  animatedActiveIndex: { value: number };
+  variant: 'default' | 'floating' | 'labeled';
+  colors: ReturnType<typeof useTheme>['colors'];
+  isExpanded: boolean;
+}
+
+const NavigationItemView: React.FC<NavigationItemViewProps> = ({
+  item,
+  index,
+  activeIndex,
+  animatedActiveIndex,
+  variant,
+  colors,
+  isExpanded,
+}) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    const isActive = Math.round(animatedActiveIndex.value) === index;
+    return {
+      transform: [{ scale: isActive ? 1.1 : 1 }],
+      opacity: isActive ? 1 : 0.7,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.itemContainer,
+        animatedStyle,
+        {
+          flex: isExpanded ? 1 : 0,
+        },
+      ]}
+    >
+      <Pressable
+        onPress={item.onPress}
+        testID={item.testID || `bottom-nav-${index}`}
+        style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+      >
+        <View style={styles.iconContainer}>{item.icon}</View>
+        {variant !== 'default' && (
+          <Text
+            variant="caption"
+            style={{
+              color:
+                index === activeIndex ? colors.primary : colors.textSecondary,
+              marginTop: SPACING.xs,
+            }}
+          >
+            {item.label}
+          </Text>
+        )}
+        {item.badge && (
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: colors.danger,
+              },
+            ]}
+          >
+            <Text
+              variant="h3"
+              style={{ color: colors.primary, fontWeight: 'bold' }}
+            >
+              {item.badge}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+};
+
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   items,
   activeIndex,
@@ -46,15 +123,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   React.useEffect(() => {
     animatedActiveIndex.value = withSpring(activeIndex);
   }, [activeIndex, animatedActiveIndex]);
-
-  const itemAnimatedStyle = (index: number) =>
-    useAnimatedStyle(() => {
-      const isActive = Math.round(animatedActiveIndex.value) === index;
-      return {
-        transform: [{ scale: isActive ? 1.1 : 1 }],
-        opacity: isActive ? 1 : 0.7,
-      };
-    });
 
   const containerStyle = [
     styles.container,
@@ -76,58 +144,16 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         contentContainerStyle={styles.content}
       >
         {items.map((item, index) => (
-          <Animated.View
+          <NavigationItemView
             key={index}
-            style={[
-              styles.itemContainer,
-              itemAnimatedStyle(index),
-              {
-                flex: items.length <= 5 ? 1 : 0,
-              },
-            ]}
-          >
-            <Pressable
-              onPress={item.onPress}
-              testID={item.testID || `bottom-nav-${index}`}
-              style={({ pressed }) => [
-                styles.item,
-                pressed && styles.itemPressed,
-              ]}
-            >
-              <View style={styles.iconContainer}>{item.icon}</View>
-              {variant !== 'default' && (
-                <Text
-                  variant="caption"
-                  style={{
-                    color:
-                      index === activeIndex
-                        ? colors.primary
-                        : colors.textSecondary,
-                    marginTop: SPACING[1],
-                  }}
-                >
-                  {item.label}
-                </Text>
-              )}
-              {item.badge && (
-                <View
-                  style={[
-                    styles.badge,
-                    {
-                      backgroundColor: colors.danger,
-                    },
-                  ]}
-                >
-                  <Text
-                    variant="micro"
-                    style={{ color: colors.white, fontWeight: 'bold' }}
-                  >
-                    {item.badge}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </Animated.View>
+            item={item}
+            index={index}
+            activeIndex={activeIndex}
+            animatedActiveIndex={animatedActiveIndex}
+            variant={variant}
+            colors={colors}
+            isExpanded={items.length <= 5}
+          />
         ))}
       </ScrollView>
     </View>
@@ -144,8 +170,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   floating: {
-    marginHorizontal: SPACING[4],
-    marginBottom: SPACING[4],
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
   },
@@ -160,8 +186,8 @@ const styles = StyleSheet.create({
   },
   item: {
     flex: 1,
-    paddingVertical: SPACING[3],
-    paddingHorizontal: SPACING[2],
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -183,7 +209,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING[1],
+    paddingHorizontal: SPACING.xs,
   },
 });
 

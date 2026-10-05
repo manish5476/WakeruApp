@@ -602,8 +602,7 @@ export default function AddExpenseScreen() {
     setIsSubmitting(true);
 
     let locationData:
-      { latitude: number; longitude: number; name?: string } | undefined =
-      undefined;
+      { latitude: number; longitude: number; name?: string } | undefined;
 
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();

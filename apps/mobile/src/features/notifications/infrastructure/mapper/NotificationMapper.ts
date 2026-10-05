@@ -63,7 +63,6 @@ export class NotificationMapper {
     const byType: NotificationStats['byType'] = {};
 
     for (const [key, value] of Object.entries(dto.stats.byType)) {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- runtime key narrowing: unknown server keys are silently dropped
       byType[key as NotificationType] = value;
     }
 

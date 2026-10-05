@@ -1,0 +1,13 @@
+node_modules
+.pnpm-store
+dist
+build
+.cxx
+android/build
+android/app/build
+android/app/.cxx
+ios/build
+ios/Pods
+coverage
+*.patch
+pnpm-lock.yaml

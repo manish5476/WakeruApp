@@ -69,8 +69,8 @@ export function ExpenseTimeline({
   }
 
   return (
-    // @ts-expect-error
     <FlashList
+      // @ts-expect-error - FlashList prop compatibility
       estimatedItemSize={120}
       data={data}
       keyExtractor={item => item._key}

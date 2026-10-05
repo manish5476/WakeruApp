@@ -115,7 +115,7 @@ export default function ReviewDetailScreen() {
   }
 
   const categoryInfo =
-    CATEGORY_MAP[item.category?.toLowerCase()] || CATEGORY_MAP['other'];
+    CATEGORY_MAP[item.category?.toLowerCase()] || CATEGORY_MAP.other;
   const platform = item.deviceInfo?.platform || 'Unknown';
   const screenSize = item.deviceInfo?.screenSize || 'Unknown';
   const version = item.deviceInfo?.version || 'Unknown';

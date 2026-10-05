@@ -16,19 +16,16 @@ export class NotificationRemoteDataSource {
   async getNotifications(
     filters?: NotificationFilters,
   ): Promise<NotificationListResponseDTO> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- apiClient response is `any` at the boundary
     const response = await notificationsApi.getNotifications(filters);
     return response.data as NotificationListResponseDTO;
   }
 
   async getUnreadCount(): Promise<UnreadCountResponseDTO> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- apiClient response is `any` at the boundary
     const response = await notificationsApi.getUnreadCount();
     return response.data as UnreadCountResponseDTO;
   }
 
   async getNotificationStats(): Promise<NotificationStatsDTO> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- apiClient response is `any` at the boundary
     const response = await notificationsApi.getNotificationStats();
     return response.data as NotificationStatsDTO;
   }

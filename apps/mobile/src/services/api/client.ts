@@ -308,7 +308,7 @@ class ApiClient {
     };
 
     if (tokens?.accessToken) {
-      headers['Authorization'] = `Bearer ${tokens.accessToken}`;
+      headers.Authorization = `Bearer ${tokens.accessToken}`;
     }
 
     headers['Idempotency-Key'] = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(

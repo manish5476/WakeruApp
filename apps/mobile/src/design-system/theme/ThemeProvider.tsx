@@ -101,7 +101,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     availableThemes: AVAILABLE_THEMES,
   };
 
-  if (isLoading) {
+  if (isLoading && !initialTheme) {
     // Return a minimal loading view
     return null;
   }

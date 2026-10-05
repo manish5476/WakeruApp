@@ -53,7 +53,7 @@ export function CategoryBreakdown({ categories }: Props) {
           {categories.map((cat, index) => {
             const config =
               CATEGORY_CONFIG[cat.category.toLowerCase()] ||
-              CATEGORY_CONFIG['other'];
+              CATEGORY_CONFIG.other;
 
             return (
               <View

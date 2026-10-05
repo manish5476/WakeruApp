@@ -222,8 +222,8 @@ export function generateDashboardUI(
   const balanceStatus =
     netBalance > 0 ? 'positive' : netBalance < 0 ? 'negative' : 'neutral';
 
-  let budgetRemaining = undefined;
-  let budgetStatus: 'healthy' | 'warning' | 'danger' | undefined = undefined;
+  let budgetRemaining;
+  let budgetStatus: 'healthy' | 'warning' | 'danger' | undefined;
 
   if (trip?.totalBudget && trip.totalBudget > 0) {
     budgetRemaining = trip.totalBudget - totalTripSpend;

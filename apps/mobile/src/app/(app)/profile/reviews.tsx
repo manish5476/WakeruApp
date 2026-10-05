@@ -109,7 +109,7 @@ const ReviewCard = React.memo(
     const [expanded, setExpanded] = useState(false);
 
     const categoryInfo =
-      CATEGORY_MAP[item.category?.toLowerCase()] || CATEGORY_MAP['other'];
+      CATEGORY_MAP[item.category?.toLowerCase()] || CATEGORY_MAP.other;
     const relativeTime = formatDistanceToNow(new Date(item.createdAt), {
       addSuffix: true,
     });

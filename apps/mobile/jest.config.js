@@ -1,4 +1,5 @@
 module.exports = {
+  preset: 'react-native',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
@@ -7,6 +8,6 @@ module.exports = {
     '^.+\\.(js|ts|tsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|@testing-library)',
+    'node_modules/(?!(\\.pnpm|((jest-)?react-native|@react-native(-community)?)|@testing-library))',
   ],
 };

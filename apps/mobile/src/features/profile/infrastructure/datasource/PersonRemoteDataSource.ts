@@ -24,7 +24,6 @@ export class PersonRemoteDataSource {
    * shape is determined by the server contract and validated end-to-end.
    */
   async getProfile(userId: string): Promise<PersonProfileResponseDTO> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API boundary: response shape is server-defined
     const response = (await personApi.getPersonProfile(userId)) as any;
     return response.data as PersonProfileResponseDTO;
   }
@@ -33,7 +32,6 @@ export class PersonRemoteDataSource {
    * Fetches the raw person detail (non-profile variant).
    */
   async getPersonDetail(userId: string): Promise<PersonAPIModel> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API boundary
     const response = (await personApi.getPersonDetail(userId)) as any;
     return response.data as PersonAPIModel;
   }
@@ -45,7 +43,6 @@ export class PersonRemoteDataSource {
     userId: string,
     params?: SharedExpensesFilters,
   ): Promise<PaginatedResponseDTO<SharedExpenseAPIModel>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API boundary
     const response = (await personApi.getSharedExpenses(userId, params)) as any;
     return response.data as PaginatedResponseDTO<SharedExpenseAPIModel>;
   }
@@ -57,7 +54,6 @@ export class PersonRemoteDataSource {
     userId: string,
     params?: SharedTripsFilters,
   ): Promise<PaginatedResponseDTO<SharedTripAPIModel>> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API boundary
     const response = (await personApi.getSharedTrips(userId, params)) as any;
     return response.data as PaginatedResponseDTO<SharedTripAPIModel>;
   }
@@ -69,7 +65,6 @@ export class PersonRemoteDataSource {
     userId: string,
     limit: number = 10,
   ): Promise<ActivityItemAPIModel[]> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API boundary
     const response = (await personApi.getRecentActivity(userId, limit)) as any;
     return response.data as ActivityItemAPIModel[];
   }
@@ -78,9 +73,8 @@ export class PersonRemoteDataSource {
    * Fetches settlement options available for `userId`.
    */
   async getSettlementOptions(userId: string): Promise<unknown[]> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API boundary: settlement shape TBD
     const response = (await personApi.getSettlementOptions(userId)) as any;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- API boundary
+
     return response.data as unknown[];
   }
 
@@ -88,7 +82,6 @@ export class PersonRemoteDataSource {
    * Fetches the full aggregated detail record for `userId`.
    */
   async getFullDetail(userId: string): Promise<PersonAPIModel> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- API boundary
     const response = (await personApi.getFullDetail(userId)) as any;
     return response.data as PersonAPIModel;
   }

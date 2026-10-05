@@ -90,7 +90,7 @@ export function normalizeApiError(err: unknown): NormalizedError {
   let rawMessage = '';
   let code = anyErr.code || '';
   let details = anyErr.details;
-  let field: string | undefined = undefined;
+  let field: string | undefined;
 
   if (resData) {
     // Backend standard format: { success, message, code, details, error: { code, message, details } }

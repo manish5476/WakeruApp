@@ -59,7 +59,7 @@ export function resolveUserType(user: any, entitlements: any): UserType {
     entitlements?.isPaid === true ||
     entitlements?.plan?.key === 'pro' ||
     entitlements?.plan?.key === 'premium' ||
-    entitlements?.features?.['no_ads'] === true
+    entitlements?.features?.no_ads === true
   ) {
     return 'paid';
   }
