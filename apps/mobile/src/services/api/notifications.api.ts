@@ -32,20 +32,38 @@ export const notificationsApi = {
   },
 
   clearAll: async (): Promise<ApiResponse<void>> => {
-    return apiClient.delete('/notifications');
+    return apiClient.delete('/notifications/clear-all');
   },
 
   deleteOld: async (days: number = 30): Promise<ApiResponse<void>> => {
     return apiClient.post('/notifications/delete-old', { days });
   },
 
-  broadcastUpdate: async (
-    password: string,
-    link: string,
-  ): Promise<ApiResponse<void>> => {
-    return apiClient.post('/notifications/admin/broadcast-update', {
-      password,
-      link,
-    });
+  checkAdminPermission: async (): Promise<
+    ApiResponse<{
+      isOwner: boolean;
+      role: string;
+      canBroadcast: boolean;
+      adminEmail?: string;
+    }>
+  > => {
+    return apiClient.get('/notifications/admin/check-permission');
+  },
+
+  broadcastUpdate: async (payload: {
+    version?: string;
+    title?: string;
+    message?: string;
+    link: string;
+    forceUpdate?: boolean;
+  }): Promise<
+    ApiResponse<{
+      version: string;
+      title: string;
+      link: string;
+      broadcastedAt: string;
+    }>
+  > => {
+    return apiClient.post('/notifications/admin/broadcast-update', payload);
   },
 };

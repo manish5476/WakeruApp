@@ -21,6 +21,7 @@
       "expo-file-system/*": ["src/shims/expo-file-system"],
       "expo-image-picker": ["src/shims/expo-image-picker"],
       "expo-print": ["src/shims/expo-print"],
+      "expo-sqlite": ["src/shims/expo-sqlite"],
       "@expo-google-fonts/*": ["src/shims/expo-fonts"],
       "@expo-google-fonts/inter/*": ["src/shims/expo-fonts"]
     }

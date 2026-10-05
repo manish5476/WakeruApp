@@ -20,11 +20,16 @@ export const financeApi = {
     endDate?: string;
     category?: string;
     type?: 'income' | 'expense' | 'all';
+    includeTripExpenses?: boolean;
   }) => {
     return apiClient.get('/finance/analytics', { params });
   },
 
-  getSpendingTrends: (params?: { months?: number; category?: string }) => {
+  getSpendingTrends: (params?: {
+    months?: number;
+    category?: string;
+    includeTripExpenses?: boolean;
+  }) => {
     return apiClient.get('/finance/trends', { params });
   },
 
@@ -50,10 +55,16 @@ export const financeApi = {
     type?:
       | 'income'
       | 'expense'
+      | 'regular'
+      | 'all_expenses'
       | 'transfer'
       | 'trip_expense'
       | 'settlement_paid'
       | 'settlement_received'
+      | 'lent'
+      | 'borrowed'
+      | 'repayment'
+      | 'lending_all'
       | 'all';
     category?: string;
     month?: string;
@@ -76,7 +87,7 @@ export const financeApi = {
   },
 
   createTransaction: (data: {
-    type: 'income' | 'expense' | 'transfer';
+    type: 'income' | 'expense' | 'transfer' | 'lent' | 'borrowed' | 'repayment';
     amount: number;
     currency?: string;
     title: string;
@@ -91,6 +102,10 @@ export const financeApi = {
     recurringFrequency?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     recurringEndDate?: string;
     location?: { latitude?: number; longitude?: number; name?: string };
+    relationshipId?: string;
+    personName?: string;
+    personPhone?: string;
+    personUserId?: string;
   }) => {
     return apiClient.post('/finance/transactions', data);
   },
@@ -117,7 +132,7 @@ export const financeApi = {
   // BUDGET
   // ─────────────────────────────────────────────────────────────
 
-  getBudget: (params?: { month?: string }) => {
+  getBudget: (params?: { month?: string; includeTripExpenses?: boolean }) => {
     return apiClient.get('/finance/budget', { params });
   },
 
@@ -234,6 +249,60 @@ export const financeApi = {
   },
 
   // ─────────────────────────────────────────────────────────────
+  // PERSONAL LENDING & BORROWING
+  // ─────────────────────────────────────────────────────────────
+
+  getLendingList: (params?: {
+    type?: 'lent' | 'borrowed' | 'all';
+    status?: 'pending' | 'partially_paid' | 'settled' | 'all';
+    search?: string;
+    personUserId?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    return apiClient.get('/finance/lending', { params });
+  },
+
+  getLendingById: (id: string) => {
+    return apiClient.get(`/finance/lending/${id}`);
+  },
+
+  getLendingSummary: () => {
+    return apiClient.get('/finance/lending/summary');
+  },
+
+  createLending: (data: {
+    type: 'lent' | 'borrowed';
+    amount: number;
+    currency?: string;
+    personName: string;
+    personPhone?: string;
+    personUserId?: string;
+    date?: string;
+    dueDate?: string;
+    paymentMethod?:
+      'Cash' | 'Card' | 'UPI' | 'Net Banking' | 'Wallet' | 'Other';
+    notes?: string;
+    clientOperationId?: string;
+  }) => {
+    return apiClient.post('/finance/lending', data);
+  },
+
+  recordRepayment: (
+    id: string,
+    data: {
+      amount: number;
+      date?: string;
+      paymentMethod?:
+        'Cash' | 'Card' | 'UPI' | 'Net Banking' | 'Wallet' | 'Other';
+      notes?: string;
+      clientOperationId?: string;
+    },
+  ) => {
+    return apiClient.post(`/finance/lending/${id}/repay`, data);
+  },
+
+  // ─────────────────────────────────────────────────────────────
   // DEBT & SETTLEMENT
   // ─────────────────────────────────────────────────────────────
 
@@ -300,5 +369,19 @@ export const financeApi = {
     return apiClient.get(
       `/finance/report/yearly${year ? `?year=${year}` : ''}`,
     );
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // MONTHLY OVERVIEW (Finance KPI Widget)
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Returns a current-month (or specified month) snapshot of the user's complete
+   * financial activity: expenses, transactions, lending, and net balance.
+   */
+  getOverview: (month?: string) => {
+    return apiClient.get('/finance/overview', {
+      params: month ? { month } : undefined,
+    });
   },
 };

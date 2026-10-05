@@ -22,6 +22,10 @@ export const financeKeys = {
   bills: (params?: any) => [...financeKeys.all, 'bills', params] as const,
   goals: (params?: any) => [...financeKeys.all, 'goals', params] as const,
   debt: ['debt'] as const,
+  lending: (params?: any) => [...financeKeys.all, 'lending', params] as const,
+  lendingSummary: () => [...financeKeys.all, 'lending', 'summary'] as const,
+  lendingDetail: (id: string) =>
+    [...financeKeys.all, 'lending', 'detail', id] as const,
   categories: ['categories'] as const,
   tags: ['tags'] as const,
   monthlyReport: (month?: string) =>
@@ -29,6 +33,8 @@ export const financeKeys = {
   yearlyReport: (year?: string) =>
     [...financeKeys.all, 'yearlyReport', year] as const,
   streak: () => [...financeKeys.all, 'streak'] as const,
+  overview: (month?: string) =>
+    [...financeKeys.all, 'overview', month ?? 'current'] as const,
 };
 
 type FinanceExportParams = {
@@ -48,14 +54,49 @@ export function useFinanceDashboard(params?: {
   return useQuery({
     queryKey: financeKeys.dashboard(params),
     queryFn: async () => {
-      const response = await financeApi.getDashboard(params);
-      if (!response.data) throw new Error('No data in response');
-      return response.data;
+      try {
+        const response = await financeApi.getDashboard(params);
+        if (!response.data) throw new Error('No data in response');
+        return response.data;
+      } catch {
+        const { tripRepository } = require('../repositories/trip.repository');
+        const {
+          expenseRepository,
+        } = require('../repositories/expense.repository');
+        const localTrips = await tripRepository.getLocalTrips().catch(() => []);
+        let totalSpent = 0;
+        for (const t of localTrips) {
+          const exps = await expenseRepository
+            .getTripExpenses(t.id)
+            .catch(() => []);
+          totalSpent += exps.reduce(
+            (s: number, e: any) => s + (e.amountBase || 0),
+            0,
+          );
+        }
+        return {
+          monthlyOverview: {
+            totalExpense: totalSpent,
+            totalIncome: 0,
+            netSavings: 0,
+            budget: 0,
+          },
+          stats: {
+            transactionCount: 0,
+            pendingDebtsCount: 0,
+          },
+          debts: [],
+        };
+      }
     },
     retry: (failureCount, error: any) => {
-      if (error?.response?.status === 401 || error?.response?.status === 404)
+      if (
+        error?.response?.status === 401 ||
+        error?.response?.status === 404 ||
+        error?.code === 'NETWORK_OFFLINE'
+      )
         return false;
-      return failureCount < 3;
+      return failureCount < 2;
     },
     staleTime: 30 * 1000,
     refetchOnWindowFocus: false,
@@ -68,12 +109,21 @@ export function useAnalytics(params?: {
   endDate?: string;
   category?: string;
   type?: 'income' | 'expense' | 'all';
+  includeTripExpenses?: boolean;
 }) {
   return useQuery({
     queryKey: financeKeys.analytics(params),
     queryFn: async () => {
-      const response = await financeApi.getAnalytics(params);
-      return response.data;
+      try {
+        const response = await financeApi.getAnalytics(params);
+        return response.data;
+      } catch {
+        return {
+          overview: { totalExpense: 0, totalIncome: 0, netSavings: 0 },
+          categoryBreakdown: [],
+          dailySpending: [],
+        };
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -82,6 +132,7 @@ export function useAnalytics(params?: {
 export function useSpendingTrends(params?: {
   months?: number;
   category?: string;
+  includeTripExpenses?: boolean;
 }) {
   return useQuery({
     queryKey: financeKeys.trends(params),
@@ -123,12 +174,16 @@ export function useInfiniteTransactions(params?: {
   type?:
     | 'income'
     | 'expense'
+    | 'regular'
+    | 'all_expenses'
     | 'transfer'
     | 'trip_expense'
     | 'settlement_paid'
     | 'settlement_received'
     | 'all';
   search?: string;
+  startDate?: string;
+  endDate?: string;
 }) {
   return useInfiniteQuery({
     queryKey: [...financeKeys.transactions(params), 'infinite'],
@@ -239,7 +294,10 @@ export function useBulkDeleteTransactions() {
 // BUDGET
 // ─────────────────────────────────────────────────────────────
 
-export function useBudget(params?: { month?: string }) {
+export function useBudget(params?: {
+  month?: string;
+  includeTripExpenses?: boolean;
+}) {
   return useQuery({
     queryKey: financeKeys.budget(params),
     queryFn: async () => {
@@ -254,9 +312,9 @@ export function useSetBudget() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: financeApi.setBudget,
-    onSuccess: (_, variables: any) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: financeKeys.budget({ month: variables?.month }),
+        queryKey: financeKeys.budget({ month: variables.month }),
       });
     },
   });
@@ -369,6 +427,7 @@ export function usePayBill() {
       financeApi.payBill(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: financeKeys.bills() });
+      queryClient.invalidateQueries({ queryKey: financeKeys.all });
     },
   });
 }
@@ -520,7 +579,117 @@ export function useSettleDebt() {
     mutationFn: (id: string) => financeApi.settleDebt(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: financeKeys.debt });
+      queryClient.invalidateQueries({ queryKey: financeKeys.lending() });
       queryClient.invalidateQueries({ queryKey: financeKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['all-transactions'] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// PERSONAL LENDING & BORROWING
+// ─────────────────────────────────────────────────────────────
+
+export function useLendingList(params?: {
+  type?: 'lent' | 'borrowed' | 'all';
+  status?: 'pending' | 'partially_paid' | 'settled' | 'all';
+  search?: string;
+  personUserId?: string;
+  page?: number;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: financeKeys.lending(params),
+    queryFn: async () => {
+      const response = await financeApi.getLendingList(params);
+      return (
+        response.data?.data ||
+        response.data || { records: [], pagination: { total: 0 }, summary: {} }
+      );
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useLendingSummary() {
+  return useQuery({
+    queryKey: financeKeys.lendingSummary(),
+    queryFn: async () => {
+      const response = await financeApi.getLendingSummary();
+      return (
+        response.data?.data ||
+        response.data || {
+          totalLent: 0,
+          totalLentRepaid: 0,
+          outstandingLent: 0,
+          totalBorrowed: 0,
+          totalBorrowedRepaid: 0,
+          outstandingBorrowed: 0,
+          netOutstanding: 0,
+          recentContacts: [],
+        }
+      );
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useLendingDetails(id: string | undefined) {
+  return useQuery({
+    queryKey: financeKeys.lendingDetail(id || ''),
+    queryFn: async () => {
+      if (!id) return null;
+      const response = await financeApi.getLendingById(id);
+      return response.data?.data || response.data;
+    },
+    enabled: Boolean(id),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useCreateLending() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: financeApi.createLending,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: financeKeys.lending() });
+      queryClient.invalidateQueries({ queryKey: financeKeys.lendingSummary() });
+      queryClient.invalidateQueries({ queryKey: financeKeys.debt });
+      queryClient.invalidateQueries({ queryKey: financeKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['all-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    },
+  });
+}
+
+export function useRecordRepayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+      ...rest
+    }: {
+      id: string;
+      data?: any;
+      amount?: number;
+      paymentMethod?: string;
+      notes?: string;
+      clientOperationId?: string;
+    }) => {
+      const payload = data || rest;
+      return financeApi.recordRepayment(id, payload);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: financeKeys.lendingDetail(variables.id),
+      });
+      queryClient.invalidateQueries({ queryKey: financeKeys.lending() });
+      queryClient.invalidateQueries({ queryKey: financeKeys.lendingSummary() });
+      queryClient.invalidateQueries({ queryKey: financeKeys.debt });
+      queryClient.invalidateQueries({ queryKey: financeKeys.dashboard() });
+      queryClient.invalidateQueries({ queryKey: ['all-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
     },
   });
 }
@@ -664,4 +833,50 @@ export function useFinanceMutations() {
       syncTripExpenses.isPending ||
       exportTransactions.isPending,
   };
+}
+
+// ─────────────────────────────────────────────────────────────
+// FINANCE OVERVIEW (Monthly KPI Snapshot)
+// ─────────────────────────────────────────────────────────────
+
+export interface FinanceOverviewData {
+  month: string;
+  monthLabel: string;
+  currency: string;
+  totalTransactions: number;
+  totalExpenses: number;
+  amountPaidByMe: number;
+  myShare: number;
+  amountLent: number;
+  amountBorrowed: number;
+  settledAmount: number;
+  pendingAmount: number;
+  netBalance: number;
+  activePeopleCount: number;
+  peopleBreakdown: Array<{
+    userId?: string;
+    name: string;
+    amount: number;
+    direction: 'they_owe_you' | 'you_owe_them';
+    net: number;
+  }>;
+}
+
+export function useFinanceOverview(month?: string) {
+  return useQuery({
+    queryKey: financeKeys.overview(month),
+    queryFn: async (): Promise<FinanceOverviewData> => {
+      const response = await financeApi.getOverview(month);
+      const data = (response as any)?.data?.data ?? (response as any)?.data;
+      if (!data) throw new Error('No overview data returned from server');
+      return data as FinanceOverviewData;
+    },
+    staleTime: 60 * 1000, // 1 minute
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 401 || error?.response?.status === 404)
+        return false;
+      return failureCount < 2;
+    },
+    refetchOnWindowFocus: false,
+  });
 }

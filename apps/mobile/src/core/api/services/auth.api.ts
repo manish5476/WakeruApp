@@ -62,6 +62,10 @@ export const authApi = {
     return apiClient.post('/auth/forgot-password', { email });
   },
 
+  sendVerificationEmail: async (email: string): Promise<ApiResponse<void>> => {
+    return apiClient.post('/auth/send-verification-email', { email });
+  },
+
   refreshToken: async (
     refreshToken: string,
   ): Promise<ApiResponse<TokenPair>> => {

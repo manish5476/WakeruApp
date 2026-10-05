@@ -66,6 +66,23 @@ import SessionsScreen from '../app/(app)/profile/sessions';
 import TripStopDetailsScreen from '../app/(app)/trips/[id]/stops/[stopId]';
 import TripStopsReorderScreen from '../app/(app)/trips/[id]/stops/reorder';
 
+// Newly Migrated Screens
+import ExploreScreen from '../app/(app)/explore/index';
+import BusinessDetailScreen from '../app/(app)/explore/business/[id]';
+import CompareBusinessesScreen from '../app/(app)/explore/compare';
+import BookingsScreen from '../app/(app)/bookings/index';
+import BookingDetailScreen from '../app/(app)/bookings/[id]';
+import ReservationDetailScreen from '../app/(app)/reservations/[id]';
+import VendorHubScreen from '../app/(app)/vendor/index';
+import VendorBusinessManageScreen from '../app/(app)/vendor/business/[id]';
+import AdminBusinessesScreen from '../app/(app)/admin/businesses';
+import AdminPlansScreen from '../app/(app)/admin/plans/index';
+import AdminPlanDetailScreen from '../app/(app)/admin/plans/[id]';
+import PlansScreen from '../app/(app)/plans';
+import ReceiptConfirmScreen from '../app/(app)/receipts/confirm';
+import BalancesScreen from '../app/(app)/balances';
+import SplitsScreen from '../app/(app)/splits';
+
 const Tab = createBottomTabNavigator<AuthenticatedTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -360,6 +377,31 @@ export function AuthenticatedNavigator() {
         name="TripStopsReorder"
         component={TripStopsReorderScreen}
       />
+      {/* Migrated Screens */}
+      <Stack.Screen name="Explore" component={ExploreScreen} />
+      <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
+      <Stack.Screen
+        name="CompareBusinesses"
+        component={CompareBusinessesScreen}
+      />
+      <Stack.Screen name="Bookings" component={BookingsScreen} />
+      <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+      <Stack.Screen
+        name="ReservationDetail"
+        component={ReservationDetailScreen}
+      />
+      <Stack.Screen name="VendorHub" component={VendorHubScreen} />
+      <Stack.Screen
+        name="VendorBusinessManage"
+        component={VendorBusinessManageScreen}
+      />
+      <Stack.Screen name="AdminBusinesses" component={AdminBusinessesScreen} />
+      <Stack.Screen name="AdminPlans" component={AdminPlansScreen} />
+      <Stack.Screen name="AdminPlanDetail" component={AdminPlanDetailScreen} />
+      <Stack.Screen name="Plans" component={PlansScreen} />
+      <Stack.Screen name="ReceiptConfirm" component={ReceiptConfirmScreen} />
+      <Stack.Screen name="Balances" component={BalancesScreen} />
+      <Stack.Screen name="Splits" component={SplitsScreen} />
     </Stack.Navigator>
   );
 }

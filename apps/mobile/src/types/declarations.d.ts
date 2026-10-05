@@ -3,7 +3,8 @@ declare module '@react-native-async-storage/async-storage' {
   export default AsyncStorage;
 }
 
-declare module 'react-native-toast-message' {
-  const Toast: any;
-  export default Toast;
-}
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
+declare const __DEV__: boolean;

@@ -61,6 +61,7 @@ export interface IUser {
   bankingDetails: IBankingDetails;
   stats: IUserStats;
   isActive: boolean;
+  onboardingCompleted?: boolean;
   lastLoginAt?: string;
   createdAt: string;
   updatedAt: string;

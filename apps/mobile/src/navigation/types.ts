@@ -68,6 +68,23 @@ export type RootStackParamList = {
   Sessions: undefined;
   TripStopDetails: { id: string; stopId: string };
   TripStopsReorder: { id: string };
+  // Migrated Local & Travel modules
+  Explore: undefined;
+  BusinessDetail: { id: string };
+  CompareBusinesses: { ids?: string } | undefined;
+  Bookings: undefined;
+  BookingDetail: { id: string };
+  ReservationDetail: { id: string };
+  VendorHub: undefined;
+  VendorBusinessManage: { id: string };
+  AdminBusinesses: undefined;
+  AdminPlans: undefined;
+  AdminPlanDetail: { id: string };
+  // Subscriptions & Operations
+  Plans: undefined;
+  ReceiptConfirm: { imageUri?: string; tripId?: string } | undefined;
+  Balances: undefined;
+  Splits: undefined;
 };
 
 export type GuestNavigationProp<T extends keyof GuestStackParamList> =

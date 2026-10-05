@@ -327,5 +327,82 @@ export function mapPathToRoute(
       params: { id: tripDetailMatch[1], ...queryParams },
     };
 
+  // Local & Travel routes
+  if (cleanPath === 'explore' || cleanPath === '(app)/explore')
+    return { name: 'Explore', params: queryParams };
+  if (cleanPath === 'explore/compare' || cleanPath === '(app)/explore/compare')
+    return { name: 'CompareBusinesses', params: queryParams };
+  const busDetailMatch = cleanPath.match(
+    /^(?:\(app\)\/)?explore\/business\/([^/]+)$/,
+  );
+  if (busDetailMatch)
+    return {
+      name: 'BusinessDetail',
+      params: { id: busDetailMatch[1], ...queryParams },
+    };
+
+  if (cleanPath === 'bookings' || cleanPath === '(app)/bookings')
+    return { name: 'Bookings', params: queryParams };
+  const bookingDetailMatch = cleanPath.match(
+    /^(?:\(app\)\/)?bookings\/([^/]+)$/,
+  );
+  if (bookingDetailMatch)
+    return {
+      name: 'BookingDetail',
+      params: { id: bookingDetailMatch[1], ...queryParams },
+    };
+
+  const reservationDetailMatch = cleanPath.match(
+    /^(?:\(app\)\/)?reservations\/([^/]+)$/,
+  );
+  if (reservationDetailMatch)
+    return {
+      name: 'ReservationDetail',
+      params: { id: reservationDetailMatch[1], ...queryParams },
+    };
+
+  if (cleanPath === 'vendor' || cleanPath === '(app)/vendor')
+    return { name: 'VendorHub', params: queryParams };
+  const vendorBizMatch = cleanPath.match(
+    /^(?:\(app\)\/)?vendor\/business\/([^/]+)$/,
+  );
+  if (vendorBizMatch)
+    return {
+      name: 'VendorBusinessManage',
+      params: { id: vendorBizMatch[1], ...queryParams },
+    };
+
+  if (
+    cleanPath === 'admin/businesses' ||
+    cleanPath === '(app)/admin/businesses'
+  )
+    return { name: 'AdminBusinesses', params: queryParams };
+  if (cleanPath === 'admin/plans' || cleanPath === '(app)/admin/plans')
+    return { name: 'AdminPlans', params: queryParams };
+  const adminPlanMatch = cleanPath.match(
+    /^(?:\(app\)\/)?admin\/plans\/([^/]+)$/,
+  );
+  if (adminPlanMatch)
+    return {
+      name: 'AdminPlanDetail',
+      params: { id: adminPlanMatch[1], ...queryParams },
+    };
+
+  if (cleanPath === 'plans' || cleanPath === '(app)/plans')
+    return { name: 'Plans', params: queryParams };
+  if (cleanPath === 'balances' || cleanPath === '(app)/balances')
+    return { name: 'Balances', params: queryParams };
+  if (
+    cleanPath === 'splits' ||
+    cleanPath === '(app)/splits' ||
+    cleanPath === '(app)/(tabs)/splits'
+  )
+    return { name: 'Splits', params: queryParams };
+  if (
+    cleanPath === 'receipts/confirm' ||
+    cleanPath === '(app)/receipts/confirm'
+  )
+    return { name: 'ReceiptConfirm', params: queryParams };
+
   return { name: cleanPath || 'Tabs', params: queryParams };
 }

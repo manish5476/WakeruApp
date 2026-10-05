@@ -50,6 +50,8 @@ export interface AuthStore {
   verifyUpi: () => Promise<boolean>;
   clearError: () => void;
   setUser: (user: IUser | null) => void;
+  resendVerificationEmail: (email?: string) => Promise<void>;
+  reloadFirebaseUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -476,6 +478,38 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   clearError: () => set({ error: null }),
   setUser: (user: IUser | null) => set({ user, isAuthenticated: !!user }),
+
+  resendVerificationEmail: async (email?: string) => {
+    const targetEmail =
+      email ||
+      auth().currentUser?.email ||
+      get().firebaseUser?.email ||
+      get().user?.email;
+    if (!targetEmail) {
+      throw new Error(
+        'No active user account or email found to send verification link.',
+      );
+    }
+
+    try {
+      await authApi.sendVerificationEmail(targetEmail);
+    } catch (backendErr) {
+      const currentUser = auth().currentUser;
+      if (currentUser) {
+        await currentUser.sendEmailVerification();
+      } else {
+        throw backendErr;
+      }
+    }
+  },
+
+  reloadFirebaseUser: async () => {
+    const currentUser = auth().currentUser;
+    if (currentUser) {
+      await currentUser.reload();
+      set({ firebaseUser: auth().currentUser });
+    }
+  },
 }));
 
 export default useAuthStore;

@@ -4,9 +4,17 @@ import { View, StyleSheet, ViewStyle } from 'react-native';
 import { useTheme } from '../../providers/ThemeProvider';
 import { Typography } from './Typography';
 
-// Added 'info' and explicitly typed the union
+// Added 'info', 'sponsored', and 'verified' and explicitly typed the union
 export type BadgeVariant =
-  'primary' | 'success' | 'warning' | 'danger' | 'neutral' | 'accent' | 'info';
+  | 'primary'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'neutral'
+  | 'accent'
+  | 'info'
+  | 'sponsored'
+  | 'verified';
 
 interface BadgeProps {
   label: string;
@@ -26,6 +34,14 @@ export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
     accent: { bg: `${theme.colors.accent}20`, text: theme.colors.accent },
     // Added Info variant
     info: { bg: theme.colors.infoBg, text: theme.colors.info },
+    sponsored: {
+      bg: `${theme.colors.accent || '#8B5CF6'}25`,
+      text: theme.colors.accent || '#8B5CF6',
+    },
+    verified: {
+      bg: theme.colors.successBg || 'rgba(16, 185, 129, 0.15)',
+      text: theme.colors.success || '#10B981',
+    },
     // Fixed Neutral to use the proper textTertiary color instead of hardcoded
     neutral: {
       bg: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',

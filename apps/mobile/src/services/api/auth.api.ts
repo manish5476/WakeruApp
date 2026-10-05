@@ -37,7 +37,7 @@ export interface UserPreferences {
     backgroundType: string;
     backgroundColor: string;
     backgroundImage: string;
-        fontColor?: string | null;
+    fontColor?: string | null;
     backgroundBlur: number;
     backgroundImagePosition: {
       x: number;
@@ -60,7 +60,12 @@ export const authApi = {
   },
 
   forgotPassword: async (email: string): Promise<ApiResponse<void>> => {
-    return apiClient.post('/auth/forgot-password', { email });
+    // /send-password-reset handles rate limiting + custom branded email in one shot
+    return apiClient.post('/auth/send-password-reset', { email });
+  },
+
+  sendVerificationEmail: async (email: string): Promise<ApiResponse<void>> => {
+    return apiClient.post('/auth/send-verification-email', { email });
   },
 
   refreshToken: async (

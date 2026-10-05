@@ -38,6 +38,11 @@ export interface IExpense {
   addedBy: string;
   editedBy?: string;
   editedAt?: string;
+  receiptHash?: string;
+  receiptNumber?: string;
+  receiptMerchant?: string;
+  receiptDate?: string;
+  ocrParserVersion?: string;
   createdAt: string;
   updatedAt: string;
 }
