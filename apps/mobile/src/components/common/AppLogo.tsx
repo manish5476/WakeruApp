@@ -26,7 +26,7 @@ export default function AppLogo({
 
   return (
     <Image
-      source={require('../../../assets/icon.png')}
+      source={require('../../../assets/tripsplitImage.png')}
       style={[
         {
           width: w,
