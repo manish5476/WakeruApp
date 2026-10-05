@@ -170,13 +170,14 @@ export default function TripMapScreen() {
       expenses
         .map((e: any) => {
           const stop = stops.find((s: any) => s._id === e.stopId);
-          const lat = e.location?.latitude || stop?.location?.lat;
-          const lng = e.location?.longitude || stop?.location?.lng;
+          const lat = e.latitude || e.location?.latitude || stop?.location?.lat;
+          const lng =
+            e.longitude || e.location?.longitude || stop?.location?.lng;
           return {
             ...e,
             mapLat: lat,
             mapLng: lng,
-            isPrecise: !!e.location?.latitude,
+            isPrecise: !!(e.latitude || e.location?.latitude),
             stopName: stop?.name || 'Main Stop',
           };
         })

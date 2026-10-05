@@ -50,6 +50,8 @@ export interface LocalExpense {
   date: string;
   notes?: string;
   receiptImagesJson?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   isSettled: boolean;
   isArchived: boolean;
   syncStatus: SyncStatus;

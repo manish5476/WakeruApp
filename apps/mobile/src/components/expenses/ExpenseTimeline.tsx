@@ -3,10 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   RefreshControl,
   Pressable,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ExpenseCard } from './ExpenseCard';
 import { ExpensePresentationModel } from '../../models/presentation/expense.model';
@@ -69,7 +69,9 @@ export function ExpenseTimeline({
   }
 
   return (
-    <FlatList
+    // @ts-expect-error
+    <FlashList
+      estimatedItemSize={120}
       data={data}
       keyExtractor={item => item._key}
       renderItem={({ item, index }) => {

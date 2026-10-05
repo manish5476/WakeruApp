@@ -9,6 +9,8 @@ import { GlassCard } from '../ui/GlassCard';
 import { InteractiveWrapper } from './InteractiveWrapper';
 
 interface TripCardProps {
+  variant?: 'vertical' | 'horizontal';
+  isRecent?: boolean;
   trip: {
     _id: string;
     title: string;
@@ -30,7 +32,11 @@ interface TripCardProps {
   onPress: () => void;
 }
 
-export function TripCard({ trip, onPress }: TripCardProps) {
+export function TripCard({
+  trip,
+  onPress,
+  variant = 'vertical',
+}: TripCardProps) {
   // Derived stats
   const activeMembers = trip.members?.filter(m => m.isActive !== false) || [];
   const stopCount = trip.stops?.length || 0;
@@ -71,20 +77,28 @@ export function TripCard({ trip, onPress }: TripCardProps) {
 
   return (
     <InteractiveWrapper onPress={onPress} hoverElevation>
-      <GlassCard variant="medium" padding="none" style={styles.card}>
+      <GlassCard
+        variant="medium"
+        padding="none"
+        style={getStyles(variant).card}
+      >
         {/* HEIGHT IS EXPLICITLY DEFINED HERE TO FIX THE LAYOUT COLLAPSE */}
-        <View style={styles.imageWrap}>
-          <Image source={imageSource} style={styles.image} resizeMode="cover" />
+        <View style={getStyles(variant).imageWrap}>
+          <Image
+            source={imageSource}
+            style={getStyles(variant).image}
+            resizeMode="cover"
+          />
           <LinearGradient
             colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
             style={StyleSheet.absoluteFill}
           />
 
           {/* Badges */}
-          <View style={styles.badgeRow}>
+          <View style={getStyles(variant).badgeRow}>
             <Badge label={status.label} variant={status.variant} />
             {isActive && daysLeft > 0 && daysLeft <= 30 && (
-              <View style={styles.countdownPill}>
+              <View style={getStyles(variant).countdownPill}>
                 <Typography
                   variant="caption"
                   weight="bold"
@@ -97,7 +111,7 @@ export function TripCard({ trip, onPress }: TripCardProps) {
           </View>
 
           {/* Content Overlay */}
-          <View style={styles.contentOverlay}>
+          <View style={getStyles(variant).contentOverlay}>
             <Typography
               variant="h2"
               weight="extrabold"
@@ -126,7 +140,7 @@ export function TripCard({ trip, onPress }: TripCardProps) {
               })}
             </Typography>
 
-            <View style={styles.statsFooter}>
+            <View style={getStyles(variant).statsFooter}>
               <AmountDisplay
                 amount={trip.totalSpentBase}
                 currency={trip.baseCurrency}
@@ -134,7 +148,7 @@ export function TripCard({ trip, onPress }: TripCardProps) {
                 compact
                 color="#FFFFFF"
               />
-              <View style={styles.footerMeta}>
+              <View style={getStyles(variant).footerMeta}>
                 <Typography
                   variant="caption"
                   style={{ color: 'rgba(255,255,255,0.85)' }}
@@ -162,53 +176,54 @@ export function TripCard({ trip, onPress }: TripCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    width: '100%',
-    // No aspectRatio here! It will expand to fit its parent.
-  },
-  imageWrap: {
-    // CRITICAL FIX: This explicit height guarantees content renders inside.
-    height: 200,
-    width: '100%',
-    position: 'relative',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  badgeRow: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    zIndex: 2,
-  },
-  countdownPill: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  contentOverlay: {
-    position: 'absolute',
-    bottom: 14,
-    left: 16,
-    right: 16,
-    zIndex: 2,
-  },
-  statsFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  footerMeta: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-});
+const getStyles = (variant: 'vertical' | 'horizontal') =>
+  StyleSheet.create({
+    card: {
+      borderRadius: 20,
+      overflow: 'hidden',
+      width: '100%',
+      // No aspectRatio here! It will expand to fit its parent.
+    },
+    imageWrap: {
+      // CRITICAL FIX: This explicit height guarantees content renders inside.
+      height: variant === 'horizontal' ? 130 : 200,
+      width: '100%',
+      position: 'relative',
+    },
+    image: {
+      width: '100%',
+      height: '100%',
+    },
+    badgeRow: {
+      position: 'absolute',
+      top: 12,
+      left: 12,
+      right: 12,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      zIndex: 2,
+    },
+    countdownPill: {
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 20,
+    },
+    contentOverlay: {
+      position: 'absolute',
+      bottom: 14,
+      left: 16,
+      right: 16,
+      zIndex: 2,
+    },
+    statsFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    footerMeta: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+  });

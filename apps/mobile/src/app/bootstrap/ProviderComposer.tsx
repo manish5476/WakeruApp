@@ -2,12 +2,14 @@ import React, { useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@tripsplit/design-system';
+import { useThemeStore } from '../../state/theme.store';
 import { FeatureFlagProvider } from '../../core/feature-flags';
 import { DIContainer } from '../../core/di';
 import { NavigationRoot } from './NavigationRoot';
 import { AppServicesProvider } from './AppServices';
 
 export function ProviderComposer() {
+  const mode = useThemeStore(s => s.mode) || 'system';
   const queryClient = useMemo(
     () =>
       new QueryClient({
@@ -24,7 +26,7 @@ export function ProviderComposer() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
+      <ThemeProvider mode={mode as any}>
         <QueryClientProvider client={queryClient}>
           <AppServicesProvider>
             <FeatureFlagProvider

@@ -13,7 +13,7 @@ export class SyncQueueManager {
    * Calculates exponential backoff delay in milliseconds.
    */
   static getBackoffDelayMs(retryCount: number): number {
-    return Math.min(1000 * Math.pow(2, retryCount), 30000);
+    return Math.min(1000 * Math.pow(2, retryCount), 300000);
   }
 
   async enqueue(

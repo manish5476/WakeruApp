@@ -87,6 +87,8 @@ export class SQLiteDatabaseAdapter implements ILocalDatabase {
         date TEXT NOT NULL,
         notes TEXT,
         receipt_images_json TEXT,
+          latitude REAL,
+          longitude REAL,
         is_settled INTEGER NOT NULL DEFAULT 0,
         is_archived INTEGER NOT NULL DEFAULT 0,
         sync_status TEXT NOT NULL DEFAULT 'PENDING',
@@ -494,6 +496,8 @@ export class SQLiteDatabaseAdapter implements ILocalDatabase {
       splitMethod: expense.splitMethod ?? existing?.splitMethod ?? 'equal',
       date: expense.date ?? existing?.date ?? now,
       notes: expense.notes ?? existing?.notes ?? '',
+      latitude: expense.latitude ?? existing?.latitude ?? null,
+      longitude: expense.longitude ?? existing?.longitude ?? null,
       receiptImagesJson:
         expense.receiptImagesJson ?? existing?.receiptImagesJson ?? '[]',
       receiptHash: expense.receiptHash ?? existing?.receiptHash,
@@ -514,11 +518,11 @@ export class SQLiteDatabaseAdapter implements ILocalDatabase {
       `INSERT OR REPLACE INTO expenses (
         id, client_operation_id, trip_id, stop_id, title, category,
         amount_minor, currency, amount_base_minor, base_currency, exchange_rate,
-        paid_by, paid_by_name, split_method, date, notes, receipt_images_json,
+        paid_by, paid_by_name, split_method, date, notes, receipt_images_json, latitude, longitude,
         is_settled, is_archived, sync_status, created_at, updated_at, raw_json,
         receipt_hash, receipt_number, receipt_merchant, receipt_date,
         ocr_parser_version, receipt_image_uri
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         merged.id,
         merged.clientOperationId,
@@ -537,6 +541,8 @@ export class SQLiteDatabaseAdapter implements ILocalDatabase {
         merged.date,
         merged.notes || '',
         merged.receiptImagesJson || '[]',
+        merged.latitude || null,
+        merged.longitude || null,
         merged.isSettled ? 1 : 0,
         merged.isArchived ? 1 : 0,
         merged.syncStatus,

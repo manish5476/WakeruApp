@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Function to check if user is a member of the trip
+    function isTripMember(tripId) {
+      return isAuthenticated() && 
+             request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.members;
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Users can only update their own profile
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // TRIPS COLLECTION
+    match /trips/{tripId} {
+      // Anyone can create a trip if logged in
+      allow create: if isAuthenticated();
+      // Only trip members can read or update
+      allow read, update: if isTripMember(tripId);
+      // Only the creator can delete
+      allow delete: if isAuthenticated() && resource.data.createdBy == request.auth.uid;
+      
+      // EXPENSES SUBCOLLECTION
+      match /expenses/{expenseId} {
+        // Must be a member of the parent trip to see or add expenses
+        allow read, write: if isTripMember(tripId);
+      }
+      
+      // SETTLEMENTS SUBCOLLECTION
+      match /settlements/{settlementId} {
+        allow read, write: if isTripMember(tripId);
+      }
+    }
+
+    // NOTIFICATIONS
+    match /notifications/{notificationId} {
+      // Users can only read and dismiss their own notifications
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if false; // Only backend (Wakeru) creates notifications
+    }
+  }
+}

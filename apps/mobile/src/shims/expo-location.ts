@@ -1,3 +1,6 @@
+import { request, check, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { Platform } from 'react-native';
+
 export const PermissionStatus = {
   GRANTED: 'granted',
   DENIED: 'denied',
@@ -14,14 +17,32 @@ export enum Accuracy {
 }
 
 export async function requestForegroundPermissionsAsync() {
-  return { status: 'granted', granted: true };
+  const permission =
+    Platform.OS === 'ios'
+      ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+      : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+  const status = await request(permission);
+  return {
+    status: status === RESULTS.GRANTED ? 'granted' : 'denied',
+    granted: status === RESULTS.GRANTED,
+  };
 }
 
 export async function getForegroundPermissionsAsync() {
-  return { status: 'granted', granted: true };
+  const permission =
+    Platform.OS === 'ios'
+      ? PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+      : PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION;
+  const status = await check(permission);
+  return {
+    status: status === RESULTS.GRANTED ? 'granted' : 'denied',
+    granted: status === RESULTS.GRANTED,
+  };
 }
 
 export async function getCurrentPositionAsync(_options?: any) {
+  // If we had @react-native-community/geolocation, we would use Geolocation.getCurrentPosition
+  // For now, return mock but properly permission-gated.
   return {
     coords: {
       latitude: 0,

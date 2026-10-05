@@ -95,7 +95,7 @@ export function useTripSummary(tripId: string) {
       return (response.data as { summary?: any })?.summary;
     },
     enabled: !!tripId,
-    staleTime: 1000 * 30, // 30 seconds — frequent updates
+    staleTime: 60000, // 30 seconds — frequent updates
   });
 }
 

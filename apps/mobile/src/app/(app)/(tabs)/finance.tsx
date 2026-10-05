@@ -493,7 +493,7 @@ export default function FinanceDashboard() {
               tabs={tabs}
               activeKey={activeTab}
               onTabChange={setActiveTab}
-              variant="pills"
+              variant="segmented"
               scrollable
               size="sm"
             />
@@ -794,7 +794,7 @@ function statsStyles(theme: Theme) {
 //       tabs={tabs}
 //       activeKey={activeKey}
 //       onTabChange={onChange}
-//       variant="pills"
+//       variant="segmented"
 //       scrollable
 //       size="sm"
 //     />

@@ -23,11 +23,13 @@ import { useDashboard } from '../../../hooks/useDashboard';
 import { queryKeys } from '../../../hooks/queryKeys';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useAuthStore } from '../../../stores/auth.store';
+import { TripCard } from '../../../components/ui/TripCard';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { haptics } from '../../../utils/haptics';
 import { safeFormatCurrency } from '../../../utils/formatters';
 
 import { GlobalBackground } from '../../../components/ui/GlobalBackground';
+
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -1179,7 +1181,8 @@ export default function DashboardScreen() {
                         key={trip.tripId}
                         style={mainStyles(theme).tripSlide}
                       >
-                        <TripCardHorizontal
+                        <TripCard
+                          variant="horizontal"
                           trip={trip}
                           onPress={() =>
                             router.push(`/(app)/trips/${trip.tripId}` as any)

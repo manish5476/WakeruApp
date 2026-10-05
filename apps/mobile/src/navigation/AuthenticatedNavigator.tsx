@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { PushNotificationService } from '../services/notifications/PushService';
+import * as Location from 'expo-location';
 import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -303,6 +305,11 @@ function BottomTabs() {
 }
 
 export function AuthenticatedNavigator() {
+  useEffect(() => {
+    PushNotificationService.syncToken();
+    // Request location silently/early as per user request to avoid disrupting the add-expense flow
+    Location.requestForegroundPermissionsAsync().catch(() => {});
+  }, []);
   return (
     <Stack.Navigator
       initialRouteName="Tabs"

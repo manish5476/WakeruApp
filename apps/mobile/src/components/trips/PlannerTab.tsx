@@ -22,7 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 
 import { TripHero } from './planner/TripHero';
-import { PremiumSegmentedTabs, TabItem } from './planner/PremiumSegmentedTabs';
+import { TabBar, TabItem } from '../ui/TabBar';
 import { PlannerProgressCard } from './planner/PlannerProgressCard';
 import { BudgetSummaryCard } from './planner/BudgetSummaryCard';
 import { FlightCard, HotelCard, TransportCard } from './planner/BookingCards';
@@ -47,7 +47,7 @@ import { InteractiveWrapper } from '../ui/InteractiveWrapper';
 import { format } from 'date-fns';
 
 // â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const TABS: TabItem[] = [
+const TABS = [
   { id: 'Overview', label: 'Overview' },
   { id: 'Itinerary', label: 'Itinerary' },
   { id: 'Bookings', label: 'Bookings' },
@@ -1339,11 +1339,16 @@ export default function PlannerTab({
           paddingBottom: theme.spacing.md,
         }}
       >
-        <PremiumSegmentedTabs
-          tabs={tabsWithBadges}
-          activeTab={activeTab}
-          onChange={setActiveTab}
-          variant="secondary"
+        <TabBar
+          tabs={tabsWithBadges.map(t => ({
+            key: t.id,
+            label: t.label,
+            badge: t.badge,
+          }))}
+          activeKey={activeTab}
+          onTabChange={setActiveTab}
+          variant="segmented"
+          scrollable={true}
         />
       </View>
 

@@ -10,7 +10,12 @@ import { useTheme } from '@tripsplit/design-system';
 import { useAuthStore } from '@/state/auth.store';
 
 const linking: LinkingOptions<any> = {
-  prefixes: ['wakeru://', 'tripsplit://'],
+  prefixes: [
+    'wakeru://',
+    'tripsplit://',
+    'https://wakeru.com',
+    'https://www.wakeru.com',
+  ],
   config: {
     screens: {
       Tabs: {

@@ -4,11 +4,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@tripsplit/design-system';
+import { useThemeStore } from '../../state/theme.store';
 import { AppErrorBoundary } from '@/core/errors/AppErrorBoundary';
 import { AppServicesProvider } from './AppServices';
 import { AppBootstrap } from './AppBootstrap';
 
 export function AppRoot() {
+  const currentMode = useThemeStore(s => s.mode) || 'system';
   const queryClient = useMemo(
     () =>
       new QueryClient({
@@ -27,7 +29,7 @@ export function AppRoot() {
     <GestureHandlerRootView style={styles.root}>
       <AppErrorBoundary>
         <SafeAreaProvider>
-          <ThemeProvider mode="dark">
+          <ThemeProvider mode={'system' as any}>
             <QueryClientProvider client={queryClient}>
               <AppServicesProvider>
                 <AppBootstrap />

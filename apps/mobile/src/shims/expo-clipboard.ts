@@ -1,19 +1,21 @@
-let _clipboardContent = '';
+import Clipboard from '@react-native-clipboard/clipboard';
 
 export async function setStringAsync(text: string): Promise<boolean> {
-  _clipboardContent = text;
+  Clipboard.setString(text);
   return true;
 }
 
 export async function getStringAsync(): Promise<string> {
-  return _clipboardContent;
+  return await Clipboard.getString();
 }
 
 export const setString = (text: string) => {
-  _clipboardContent = text;
+  Clipboard.setString(text);
 };
 
-export const getString = () => _clipboardContent;
+export const getString = async () => {
+  return await Clipboard.getString();
+};
 
 export default {
   setStringAsync,

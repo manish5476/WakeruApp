@@ -1,5 +1,6 @@
 import GlobalLoader from '../../../components/common/GlobalLoader';
 import AppIcon from '../../../components/common/AppIcon';
+import { ExpandableFAB } from '../../../components/trips/planner/ExpandableFAB';
 // app/(app)/trips/[id]/[id].tsx
 import React, {
   useState,
@@ -33,6 +34,7 @@ import * as Print from 'expo-print';
 import { captureRef } from 'react-native-view-shot';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 // Hooks & Stores
 import {
   useTrip,
@@ -3658,7 +3660,10 @@ export default function TripDetailScreen() {
       ) : (
         <>
           {/* MOBILE/TABLET LAYOUT */}
-          <View style={{ zIndex: 10 }}>
+          <Animated.View
+            style={{ zIndex: 10 }}
+            entering={FadeInDown.duration(400).springify()}
+          >
             <View
               style={[
                 styles.headerWrapper,
@@ -3696,7 +3701,7 @@ export default function TripDetailScreen() {
                 variant="segmented"
               />
             </View>
-          </View>
+          </Animated.View>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -3732,29 +3737,46 @@ export default function TripDetailScreen() {
         </>
       )}
 
-      {/* FAB */}
-      <Pressable
-        style={({ pressed }) => [
-          styles.fab,
-          {
-            bottom: insets.bottom + 24,
-            backgroundColor: theme.colors.secondary,
-          },
-          pressed && { transform: [{ scale: 0.95 }] },
-        ]}
-        onPress={() => {
-          haptics.medium();
-          router.push(`/(app)/trips/${id}/add-expense`);
+      {/* EXPANDABLE FAB (Enhanced UI) */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: insets.bottom + 24,
+          right: 24,
+          zIndex: 9999,
         }}
       >
-        <LinearGradient
-          colors={theme.gradients.secondary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
+        <ExpandableFAB
+          actions={[
+            {
+              id: 'add-expense',
+              label: 'Add Expense',
+              icon: 'receipt',
+              color: theme.colors.primary,
+            },
+            {
+              id: 'add-stop',
+              label: 'Add Stop',
+              icon: 'map-pin',
+              color: theme.colors.secondary,
+            },
+            {
+              id: 'invite',
+              label: 'Invite Friend',
+              icon: 'user-plus',
+              color: theme.colors.success,
+            },
+          ]}
+          onPress={(actionId: string) => {
+            haptics.medium();
+            if (actionId === 'add-expense')
+              router.push(`/(app)/trips/${id}/add-expense`);
+            if (actionId === 'add-stop')
+              router.push(`/(app)/trips/${id}/add-stop`);
+            if (actionId === 'invite') setShowInviteFriendModal(true);
+          }}
         />
-        <AppIcon name="plus" size={28} color="#FFF" />
-      </Pressable>
+      </View>
 
       <TripCompletionSheet
         visible={showCompletionSheet}

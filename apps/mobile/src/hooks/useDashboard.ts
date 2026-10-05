@@ -8,6 +8,6 @@ export function useDashboard(filters?: Record<string, any>) {
       const response = await dashboardApi.getDashboard(filters);
       return response.data;
     },
-    staleTime: 30000,
+    staleTime: 60000,
   });
 }
