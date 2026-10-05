@@ -5,5 +5,3 @@ allowBuilds:
   '@firebase/util': true
   postinstall-postinstall: set this to true or false
   protobufjs: true
-patchedDependencies:
-  '@react-native-community/datetimepicker': patches/@react-native-community__datetimepicker.patch
