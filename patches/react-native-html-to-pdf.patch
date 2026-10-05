@@ -1,0 +1,15 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index f6509a2939c5c72af778255a841a6a950ec512ee..7b25418d3afdaa28f5d5c986816b09703ba3fa83 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -17,7 +17,9 @@ buildscript {
+ 
+ 
+ apply plugin: "com.android.library"
+-apply plugin: "kotlin-android"
++if (extensions.findByName("kotlin") == null) {
++  apply plugin: "kotlin-android"
++}
+ 
+ apply plugin: "com.facebook.react"
+ 

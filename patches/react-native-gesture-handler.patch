@@ -1,0 +1,15 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 6348d17da8169193477781fd65a4b4532d3f8798..c91bee410016f9de400b1e99b380d51bba168086 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -62,7 +62,9 @@ if (isNewArchitectureEnabled()) {
+ }
+ 
+ apply plugin: 'com.android.library'
+-apply plugin: 'kotlin-android'
++if (!isNewArchitectureEnabled() && extensions.findByName('kotlin') == null) {
++    apply plugin: 'kotlin-android'
++}
+ 
+ if (project == rootProject) {
+     apply from: "spotless.gradle"
