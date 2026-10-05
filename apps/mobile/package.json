@@ -42,7 +42,6 @@
     "react-hook-form": "^7.71.1",
     "react-native": "0.86.0",
     "react-native-chart-kit": "^7.0.2",
-    "react-native-code-push": "^9.0.1",
     "react-native-config": "^1.6.1",
     "react-native-draggable-flatlist": "^4.0.3",
     "react-native-fs": "^2.20.0",
