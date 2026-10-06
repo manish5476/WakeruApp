@@ -44,6 +44,7 @@ const config = {
         'src/shims/expo-image-picker.ts',
       ),
       'expo-print': path.resolve(__dirname, 'src/shims/expo-print.ts'),
+      'expo-sqlite': path.resolve(__dirname, 'src/shims/expo-sqlite.ts'),
       '@expo-google-fonts': path.resolve(__dirname, 'src/shims/expo-fonts.ts'),
       '@tripsplit/design-system': path.resolve(
         workspaceRoot,

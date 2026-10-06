@@ -19,6 +19,7 @@ module.exports = {
           'expo-file-system/legacy': './src/shims/expo-file-system',
           'expo-image-picker': './src/shims/expo-image-picker',
           'expo-print': './src/shims/expo-print',
+          'expo-sqlite': './src/shims/expo-sqlite',
           '@expo-google-fonts': './src/shims/expo-fonts',
           '@react-native-async-storage/async-storage':
             './src/shims/async-storage',
