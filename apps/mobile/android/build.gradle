@@ -16,6 +16,7 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
         classpath("com.google.gms:google-services:4.4.2")
         classpath("com.google.firebase:firebase-crashlytics-gradle:3.0.3")
     }
@@ -35,11 +36,6 @@ subprojects { subproject ->
         subproject.android {
             compileSdkVersion rootProject.ext.compileSdkVersion
             buildToolsVersion rootProject.ext.buildToolsVersion
-        }
-        subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
-            subproject.android.sourceSets.each { sourceSet ->
-                task.source(sourceSet.java.srcDirs)
-            }
         }
     }
 }
