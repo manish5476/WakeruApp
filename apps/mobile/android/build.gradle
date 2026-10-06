@@ -6,6 +6,7 @@ buildscript {
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.1.20"
+        reactNativeDir = "$rootDir/../../node_modules/react-native"
     }
     repositories {
         google()
@@ -30,9 +31,11 @@ allprojects {
 
 subprojects { subproject ->
     subproject.plugins.withId("com.android.library") {
-        subproject.android {
-            compileSdkVersion rootProject.ext.compileSdkVersion
-            buildToolsVersion rootProject.ext.buildToolsVersion
+        subproject.afterEvaluate {
+            subproject.android {
+                compileSdkVersion rootProject.ext.compileSdkVersion
+                buildToolsVersion rootProject.ext.buildToolsVersion
+            }
         }
         subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
             subproject.android.sourceSets.each { sourceSet ->
@@ -41,4 +44,3 @@ subprojects { subproject ->
         }
     }
 }
-
