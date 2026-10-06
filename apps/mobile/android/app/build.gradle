@@ -48,7 +48,7 @@ react {
 
     /* Hermes Commands */
     //   The hermes compiler command to run. By default it is 'hermesc'
-    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    hermesCommand = ["node", "-e", "const p = require.resolve('hermes-compiler/package.json'); const path = require('path'); console.log(path.join(path.dirname(p), 'hermesc', '%OS-BIN%', 'hermesc'));"].execute(null, rootDir).text.trim()
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
     // hermesFlags = ["-O", "-output-source-map"]
