@@ -1,5 +1,4 @@
 name: Build Android APK
-
 on:
   push:
     branches: [master, main]
@@ -9,7 +8,6 @@ jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -33,18 +31,13 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Inject Production Environment Variables
-        run: |
-          echo "API_URL=https://wakeru.onrender.com/api/v1" > apps/mobile/.env
-          echo "EXPO_PUBLIC_API_URL=https://wakeru.onrender.com/api/v1" >> apps/mobile/.env
-
       - name: Grant Execute Permission for Gradlew
         run: chmod +x apps/mobile/android/gradlew
 
       - name: Build Android Release APK
         run: |
           cd apps/mobile/android
-          ./gradlew clean assembleRelease --no-daemon
+          ./gradlew clean assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:+UseG1GC"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -52,3 +45,11 @@ jobs:
           name: TripSplit-Release-APK
           path: apps/mobile/android/app/build/outputs/apk/release/*.apk
           retention-days: 14
+
+      - name: Upload Build Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: apps/mobile/android/build/reports/
+          retention-days: 7
