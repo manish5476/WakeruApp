@@ -13,3 +13,4 @@ patchedDependencies:
   react-native-gesture-handler: patches/react-native-gesture-handler.patch
   react-native-html-to-pdf: patches/react-native-html-to-pdf.patch
   react-native-print: patches/react-native-print.patch
+  react-native-reanimated: patches/react-native-reanimated.patch

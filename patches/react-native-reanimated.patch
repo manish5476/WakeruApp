@@ -1,0 +1,24 @@
+diff --git a/android/build.gradle.kts b/android/build.gradle.kts
+index 0975509613c3ce969fb084ddebb25b444e83ddc6..35a48cffb2e844deb900f5920f32f3609bdeb264 100644
+--- a/android/build.gradle.kts
++++ b/android/build.gradle.kts
+@@ -244,13 +244,7 @@ android {
+     }
+ }
+ 
+-if (project != rootProject) {
+-    kotlin {
+-        compilerOptions {
+-            jvmTarget = JvmTarget.fromTarget("17")
+-        }
+-    }
+-}
++
+ 
+ androidComponents {
+     onVariants(selector().withBuildType("debug")) {
+@@ -360,3 +354,4 @@ if (project != rootProject) {
+         }
+     }
+ }
++
