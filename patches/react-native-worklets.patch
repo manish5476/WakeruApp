@@ -1,0 +1,24 @@
+diff --git a/android/build.gradle.kts b/android/build.gradle.kts
+index e326d97ca156b074b1f5a41a310edef191695e56..788b96a449448f039b7fae8ec0f18e868e41809a 100644
+--- a/android/build.gradle.kts
++++ b/android/build.gradle.kts
+@@ -289,13 +289,7 @@ android {
+     }
+ }
+ 
+-if (project != rootProject) {
+-    kotlin {
+-        compilerOptions {
+-            jvmTarget = JvmTarget.fromTarget("17")
+-        }
+-    }
+-}
++
+ 
+ androidComponents {
+     onVariants(selector().withBuildType("debug")) {
+@@ -367,3 +361,4 @@ afterEvaluate {
+         finalizedBy("cleanCMakeCache")
+     }
+ }
++

@@ -14,3 +14,4 @@ patchedDependencies:
   react-native-html-to-pdf: patches/react-native-html-to-pdf.patch
   react-native-print: patches/react-native-print.patch
   react-native-reanimated: patches/react-native-reanimated.patch
+  react-native-worklets: patches/react-native-worklets.patch
