@@ -1,0 +1,20 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 34e2591b807a5c3b5daff16ec420544d60a68069..3089f483d4e105efd654b17b827d72f4b09e8854 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -1,12 +1,12 @@
+ apply plugin: 'com.android.library'
+ 
+ android {
+-    buildToolsVersion = "31.0.0"
++    buildToolsVersion = "36.0.0"
+      
+     defaultConfig {
+         minSdkVersion = 21
+-        compileSdkVersion = 31
+-        targetSdkVersion 29
++        compileSdkVersion = 36
++        targetSdkVersion 36
+         versionCode 1
+         versionName "1.0"
+         ndk {

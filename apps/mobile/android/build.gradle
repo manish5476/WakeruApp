@@ -32,11 +32,9 @@ allprojects {
 
 subprojects { subproject ->
     subproject.plugins.withId("com.android.library") {
-        subproject.afterEvaluate {
-            subproject.android {
-                compileSdkVersion rootProject.ext.compileSdkVersion
-                buildToolsVersion rootProject.ext.buildToolsVersion
-            }
+        subproject.android {
+            compileSdkVersion rootProject.ext.compileSdkVersion
+            buildToolsVersion rootProject.ext.buildToolsVersion
         }
         subproject.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
             subproject.android.sourceSets.each { sourceSet ->
