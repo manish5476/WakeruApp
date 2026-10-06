@@ -12,8 +12,44 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Free Disk Space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+
+          echo "Removing large unnecessary files..."
+          sudo apt-get clean
+          sudo apt-get autoclean
+          sudo apt-get autoremove -y
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/google
+          sudo rm -rf /opt/microsoft
+          sudo rm -rf /opt/swift
+          sudo rm -rf /opt/cni-plugins
+          sudo rm -rf /opt/conda
+          sudo rm -rf /opt/runner-cache
+          sudo rm -rf /usr/local/graalvm
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/aws-cli
+          sudo rm -rf /usr/share/swift
+
+          echo "Clearing pip cache..."
+          sudo rm -rf ~/.cache/pip
+
+          echo "Clearing npm cache..."
+          sudo npm cache clean --force || true
+
+          echo "Clearing docker images..."
+          sudo docker image prune -a -f || true
+
+          echo "Disk space after cleanup:"
+          df -h
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,9 +65,8 @@ jobs:
           cache: 'gradle'
 
       - name: Install Dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      # Creates the env file expected by apps/mobile/android (../../.env.production is the repo root)
       - name: Create .env.production
         run: |
           touch .env.production
@@ -41,10 +76,20 @@ jobs:
       - name: Grant Execute Permission for Gradlew
         run: chmod +x apps/mobile/android/gradlew
 
+      - name: Clear Gradle Cache
+        run: |
+          rm -rf ~/.gradle/caches
+          rm -rf ~/.gradle/wrapper
+          echo "Gradle cache cleared"
+
       - name: Build Android Release APK
         run: |
           cd apps/mobile/android
-          ./gradlew clean assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:+UseG1GC"
+          ./gradlew clean assembleRelease \
+            --no-daemon \
+            --parallel=false \
+            -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseG1GC" \
+            -Dorg.gradle.daemon=false
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -62,5 +107,3 @@ jobs:
             apps/mobile/android/build/reports/
             apps/mobile/android/app/build/reports/
           retention-days: 7
-
-
