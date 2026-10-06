@@ -219,8 +219,8 @@ importers:
         specifier: 0.86.0
         version: 0.86.0(eslint@8.57.1)(jest@29.7.0(@types/node@26.1.1))(prettier@2.8.8)(typescript@5.9.3)
       '@react-native/gradle-plugin':
-        specifier: ^0.87.1
-        version: 0.87.1
+        specifier: 0.86.0
+        version: 0.86.0
       '@react-native/jest-preset':
         specifier: 0.86.0
         version: 0.86.0(@babel/core@7.29.7)(react@19.2.3)
@@ -1827,10 +1827,6 @@ packages:
   '@react-native/gradle-plugin@0.86.0':
     resolution: {integrity: sha512-a1RcfaEDqWExCGfCwadIxt4l8FvKYgFqeMf2uzeKyAOnb+vTGNIeCvifFL2MqvgaeYxlER437HbMIajGcuJ1pQ==}
     engines: {node: ^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0}
-
-  '@react-native/gradle-plugin@0.87.1':
-    resolution: {integrity: sha512-bZ5X2BNxaSlfp2KlDtUM910QqW9G1yTIeZXghuv4ag8SAQLzm5Mf9j5GjJfT6ax2Qo2aRT15Vi3Tro/yLGJstA==}
-    engines: {node: ^22.13.0 || ^24.3.0 || >= 26.0.0}
 
   '@react-native/jest-preset@0.86.0':
     resolution: {integrity: sha512-KA+xpIP3DvJy7PQJ9c6ZdEKkOPChl+Rk/rV2MhQACEAzfhWU84407KZQv4ccyO3B4caD0gPrFjE96a4P993nsQ==}
@@ -7821,8 +7817,6 @@ snapshots:
   '@react-native/gradle-plugin@0.84.1': {}
 
   '@react-native/gradle-plugin@0.86.0': {}
-
-  '@react-native/gradle-plugin@0.87.1': {}
 
   '@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3)':
     dependencies:
