@@ -27,6 +27,7 @@ import { haptics } from '../../../../src/utils/haptics';
 import { GlassCard } from '../../../../src/components/ui/GlassCard';
 import { Typography } from '../../../../src/components/ui/Typography';
 import { GlobalBackground } from '../../../../src/components/ui/GlobalBackground';
+import { TabBar } from '../../../../src/components/ui/TabBar';
 import type { Theme } from '../../../../src/theme';
 
 // ============================================================
@@ -224,58 +225,22 @@ function FilterChips({
   activeFilter: string;
   setFilter: (f: string) => void;
 }) {
-  const theme = useTheme();
-  const styles = getStyles(theme);
+  const tabs = FILTERS.map(f => ({
+    key: f.id,
+    label: f.label,
+  }));
 
   return (
-    <FlatList
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.filterScroll}
-      data={FILTERS}
-      keyExtractor={f => f.id}
-      renderItem={({ item: f }) => {
-        const isActive = activeFilter === f.id;
-        return (
-          <Pressable
-            style={({ hovered, pressed }: any) => [
-              styles.filterChip,
-              isActive
-                ? {
-                    backgroundColor: theme.colors.primary,
-                    borderColor: theme.colors.primary,
-                  }
-                : {
-                    backgroundColor: theme.isDark
-                      ? 'rgba(255,255,255,0.05)'
-                      : 'rgba(0,0,0,0.03)',
-                    borderColor: theme.colors.borderLight,
-                  },
-              pressed && { transform: [{ scale: 0.96 }] },
-              Platform.OS === 'web' &&
-                hovered &&
-                !isActive && {
-                  backgroundColor: theme.isDark
-                    ? 'rgba(255,255,255,0.1)'
-                    : 'rgba(0,0,0,0.08)',
-                },
-            ]}
-            onPress={() => {
-              haptics.light();
-              setFilter(f.id);
-            }}
-          >
-            <Typography
-              variant="bodySm"
-              weight="bold"
-              color={isActive ? 'textInverse' : 'textSecondary'}
-            >
-              {f.label}
-            </Typography>
-          </Pressable>
-        );
-      }}
-    />
+    <View style={{ marginBottom: 12 }}>
+      <TabBar
+        tabs={tabs}
+        activeKey={activeFilter}
+        onTabChange={setFilter}
+        variant="segmented"
+        scrollable
+        size="sm"
+      />
+    </View>
   );
 }
 

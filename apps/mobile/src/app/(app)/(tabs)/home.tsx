@@ -1,4 +1,4 @@
-﻿// app/(app)/(tabs)/index.tsx
+// app/(app)/(tabs)/index.tsx
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
@@ -40,6 +40,7 @@ import {
   SearchFilters,
 } from '../../../components/trips/SearchFilterModal';
 import { FinanceStreakCard } from '../../../components/finance/FinanceStreakCard';
+import { TabBar } from '../../../components/ui/TabBar';
 import AppIcon from '../../../components/common/AppIcon';
 import type { Theme } from '../../../theme';
 
@@ -278,56 +279,22 @@ function FilterTabBar({
   active: string | undefined;
   onChange: (key: string | undefined) => void;
 }) {
-  const theme = useTheme();
+  const tabs = FILTERS.map(f => ({
+    key: f.key ?? 'all',
+    label: f.label,
+    icon: f.icon,
+  }));
 
   return (
-    <View style={tabBarStyles(theme).container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={tabBarStyles(theme).scrollList}
-      >
-        {FILTERS.map(f => {
-          const isActive = active === f.key;
-          return (
-            <Pressable
-              key={f.key || 'all'}
-              onPress={() => {
-                haptics.light();
-                onChange(isActive ? undefined : f.key);
-              }}
-              style={[
-                tabBarStyles(theme).tabPill,
-                isActive
-                  ? { backgroundColor: theme.colors.primary }
-                  : {
-                      backgroundColor: theme.colors.surface,
-                      borderColor: theme.isDark
-                        ? 'rgba(255,255,255,0.06)'
-                        : 'rgba(0,0,0,0.04)',
-                    },
-              ]}
-            >
-              <AppIcon
-                name={f.icon as any}
-                size={13}
-                color={isActive ? '#FFFFFF' : theme.colors.textSecondary}
-              />
-              <Text
-                style={[
-                  tabBarStyles(theme).tabLabel,
-                  {
-                    color: isActive ? '#FFFFFF' : theme.colors.textSecondary,
-                    fontWeight: isActive ? '800' : '600',
-                  },
-                ]}
-              >
-                {f.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+    <View style={{ marginBottom: 16 }}>
+      <TabBar
+        tabs={tabs}
+        activeKey={active ?? 'all'}
+        onTabChange={key => onChange(key === 'all' ? undefined : key)}
+        variant="segmented"
+        scrollable
+        size="sm"
+      />
     </View>
   );
 }

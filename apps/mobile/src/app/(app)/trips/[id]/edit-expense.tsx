@@ -605,7 +605,7 @@ export default function AddExpenseScreen() {
       { latitude: number; longitude: number; name?: string } | undefined;
 
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.getForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -616,7 +616,18 @@ export default function AddExpenseScreen() {
         };
       }
     } catch (error) {
-      console.log('Location fetch skipped/failed');
+      console.log('Location fetch skipped/failed', error);
+    }
+
+    // FALLBACK: If user denied location (or it failed), use the Stop's location
+    if (!locationData && formData.stopId && stops) {
+      const stop = stops.find((s: any) => s._id === formData.stopId);
+      if (stop?.location) {
+        locationData = {
+          latitude: stop.location.lat,
+          longitude: stop.location.lng,
+        };
+      }
     }
 
     const payload = {
