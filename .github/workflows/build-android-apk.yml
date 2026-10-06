@@ -96,3 +96,4 @@ jobs:
           name: build-reports
           path: apps/mobile/android/build/reports/
           retention-days: 7
+
