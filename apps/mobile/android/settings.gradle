@@ -8,3 +8,6 @@ plugins {
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'TripSplitMobile'
 include ':app'
+
+def reactNativeDir = new File(['node', '--print', "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).parentFile.absolutePath
+includeBuild(reactNativeDir + "/../@react-native/gradle-plugin")
