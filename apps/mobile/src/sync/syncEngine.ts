@@ -8,8 +8,9 @@ import { queryKeys } from '../hooks/queryKeys';
 
 // Lazy getters to break circular dependencies:
 // syncEngine ↔ trip.repository, syncEngine ↔ expense.repository, syncEngine ↔ widgetService
-const getWidgetService = () =>
-  require('../services/widget/widgetService').widgetService;
+const getWidgetService = () => {
+  updateAllWidgets: async () => {};
+};
 const getTripRepository = () =>
   require('../repositories/trip.repository').tripRepository;
 const getExpenseRepository = () =>

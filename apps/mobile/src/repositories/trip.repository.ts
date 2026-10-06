@@ -4,8 +4,9 @@ import { syncQueue } from '../sync/syncQueue';
 // Lazy getters to break circular dependencies:
 // trip.repository ↔ syncEngine, trip.repository ↔ widgetService
 const getSyncEngine = () => require('../sync/syncEngine').syncEngine;
-const getWidgetService = () =>
-  require('../services/widget/widgetService').widgetService;
+const getWidgetService = () => {
+  updateAllWidgets: async () => {};
+};
 import { generateUUID } from '../utils/uuid';
 import { toMinorUnits } from '../utils/money/money';
 import { ITrip, ITripMember } from '../types/trip.types';
