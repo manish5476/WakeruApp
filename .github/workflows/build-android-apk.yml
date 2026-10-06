@@ -31,6 +31,49 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --no-frozen-lockfile
 
+      # Creates the env file expected by apps/mobile/android (../../.env.production is the repo root)
+      - name: Create .env.production
+        run: |
+          touch .env.production
+          # If you have secrets, populate them here:
+          # echo "API_URL=${{ secrets.API_URL }}" >> .env.production
+
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x apps/mobile/android/gradlew
+
+      - name: Build Android Release APK
+        run: |
+          cd apps/mobile/android
+          ./gradlew clean assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m -XX:+UseG1GC"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TripSplit-Release-APK
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
+
+      - name: Upload Build Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: |
+            apps/mobile/android/build/reports/
+            apps/mobile/android/app/build/reports/
+          retention-days: 7
+
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
+
       - name: Grant Execute Permission for Gradlew
         run: chmod +x apps/mobile/android/gradlew
 
