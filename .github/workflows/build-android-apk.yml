@@ -1,60 +1,92 @@
 name: Build Android APK
+
 on:
   push:
-    branches: [master, main]
+    branches:
+      - master
+      - main
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-apk:
-    name: Build Android APK
+    name: Build Android Release APK
     runs-on: ubuntu-latest
+
     steps:
+      # ==========================================
+      # Checkout
+      # ==========================================
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # ==========================================
+      # Free Disk Space
+      # ==========================================
       - name: Free Disk Space
         run: |
-          echo "Disk space before cleanup:"
+          echo "========================================="
+          echo "DISK SPACE BEFORE CLEANUP"
+          echo "========================================="
           df -h
 
-          echo "Removing large unnecessary files..."
+          echo ""
+          echo "Removing unnecessary preinstalled software..."
+
+          # Large toolchains not required for this Android build
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /opt/hostedtoolcache || true
+          sudo rm -rf /opt/conda || true
+          sudo rm -rf /opt/runner-cache || true
+          sudo rm -rf /usr/local/graalvm || true
+          sudo rm -rf /usr/local/.ghcup || true
+          sudo rm -rf /usr/local/aws-cli || true
+          sudo rm -rf /usr/share/swift || true
+
+          # Clean APT
           sudo apt-get clean
           sudo apt-get autoclean
-          sudo apt-get autoremove -y
-          sudo rm -rf /opt/hostedtoolcache
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/google
-          sudo rm -rf /opt/microsoft
-          sudo rm -rf /opt/swift
-          sudo rm -rf /opt/cni-plugins
-          sudo rm -rf /opt/conda
-          sudo rm -rf /opt/runner-cache
-          sudo rm -rf /usr/local/graalvm
-          sudo rm -rf /usr/local/.ghcup
-          sudo rm -rf /usr/local/aws-cli
-          sudo rm -rf /usr/share/swift
+          sudo apt-get autoremove -y || true
 
-          echo "Clearing pip cache..."
-          sudo rm -rf ~/.cache/pip
+          # Clean Docker
+          sudo docker system prune -af || true
 
-          echo "Clearing npm cache..."
-          sudo npm cache clean --force || true
+          # Clean package caches
+          npm cache clean --force || true
+          rm -rf ~/.cache/pnpm || true
+          rm -rf ~/.npm/_cacache || true
+          rm -rf ~/.cache/pip || true
 
-          echo "Clearing docker images..."
-          sudo docker image prune -a -f || true
-
-          echo "Disk space after cleanup:"
+          echo ""
+          echo "========================================="
+          echo "DISK SPACE AFTER CLEANUP"
+          echo "========================================="
           df -h
 
+      # ==========================================
+      # pnpm
+      # ==========================================
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
+      # ==========================================
+      # Node.js
+      # ==========================================
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'pnpm'
 
+      # ==========================================
+      # Java
+      # ==========================================
       - name: Setup Java (JDK 17)
         uses: actions/setup-java@v5
         with:
@@ -62,46 +94,132 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
+      # ==========================================
+      # Environment Information
+      # ==========================================
+      - name: Check Build Environment
+        run: |
+          echo "Node:"
+          node --version
 
+          echo "pnpm:"
+          pnpm --version
+
+          echo "Java:"
+          java -version
+
+          echo ""
+          echo "Disk space:"
+          df -h
+
+      # ==========================================
+      # Install Dependencies
+      # ==========================================
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      # ==========================================
+      # Production Environment
+      # ==========================================
+      # apps/mobile/android expects:
+      # ../../.env.production
+      #
+      # Therefore this file is created at repository root.
+      # ==========================================
       - name: Create .env.production
         run: |
           touch .env.production
-          # If you have secrets, populate them here:
-          # echo "API_URL=${{ secrets.API_URL }}" >> .env.production
 
+          # Add production secrets here when required:
+          #
+          # echo "API_URL=${{ secrets.API_URL }}" >> .env.production
+          #
+          # Example:
+          # echo "EXAMPLE_KEY=${{ secrets.EXAMPLE_KEY }}" >> .env.production
+
+      # ==========================================
+      # Gradle Permission
+      # ==========================================
       - name: Grant Execute Permission for Gradlew
         run: chmod +x apps/mobile/android/gradlew
 
-      - name: Clear Gradle Cache
-        run: |
-          rm -rf ~/.gradle/caches
-          rm -rf ~/.gradle/wrapper
-          echo "Gradle cache cleared"
-
+      # ==========================================
+      # Build Android Release APK
+      # ==========================================
       - name: Build Android Release APK
+        working-directory: apps/mobile/android
+        env:
+          GRADLE_OPTS: >-
+            -Dorg.gradle.jvmargs=-Xmx3072m
+            -XX:+UseG1GC
         run: |
-          cd apps/mobile/android
           ./gradlew clean assembleRelease \
             --no-daemon \
-            --parallel=false \
-            -Dorg.gradle.jvmargs="-Xmx2048m -XX:+UseG1GC" \
-            -Dorg.gradle.daemon=false
+            --stacktrace
 
+      # ==========================================
+      # Verify APK
+      # ==========================================
+      - name: Verify APK
+        run: |
+          echo "Generated APK files:"
+
+          find apps/mobile/android/app/build/outputs/apk/release \
+            -type f \
+            -name "*.apk" \
+            -print
+
+          APK=$(find apps/mobile/android/app/build/outputs/apk/release \
+            -type f \
+            -name "*.apk" \
+            -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: APK was not generated."
+            exit 1
+          fi
+
+          echo ""
+          echo "APK successfully generated:"
+          echo "$APK"
+
+          echo ""
+          echo "APK size:"
+          du -h "$APK"
+
+      # ==========================================
+      # Upload APK
+      # ==========================================
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: TripSplit-Release-APK
           path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
           retention-days: 14
 
+      # ==========================================
+      # Upload Build Reports on Failure
+      # ==========================================
       - name: Upload Build Reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: build-reports
+          name: TripSplit-Build-Reports
           path: |
             apps/mobile/android/build/reports/
             apps/mobile/android/app/build/reports/
+            apps/mobile/android/app/build/outputs/logs/
+          if-no-files-found: ignore
           retention-days: 7
+
+      # ==========================================
+      # Final Disk Report
+      # ==========================================
+      - name: Final Disk Space
+        if: always()
+        run: |
+          echo "========================================="
+          echo "FINAL DISK SPACE"
+          echo "========================================="
+          df -h
