@@ -18,25 +18,46 @@ export function mapPathToRoute(
     });
   }
 
-  // Tabs
+  // Tabs — accept both (app)/(tabs)/X and (app)/X shorthand forms
   if (
     cleanPath === '(app)/(tabs)/home' ||
+    cleanPath === '(app)/home' ||
     cleanPath === 'home' ||
     cleanPath === ''
   ) {
-    return { name: 'Tabs', params: { screen: 'Home', ...queryParams } };
-  }
-  if (cleanPath === '(app)/(tabs)/trips' || cleanPath === 'trips') {
     return { name: 'Tabs', params: { screen: 'TripsTab', ...queryParams } };
   }
-  if (cleanPath === '(app)/(tabs)/expenses' || cleanPath === 'expenses') {
+  if (
+    cleanPath === '(app)/(tabs)/dashboard' ||
+    cleanPath === '(app)/dashboard' ||
+    cleanPath === 'dashboard'
+  ) {
+    return { name: 'Tabs', params: { screen: 'Home', ...queryParams } };
+  }
+  if (
+    cleanPath === '(app)/(tabs)/trips' ||
+    cleanPath === '(app)/trips' ||
+    cleanPath === 'trips'
+  ) {
+    return { name: 'Tabs', params: { screen: 'TripsTab', ...queryParams } };
+  }
+  if (
+    cleanPath === '(app)/(tabs)/expenses' ||
+    cleanPath === '(app)/expenses' ||
+    cleanPath === 'expenses'
+  ) {
     return { name: 'Tabs', params: { screen: 'ExpensesTab', ...queryParams } };
   }
-  if (cleanPath === '(app)/(tabs)/finance' || cleanPath === 'finance') {
+  if (
+    cleanPath === '(app)/(tabs)/finance' ||
+    cleanPath === '(app)/finance' ||
+    cleanPath === 'finance'
+  ) {
     return { name: 'Tabs', params: { screen: 'FinanceTab', ...queryParams } };
   }
   if (
     cleanPath === '(app)/(tabs)/notifications' ||
+    cleanPath === '(app)/notifications' ||
     cleanPath === 'notifications'
   ) {
     return {
@@ -44,7 +65,12 @@ export function mapPathToRoute(
       params: { screen: 'NotificationsTab', ...queryParams },
     };
   }
-  if (cleanPath === '(app)/(tabs)/profile' || cleanPath === 'profile') {
+  // ⚠️  (app)/profile  →  ProfileTab  (this was the missing mapping causing the crash)
+  if (
+    cleanPath === '(app)/(tabs)/profile' ||
+    cleanPath === '(app)/profile' ||
+    cleanPath === 'profile'
+  ) {
     return { name: 'Tabs', params: { screen: 'ProfileTab', ...queryParams } };
   }
   if (cleanPath === '(app)/(tabs)/create' || cleanPath === 'create') {
@@ -404,5 +430,14 @@ export function mapPathToRoute(
   )
     return { name: 'ReceiptConfirm', params: queryParams };
 
-  return { name: cleanPath || 'Tabs', params: queryParams };
+  // Fallback: never return a raw expo-router style path — default to Home tab
+  const fallback = cleanPath || 'Tabs';
+  // If the path still looks like an expo-router segment (contains '('), default to Tabs
+  if (fallback.includes('(')) {
+    console.warn(
+      `[route-mapper] Unhandled path "${path}" — defaulting to Home tab`,
+    );
+    return { name: 'Tabs', params: queryParams };
+  }
+  return { name: fallback, params: queryParams };
 }

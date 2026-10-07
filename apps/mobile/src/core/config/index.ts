@@ -3,11 +3,16 @@ import Config from 'react-native-config';
 export const config = {
   // App
   APP_NAME: 'TripSplit',
-  ENVIRONMENT: Config.ENVIRONMENT || 'development',
-  IS_DEV: Config.ENVIRONMENT === 'development',
+  ENVIRONMENT:
+    Config.ENVIRONMENT || Config.EXPO_PUBLIC_ENVIRONMENT || 'development',
+  IS_DEV:
+    (Config.ENVIRONMENT || Config.EXPO_PUBLIC_ENVIRONMENT) === 'development',
 
   // API
-  API_URL: Config.API_URL || 'http://localhost:8000/api/v1',
+  API_URL:
+    Config.API_URL ||
+    Config.EXPO_PUBLIC_API_URL ||
+    'http://localhost:8000/api/v1',
   API_TIMEOUT: parseInt(Config.API_TIMEOUT || '15000', 10),
 
   // Firebase

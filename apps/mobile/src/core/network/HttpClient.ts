@@ -70,11 +70,40 @@ export class HttpClient {
           signal: request.signal,
           url: request.path,
         };
+        const fullUrl = `${this.client.defaults.baseURL ?? ''}${request.path}`;
+        if (__DEV__) {
+          let curl = `curl -X ${request.method} "${fullUrl}"`;
+          if (config.headers) {
+            Object.entries(config.headers).forEach(([k, v]) => {
+              if (v) curl += ` \\\n  -H "${k}: ${v}"`;
+            });
+          }
+          if (request.body) {
+            const rawBody =
+              typeof request.body === 'string'
+                ? request.body
+                : JSON.stringify(request.body);
+            curl += ` \\\n  -d '${rawBody}'`;
+          }
+          console.log(`\n🌐 [API REQUEST] ${request.method} ${fullUrl}`);
+          console.log(`📋 [cURL COMMAND]:\n${curl}\n`);
+        }
         const response = await this.client.request<TResponse>(config);
+        if (__DEV__) {
+          console.log(
+            `✅ [API RESPONSE] ${request.method} ${request.path} - Status: ${response.status}`,
+          );
+        }
         this.observer?.onResponse(request, response.status);
         return response.data;
       } catch (error) {
         const apiError = mapApiError(error);
+        if (__DEV__) {
+          console.log(
+            `❌ [API ERROR] ${request.method} ${request.path}:`,
+            apiError,
+          );
+        }
         this.observer?.onError(request, apiError);
         if (
           apiError.kind === 'authentication' &&

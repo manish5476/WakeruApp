@@ -80,13 +80,29 @@ class ApiClient {
   // ============================================================
 
   private setupInterceptors(): void {
-    const DEBUG_API = config.IS_DEV;
+    const DEBUG_API = __DEV__ || config.IS_DEV;
 
     if (DEBUG_API) {
       this.client.interceptors.request.use(axiosConfig => {
         const method = (axiosConfig.method ?? 'GET').toUpperCase();
         const url = `${axiosConfig.baseURL ?? ''}${axiosConfig.url ?? ''}`;
+        let curl = `curl -X ${method} "${url}"`;
+        if (axiosConfig.headers) {
+          Object.entries(axiosConfig.headers).forEach(([k, v]) => {
+            if (v && typeof v === 'string') {
+              curl += ` \\\n  -H "${k}: ${v}"`;
+            }
+          });
+        }
+        if (axiosConfig.data) {
+          const raw =
+            typeof axiosConfig.data === 'string'
+              ? axiosConfig.data
+              : JSON.stringify(axiosConfig.data);
+          curl += ` \\\n  -d '${raw}'`;
+        }
         console.log(`\n🌐 [API REQUEST] ${method} ${url}`);
+        console.log(`📋 [cURL COMMAND]:\n${curl}\n`);
         return axiosConfig;
       });
 

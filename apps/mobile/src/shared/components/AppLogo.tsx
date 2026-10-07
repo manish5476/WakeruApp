@@ -1,5 +1,6 @@
+// components/common/AppLogo.tsx
 import React from 'react';
-import { Image, ImageStyle, StyleProp } from 'react-native';
+import { Image, ImageStyle, StyleProp, Platform } from 'react-native';
 
 interface AppLogoProps {
   size?: number;
@@ -31,14 +32,25 @@ export default function AppLogo({
           width: w,
           height: h,
           borderRadius: rad,
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 4,
+
+          ...Platform.select({
+            web: {
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            } as any,
+
+            default: {
+              shadowColor: '#000',
+
+              shadowOffset: {
+                width: 0,
+                height: 4,
+              },
+
+              shadowOpacity: 0.1,
+              shadowRadius: 10,
+              elevation: 4,
+            },
+          }),
         } as ImageStyle,
         style,
       ]}
