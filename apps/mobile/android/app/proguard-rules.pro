@@ -12,3 +12,6 @@
 # PDFBox optional image decoder dependencies
 -dontwarn com.gemalto.jp2.**
 -dontwarn com.tom_roush.pdfbox.**
+
+# Keep application classes
+-keep class com.wakeru.tripsplit.** { *; }
