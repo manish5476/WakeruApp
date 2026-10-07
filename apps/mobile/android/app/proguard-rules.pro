@@ -8,3 +8,7 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+# PDFBox optional image decoder dependencies
+-dontwarn com.gemalto.jp2.**
+-dontwarn com.tom_roush.pdfbox.**

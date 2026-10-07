@@ -34,23 +34,3 @@ files.forEach(f => {
     }
   }
 });
-
-const ktsFiles = [
-  'D:/Split/New/TripSplitNative/apps/mobile/node_modules/react-native-reanimated/android/build.gradle.kts',
-  'D:/Split/New/TripSplitNative/apps/mobile/node_modules/react-native-worklets/android/build.gradle.kts',
-];
-
-ktsFiles.forEach(f => {
-  if (fs.existsSync(f)) {
-    let content = fs.readFileSync(f, 'utf8');
-    let original = content;
-    content = content.replace(
-      /id\("org\.jetbrains\.kotlin\.android"\)(?!\s*apply\s*false)/g,
-      'id("org.jetbrains.kotlin.android") apply false',
-    );
-    if (content !== original) {
-      fs.writeFileSync(f, content, 'utf8');
-      console.log('Guarded KTS:', f);
-    }
-  }
-});
