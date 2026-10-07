@@ -1,19 +1,31 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { PushNotificationService } from '../services/notifications/PushService';
 import * as Location from 'expo-location';
-import { View, StyleSheet } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Platform,
+  useWindowDimensions,
+  Pressable,
+} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import type { AuthenticatedTabParamList, RootStackParamList } from './types';
 import { useAppTheme } from '@/shared/theme/ThemeProvider';
 import AppIcon from '@/shared/components/AppIcon';
 import { Typography } from '@/shared/components/Typography';
+import { GlobalBackground } from '../components/ui/GlobalBackground';
+import { AppSidebar } from '../components/ui/AppSidebar';
+import { GlobalFloatingTabBar } from '../components/navigation/GlobalFloatingTabBar';
+import { SidebarMenuContext } from '../app/(app)/(tabs)/_layout';
 
 // Tab screens
-import HomeScreen from '../app/(app)/(tabs)/home';
-import TripsListScreen from '../app/(app)/trips/index';
+import HomeScreen from '../app/(app)/(tabs)/dashboard';
+import TripsListScreen from '../app/(app)/(tabs)/home';
 import ExpensesScreen from '../app/(app)/(tabs)/expenses';
 import FinanceScreen from '../app/(app)/(tabs)/finance';
 import NotificationsScreen from '../app/(app)/(tabs)/notifications';
@@ -85,340 +97,394 @@ import ReceiptConfirmScreen from '../app/(app)/receipts/confirm';
 import BalancesScreen from '../app/(app)/balances';
 import SplitsScreen from '../app/(app)/splits';
 
+import { navigationRef } from './navigationRef';
+import { usePathname } from '../shims/expo-router';
+
 const Tab = createBottomTabNavigator<AuthenticatedTabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function BottomTabs() {
-  const theme = useAppTheme();
-  const insets = useSafeAreaInsets();
-
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: Math.max(insets.bottom, 12),
-          left: 16,
-          right: 16,
-          height: 64,
-          borderRadius: 24,
-          backgroundColor: theme.isDark
-            ? 'rgba(24, 24, 27, 0.88)'
-            : 'rgba(255, 255, 255, 0.92)',
-          borderTopWidth: 1,
-          borderTopColor: theme.isDark
-            ? 'rgba(255, 255, 255, 0.1)'
-            : 'rgba(0, 0, 0, 0.06)',
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.15,
-          shadowRadius: 16,
-          elevation: 10,
-          paddingBottom: 0,
-        },
-        tabBarShowLabel: false,
+        tabBarStyle: { display: 'none' }, // HIDE default tab bar completely
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.tabItem}>
-              <AppIcon
-                name="home"
-                size={22}
-                color={
-                  focused ? theme.colors.primary : theme.colors.textTertiary
-                }
-              />
-              <Typography
-                variant="caption"
-                weight={focused ? 'bold' : 'normal'}
-                style={{
-                  color: focused
-                    ? theme.colors.primary
-                    : theme.colors.textTertiary,
-                  fontSize: 10,
-                  marginTop: 2,
-                }}
-              >
-                Home
-              </Typography>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="TripsTab"
-        component={TripsListScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.tabItem}>
-              <AppIcon
-                name="plane"
-                size={22}
-                color={
-                  focused ? theme.colors.primary : theme.colors.textTertiary
-                }
-              />
-              <Typography
-                variant="caption"
-                weight={focused ? 'bold' : 'normal'}
-                style={{
-                  color: focused
-                    ? theme.colors.primary
-                    : theme.colors.textTertiary,
-                  fontSize: 10,
-                  marginTop: 2,
-                }}
-              >
-                Trips
-              </Typography>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ExpensesTab"
-        component={ExpensesScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.tabItem}>
-              <AppIcon
-                name="arrow-left-right"
-                size={22}
-                color={
-                  focused ? theme.colors.primary : theme.colors.textTertiary
-                }
-              />
-              <Typography
-                variant="caption"
-                weight={focused ? 'bold' : 'normal'}
-                style={{
-                  color: focused
-                    ? theme.colors.primary
-                    : theme.colors.textTertiary,
-                  fontSize: 10,
-                  marginTop: 2,
-                }}
-              >
-                Splits
-              </Typography>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="FinanceTab"
-        component={FinanceScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.tabItem}>
-              <AppIcon
-                name="wallet"
-                size={22}
-                color={
-                  focused ? theme.colors.primary : theme.colors.textTertiary
-                }
-              />
-              <Typography
-                variant="caption"
-                weight={focused ? 'bold' : 'normal'}
-                style={{
-                  color: focused
-                    ? theme.colors.primary
-                    : theme.colors.textTertiary,
-                  fontSize: 10,
-                  marginTop: 2,
-                }}
-              >
-                Budget
-              </Typography>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="NotificationsTab"
-        component={NotificationsScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.tabItem}>
-              <AppIcon
-                name="bell"
-                size={22}
-                color={
-                  focused ? theme.colors.primary : theme.colors.textTertiary
-                }
-              />
-              <Typography
-                variant="caption"
-                weight={focused ? 'bold' : 'normal'}
-                style={{
-                  color: focused
-                    ? theme.colors.primary
-                    : theme.colors.textTertiary,
-                  fontSize: 10,
-                  marginTop: 2,
-                }}
-              >
-                Alerts
-              </Typography>
-            </View>
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <View style={styles.tabItem}>
-              <AppIcon
-                name="user"
-                size={22}
-                color={
-                  focused ? theme.colors.primary : theme.colors.textTertiary
-                }
-              />
-              <Typography
-                variant="caption"
-                weight={focused ? 'bold' : 'normal'}
-                style={{
-                  color: focused
-                    ? theme.colors.primary
-                    : theme.colors.textTertiary,
-                  fontSize: 10,
-                  marginTop: 2,
-                }}
-              >
-                Profile
-              </Typography>
-            </View>
-          ),
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="TripsTab" component={TripsListScreen} />
+      <Tab.Screen name="ExpensesTab" component={ExpensesScreen} />
+      <Tab.Screen name="FinanceTab" component={FinanceScreen} />
+      <Tab.Screen name="NotificationsTab" component={NotificationsScreen} />
+      <Tab.Screen name="ProfileTab" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
 
 export function AuthenticatedNavigator() {
+  const theme = useAppTheme();
+  const { width } = useWindowDimensions();
+  const [sidebarOpen, setSidebarOpen] = useState(
+    Platform.OS === 'web' && width > 768,
+  );
+  const [currentRoute, setCurrentRoute] = useState<string>('Home');
+  const isDesktop = Platform.OS === 'web' && width > 768;
+  const pathname = usePathname();
+
   useEffect(() => {
     PushNotificationService.syncToken();
-    // Request location silently/early as per user request to avoid disrupting the add-expense flow
     Location.requestForegroundPermissionsAsync().catch(() => {});
   }, []);
+
+  useEffect(() => {
+    // Listen to route changes to update currentRoute state
+    if (navigationRef.isReady()) {
+      setCurrentRoute(navigationRef.getCurrentRoute()?.name || 'Home');
+    }
+    const unsubscribe = navigationRef.addListener('state', () => {
+      setCurrentRoute(navigationRef.getCurrentRoute()?.name || 'Home');
+    });
+    return unsubscribe;
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(prev => !prev);
+  }, []);
+
+  // Sync logic with Expo app _layout.tsx
+  const isModalRoute = useMemo(() => {
+    const modalRoutes = [
+      'CreateTrip',
+      'AddExpense',
+      'EditExpense',
+      'AddStop',
+      'EditStop',
+      'TripJoin',
+      'ExpenseDetails',
+      'FinanceAdd',
+      'TransactionCreate',
+      'TransactionEdit',
+      'ProfileEdit',
+      'ReceiptUpload',
+      'QuickActions',
+    ];
+    return (
+      modalRoutes.includes(currentRoute) ||
+      pathname.includes('/edit') ||
+      pathname.includes('/create') ||
+      pathname.includes('/quick-actions') ||
+      pathname.includes('/join')
+    );
+  }, [currentRoute, pathname]);
+
+  const isInsideTabs = useMemo(() => {
+    const tabRoutes = [
+      'Home',
+      'TripsTab',
+      'ExpensesTab',
+      'FinanceTab',
+      'NotificationsTab',
+      'ProfileTab',
+      'Tabs',
+    ];
+    return tabRoutes.includes(currentRoute);
+  }, [currentRoute]);
+
+  const shouldShowGlobalBottomBar = !isDesktop && !isModalRoute;
+
+  const styles = StyleSheet.create({
+    mainContainer: {
+      flex: 1,
+      flexDirection: 'column',
+    },
+    body: {
+      flex: 1,
+      overflow: 'hidden',
+    },
+  });
+
   return (
-    <Stack.Navigator
-      initialRouteName="Tabs"
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-      }}
+    <SidebarMenuContext.Provider
+      value={{ onMenuPress: !isDesktop ? toggleSidebar : undefined }}
     >
-      <Stack.Screen name="Tabs" component={BottomTabs} />
-      <Stack.Screen name="CreateTrip" component={CreateTripScreen} />
-      <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
-      <Stack.Screen name="TripExpenses" component={TripExpensesScreen} />
-      <Stack.Screen name="AddExpense" component={AddExpenseScreen} />
-      <Stack.Screen name="EditExpense" component={EditExpenseScreen} />
-      <Stack.Screen name="AddStop" component={AddStopScreen} />
-      <Stack.Screen name="EditStop" component={EditStopScreen} />
-      <Stack.Screen name="TripAnalytics" component={TripAnalyticsScreen} />
-      <Stack.Screen name="TripInsights" component={TripInsightsScreen} />
-      <Stack.Screen name="TripLeaderboard" component={TripLeaderboardScreen} />
-      <Stack.Screen name="TripMap" component={TripMapScreen} />
-      <Stack.Screen name="TripSettings" component={TripSettingsScreen} />
-      <Stack.Screen name="TripStory" component={TripStoryScreen} />
-      <Stack.Screen name="TripSummary" component={TripSummaryScreen} />
-      <Stack.Screen name="TripJoin" component={TripJoinScreen} />
-      <Stack.Screen name="ExpenseDetails" component={ExpenseDetailsScreen} />
-      <Stack.Screen name="FinanceAdd" component={FinanceAddScreen} />
-      <Stack.Screen name="FinanceBudget" component={FinanceBudgetScreen} />
-      <Stack.Screen name="FinanceTimeline" component={FinanceTimelineScreen} />
-      <Stack.Screen
-        name="FinanceTransactions"
-        component={FinanceTransactionsScreen}
-      />
-      <Stack.Screen
-        name="TransactionDetails"
-        component={TransactionDetailsScreen}
-      />
-      <Stack.Screen
-        name="TransactionCreate"
-        component={TransactionCreateScreen}
-      />
-      <Stack.Screen name="TransactionEdit" component={TransactionEditScreen} />
-      <Stack.Screen name="SettlementsList" component={SettlementsListScreen} />
-      <Stack.Screen
-        name="SettlementDetails"
-        component={SettlementDetailsScreen}
-      />
-      <Stack.Screen name="ReceiptUpload" component={ReceiptUploadScreen} />
-      <Stack.Screen name="Reminders" component={RemindersScreen} />
-      <Stack.Screen name="Requests" component={RequestsScreen} />
-      <Stack.Screen name="Friends" component={FriendsScreen} />
-      <Stack.Screen name="Analytics" component={AnalyticsScreen} />
-      <Stack.Screen name="Achievements" component={AchievementsScreen} />
-      <Stack.Screen name="Appearance" component={AppearanceScreen} />
-      <Stack.Screen name="Insights" component={InsightsScreen} />
-      <Stack.Screen name="Invitations" component={InvitationsScreen} />
-      <Stack.Screen name="Privacy" component={PrivacyScreen} />
-      <Stack.Screen name="QuickActions" component={QuickActionsScreen} />
-      <Stack.Screen name="PersonProfile" component={PersonProfileScreen} />
-      <Stack.Screen name="Banking" component={BankingScreen} />
-      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      <Stack.Screen
-        name="ProfileDashboard"
-        component={ProfileDashboardScreen}
-      />
-      <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} />
-      <Stack.Screen name="Feedback" component={FeedbackScreen} />
-      <Stack.Screen name="Reviews" component={ReviewsScreen} />
-      <Stack.Screen name="ReviewDetail" component={ReviewDetailScreen} />
-      <Stack.Screen name="Sessions" component={SessionsScreen} />
-      <Stack.Screen name="TripStopDetails" component={TripStopDetailsScreen} />
-      <Stack.Screen
-        name="TripStopsReorder"
-        component={TripStopsReorderScreen}
-      />
-      {/* Migrated Screens */}
-      <Stack.Screen name="Explore" component={ExploreScreen} />
-      <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
-      <Stack.Screen
-        name="CompareBusinesses"
-        component={CompareBusinessesScreen}
-      />
-      <Stack.Screen name="Bookings" component={BookingsScreen} />
-      <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
-      <Stack.Screen
-        name="ReservationDetail"
-        component={ReservationDetailScreen}
-      />
-      <Stack.Screen name="VendorHub" component={VendorHubScreen} />
-      <Stack.Screen
-        name="VendorBusinessManage"
-        component={VendorBusinessManageScreen}
-      />
-      <Stack.Screen name="AdminBusinesses" component={AdminBusinessesScreen} />
-      <Stack.Screen name="AdminPlans" component={AdminPlansScreen} />
-      <Stack.Screen name="AdminPlanDetail" component={AdminPlanDetailScreen} />
-      <Stack.Screen name="Plans" component={PlansScreen} />
-      <Stack.Screen name="ReceiptConfirm" component={ReceiptConfirmScreen} />
-      <Stack.Screen name="Balances" component={BalancesScreen} />
-      <Stack.Screen name="Splits" component={SplitsScreen} />
-    </Stack.Navigator>
+      <GlobalBackground>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <BottomSheetModalProvider>
+            <View style={styles.mainContainer}>
+              <View style={{ flex: 1, flexDirection: 'row' }}>
+                <AppSidebar
+                  open={sidebarOpen}
+                  collapsed={false}
+                  onToggleCollapsed={() => {}}
+                  onClose={() => setSidebarOpen(false)}
+                />
+                <View style={styles.body}>
+                  <Stack.Navigator
+                    initialRouteName="Tabs"
+                    screenOptions={{
+                      headerShown: false,
+                      animation: 'slide_from_right',
+                      contentStyle: { backgroundColor: 'transparent' },
+                    }}
+                  >
+                    <Stack.Screen name="Tabs" component={BottomTabs} />
+                    <Stack.Screen
+                      name="CreateTrip"
+                      component={CreateTripScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="TripDetails"
+                      component={TripDetailsScreen}
+                    />
+                    <Stack.Screen
+                      name="TripExpenses"
+                      component={TripExpensesScreen}
+                    />
+                    <Stack.Screen
+                      name="AddExpense"
+                      component={AddExpenseScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="EditExpense"
+                      component={EditExpenseScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen name="AddStop" component={AddStopScreen} />
+                    <Stack.Screen name="EditStop" component={EditStopScreen} />
+                    <Stack.Screen
+                      name="TripAnalytics"
+                      component={TripAnalyticsScreen}
+                    />
+                    <Stack.Screen
+                      name="TripInsights"
+                      component={TripInsightsScreen}
+                    />
+                    <Stack.Screen
+                      name="TripLeaderboard"
+                      component={TripLeaderboardScreen}
+                    />
+                    <Stack.Screen name="TripMap" component={TripMapScreen} />
+                    <Stack.Screen
+                      name="TripSettings"
+                      component={TripSettingsScreen}
+                    />
+                    <Stack.Screen
+                      name="TripStory"
+                      component={TripStoryScreen}
+                    />
+                    <Stack.Screen
+                      name="TripSummary"
+                      component={TripSummaryScreen}
+                    />
+                    <Stack.Screen
+                      name="TripJoin"
+                      component={TripJoinScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="ExpenseDetails"
+                      component={ExpenseDetailsScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="FinanceAdd"
+                      component={FinanceAddScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="FinanceBudget"
+                      component={FinanceBudgetScreen}
+                    />
+                    <Stack.Screen
+                      name="FinanceTimeline"
+                      component={FinanceTimelineScreen}
+                    />
+                    <Stack.Screen
+                      name="FinanceTransactions"
+                      component={FinanceTransactionsScreen}
+                    />
+                    <Stack.Screen
+                      name="TransactionDetails"
+                      component={TransactionDetailsScreen}
+                    />
+                    <Stack.Screen
+                      name="TransactionCreate"
+                      component={TransactionCreateScreen}
+                      options={{
+                        animation: 'slide_from_right',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="TransactionEdit"
+                      component={TransactionEditScreen}
+                      options={{
+                        animation: 'slide_from_right',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="SettlementsList"
+                      component={SettlementsListScreen}
+                    />
+                    <Stack.Screen
+                      name="SettlementDetails"
+                      component={SettlementDetailsScreen}
+                    />
+                    <Stack.Screen
+                      name="ReceiptUpload"
+                      component={ReceiptUploadScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="Reminders"
+                      component={RemindersScreen}
+                    />
+                    <Stack.Screen name="Requests" component={RequestsScreen} />
+                    <Stack.Screen name="Friends" component={FriendsScreen} />
+                    <Stack.Screen
+                      name="Analytics"
+                      component={AnalyticsScreen}
+                    />
+                    <Stack.Screen
+                      name="Achievements"
+                      component={AchievementsScreen}
+                    />
+                    <Stack.Screen
+                      name="Appearance"
+                      component={AppearanceScreen}
+                    />
+                    <Stack.Screen name="Insights" component={InsightsScreen} />
+                    <Stack.Screen
+                      name="Invitations"
+                      component={InvitationsScreen}
+                    />
+                    <Stack.Screen name="Privacy" component={PrivacyScreen} />
+                    <Stack.Screen
+                      name="QuickActions"
+                      component={QuickActionsScreen}
+                      options={{
+                        animation: 'slide_from_bottom',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen
+                      name="PersonProfile"
+                      component={PersonProfileScreen}
+                    />
+                    <Stack.Screen name="Banking" component={BankingScreen} />
+                    <Stack.Screen
+                      name="ChangePassword"
+                      component={ChangePasswordScreen}
+                    />
+                    <Stack.Screen
+                      name="ProfileDashboard"
+                      component={ProfileDashboardScreen}
+                    />
+                    <Stack.Screen
+                      name="ProfileEdit"
+                      component={ProfileEditScreen}
+                      options={{
+                        animation: 'slide_from_right',
+                        presentation: 'modal',
+                      }}
+                    />
+                    <Stack.Screen name="Feedback" component={FeedbackScreen} />
+                    <Stack.Screen name="Reviews" component={ReviewsScreen} />
+                    <Stack.Screen
+                      name="ReviewDetail"
+                      component={ReviewDetailScreen}
+                    />
+                    <Stack.Screen name="Sessions" component={SessionsScreen} />
+                    <Stack.Screen
+                      name="TripStopDetails"
+                      component={TripStopDetailsScreen}
+                    />
+                    <Stack.Screen
+                      name="TripStopsReorder"
+                      component={TripStopsReorderScreen}
+                    />
+
+                    {/* Migrated Screens */}
+                    <Stack.Screen name="Explore" component={ExploreScreen} />
+                    <Stack.Screen
+                      name="BusinessDetail"
+                      component={BusinessDetailScreen}
+                    />
+                    <Stack.Screen
+                      name="CompareBusinesses"
+                      component={CompareBusinessesScreen}
+                    />
+                    <Stack.Screen name="Bookings" component={BookingsScreen} />
+                    <Stack.Screen
+                      name="BookingDetail"
+                      component={BookingDetailScreen}
+                    />
+                    <Stack.Screen
+                      name="ReservationDetail"
+                      component={ReservationDetailScreen}
+                    />
+                    <Stack.Screen
+                      name="VendorHub"
+                      component={VendorHubScreen}
+                    />
+                    <Stack.Screen
+                      name="VendorBusinessManage"
+                      component={VendorBusinessManageScreen}
+                    />
+                    <Stack.Screen
+                      name="AdminBusinesses"
+                      component={AdminBusinessesScreen}
+                    />
+                    <Stack.Screen
+                      name="AdminPlans"
+                      component={AdminPlansScreen}
+                    />
+                    <Stack.Screen
+                      name="AdminPlanDetail"
+                      component={AdminPlanDetailScreen}
+                    />
+                    <Stack.Screen name="Plans" component={PlansScreen} />
+                    <Stack.Screen
+                      name="ReceiptConfirm"
+                      component={ReceiptConfirmScreen}
+                    />
+                    <Stack.Screen name="Balances" component={BalancesScreen} />
+                    <Stack.Screen name="Splits" component={SplitsScreen} />
+                  </Stack.Navigator>
+
+                  {shouldShowGlobalBottomBar && <GlobalFloatingTabBar />}
+                </View>
+              </View>
+            </View>
+          </BottomSheetModalProvider>
+        </GestureHandlerRootView>
+      </GlobalBackground>
+    </SidebarMenuContext.Provider>
   );
 }
-
-const styles = StyleSheet.create({
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-  },
-});
 
 export default AuthenticatedNavigator;

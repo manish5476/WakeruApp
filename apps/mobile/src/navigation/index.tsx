@@ -71,9 +71,9 @@ export function RootNavigator() {
   if (!isHydrated && !isInitialized) {
     return (
       <View
-        style={[styles.loading, { backgroundColor: theme.color.background }]}
+        style={[styles.loading, { backgroundColor: theme.colors.background }]}
       >
-        <ActivityIndicator size="large" color={theme.color.primary} />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }

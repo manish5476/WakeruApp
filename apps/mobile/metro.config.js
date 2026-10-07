@@ -9,8 +9,15 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  */
 const workspaceRoot = path.resolve(__dirname, '../..');
 const config = {
-  watchFolders: [workspaceRoot],
+  watchFolders: [
+    path.resolve(workspaceRoot, 'packages'),
+    path.resolve(workspaceRoot, 'node_modules'),
+  ],
   resolver: {
+    blockList: [
+      /.*[/\\]apps[/\\]mobile[/\\]android[/\\].*/,
+      /.*[/\\]\.git[/\\].*/,
+    ],
     disableHierarchicalLookup: false,
     extraNodeModules: {
       '@react-native-async-storage/async-storage': path.resolve(
@@ -50,10 +57,16 @@ const config = {
         workspaceRoot,
         'packages/design-system/src/index.tsx',
       ),
+      '@babel/runtime': path.dirname(
+        require.resolve('@babel/runtime/package.json', {
+          paths: [__dirname, workspaceRoot],
+        }),
+      ),
     },
     nodeModulesPaths: [
       path.resolve(__dirname, 'node_modules'),
       path.resolve(workspaceRoot, 'node_modules'),
+      path.resolve(workspaceRoot, 'node_modules/.pnpm/node_modules'),
     ],
   },
 };

@@ -55,7 +55,46 @@ export function useLocalSearchParams<
 export function usePathname(): string {
   try {
     const current = navigationRef.getCurrentRoute();
-    return current ? `/${current.name}` : '/';
+    if (!current) return '/';
+
+    // Map internal route names to expected expo-router paths
+    switch (current.name) {
+      case 'Home':
+      case 'Tabs':
+        return '/dashboard';
+      case 'TripsTab':
+        return '/home';
+      case 'ExpensesTab':
+        return '/expenses';
+      case 'FinanceTab':
+        return '/finance';
+      case 'NotificationsTab':
+        return '/notifications';
+      case 'ProfileTab':
+        return '/profile';
+      case 'TripDetails':
+      case 'TripExpenses':
+      case 'TripAnalytics':
+      case 'TripInsights':
+      case 'TripLeaderboard':
+      case 'TripMap':
+      case 'TripSettings':
+      case 'TripStory':
+      case 'TripSummary':
+      case 'TripStopDetails':
+      case 'TripStopsReorder':
+        return '/trips/details';
+      case 'Requests':
+        return '/requests';
+      case 'Invitations':
+        return '/invitations';
+      case 'Appearance':
+        return '/appearance';
+      case 'Privacy':
+        return '/privacy';
+      default:
+        return `/${current.name}`;
+    }
   } catch {
     return '/';
   }

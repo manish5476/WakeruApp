@@ -10,6 +10,9 @@ import { AppServicesProvider } from './AppServices';
 
 export function ProviderComposer() {
   const mode = useThemeStore(s => s.mode) || 'system';
+  const preset = useThemeStore(s => s.preset);
+  const fontColor = useThemeStore(s => s.fontColor);
+
   const queryClient = useMemo(
     () =>
       new QueryClient({
@@ -26,7 +29,11 @@ export function ProviderComposer() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider mode={mode as any}>
+      <ThemeProvider
+        mode={mode as any}
+        preset={preset || undefined}
+        fontColor={fontColor || undefined}
+      >
         <QueryClientProvider client={queryClient}>
           <AppServicesProvider>
             <FeatureFlagProvider
