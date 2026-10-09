@@ -1,7 +1,7 @@
 import GlobalLoader from '../../../components/common/GlobalLoader';
 import AppIcon from '../../../components/common/AppIcon';
 // app/(app)/trips/join.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,12 @@ import {
   useWindowDimensions,
   Pressable,
   PressableStateCallbackType,
+  ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { format } from 'date-fns';
 import Animated, {
   FadeInDown,
   useSharedValue,
@@ -27,6 +29,8 @@ import { useTheme } from '../../../providers/ThemeProvider';
 import { haptics } from '../../../utils/haptics';
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { GlobalBackground } from '../../../components/ui/GlobalBackground';
+import { showToast } from '../../../utils/toast';
+import { tripsApi } from '../../../services/api/trips.api';
 
 // Safe web pressable type
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -41,31 +45,89 @@ export default function JoinTripScreen() {
 
   const isWebDesktop = Platform.OS === 'web' && width > 768;
 
-  const [inviteCode, setInviteCode] = useState('');
+  const params = useLocalSearchParams<{ code?: string; inviteCode?: string }>();
+  const initialCode = (params.code || params.inviteCode || '')
+    .toUpperCase()
+    .slice(0, 8);
+
+  const [inviteCode, setInviteCode] = useState(initialCode);
   const [isFocused, setIsFocused] = useState(false);
+  const [tripPreview, setTripPreview] = useState<any | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const { mutate: joinTrip, isPending } = useJoinTrip();
 
   const joinButtonScale = useSharedValue(1);
 
+  useEffect(() => {
+    if (params.code || params.inviteCode) {
+      const rawCode = (params.code || params.inviteCode || '')
+        .toUpperCase()
+        .slice(0, 8);
+      setInviteCode(rawCode);
+    }
+  }, [params.code, params.inviteCode]);
+
+  useEffect(() => {
+    const clean = inviteCode.trim().toUpperCase();
+    if (clean.length === 8) {
+      let active = true;
+      setIsLoadingPreview(true);
+      tripsApi
+        .getTripPreview(clean)
+        .then((res: any) => {
+          if (active && res.data?.trip) {
+            setTripPreview(res.data.trip);
+          }
+        })
+        .catch(() => {
+          if (active) setTripPreview(null);
+        })
+        .finally(() => {
+          if (active) setIsLoadingPreview(false);
+        });
+      return () => {
+        active = false;
+      };
+    } else {
+      setTripPreview(null);
+    }
+  }, [inviteCode]);
+
   const handleJoin = () => {
     haptics.medium();
-    if (!inviteCode.trim() || inviteCode.trim().length !== 8) {
-      Alert.alert(
+    const cleanCode = inviteCode.trim().toUpperCase();
+    if (!cleanCode || cleanCode.length !== 8) {
+      showToast.warning(
         'Invalid Code',
-        'Please enter a valid 8-character invite code',
+        'Please enter a valid 8-character invite code.',
       );
       return;
     }
-    joinTrip(inviteCode.trim().toUpperCase(), {
-      onSuccess: () => {
-        Alert.alert(
-          'Request Sent!',
-          `Your request to join the trip has been sent to the admin for approval. You will be notified once they approve it.`,
-          [{ text: 'OK', onPress: () => router.back() }],
+    joinTrip(cleanCode, {
+      onSuccess: (data: any) => {
+        const targetId = data?.tripId || tripPreview?._id;
+        const tripTitle = data?.title || tripPreview?.title || 'Trip';
+        showToast.success(
+          'Trip Joined Successfully',
+          `You're now part of ${tripTitle}`,
+          targetId
+            ? {
+                action: {
+                  label: 'Open Trip',
+                  onPress: () =>
+                    router.replace(`/(app)/trips/${targetId}` as any),
+                },
+              }
+            : undefined,
         );
+        if (data?.status === 'approved' && targetId) {
+          router.replace(`/(app)/trips/${targetId}` as any);
+        } else {
+          router.back();
+        }
       },
       onError: (error: any) => {
-        Alert.alert('Error', error.message || 'Failed to join trip');
+        showToast.fromError(error, 'Failed to join trip');
       },
     });
   };
@@ -173,6 +235,86 @@ export default function JoinTripScreen() {
                       autoCorrect={false}
                     />
                   </View>
+
+                  {isLoadingPreview && (
+                    <View style={styles.previewLoadingWrap}>
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.previewLoadingText,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        Looking up trip...
+                      </Text>
+                    </View>
+                  )}
+
+                  {tripPreview && (
+                    <View
+                      style={[
+                        styles.previewCard,
+                        {
+                          backgroundColor: theme.isDark
+                            ? 'rgba(255,255,255,0.06)'
+                            : 'rgba(0,0,0,0.03)',
+                          borderColor: theme.colors.borderLight,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.previewTripTitle,
+                          { color: theme.colors.textPrimary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {tripPreview.title}
+                      </Text>
+                      {tripPreview.startDate && tripPreview.endDate && (
+                        <View style={styles.previewRow}>
+                          <AppIcon
+                            name="calendar"
+                            size={14}
+                            color={theme.colors.primary}
+                          />
+                          <Text
+                            style={[
+                              styles.previewText,
+                              { color: theme.colors.textSecondary },
+                            ]}
+                          >
+                            {format(new Date(tripPreview.startDate), 'MMM d')} –{' '}
+                            {format(
+                              new Date(tripPreview.endDate),
+                              'MMM d, yyyy',
+                            )}
+                          </Text>
+                        </View>
+                      )}
+                      {typeof tripPreview.memberCount === 'number' && (
+                        <View style={styles.previewRow}>
+                          <AppIcon
+                            name="users"
+                            size={14}
+                            color={theme.colors.textSecondary}
+                          />
+                          <Text
+                            style={[
+                              styles.previewText,
+                              { color: theme.colors.textSecondary },
+                            ]}
+                          >
+                            {tripPreview.memberCount} member
+                            {tripPreview.memberCount !== 1 ? 's' : ''}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
 
                   {/* Join Button */}
                   <AnimatedPressable
@@ -346,6 +488,43 @@ const useStyles = () => {
           width: '100%',
           ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
         } as any,
+
+        // Preview
+        previewLoadingWrap: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          marginBottom: 20,
+        },
+        previewLoadingText: {
+          fontSize: 13,
+          fontWeight: '500',
+        },
+        previewCard: {
+          width: '100%',
+          padding: 16,
+          borderRadius: 16,
+          borderWidth: 1,
+          marginBottom: 20,
+          alignItems: 'center',
+        },
+        previewTripTitle: {
+          fontSize: 18,
+          fontWeight: '800',
+          marginBottom: 8,
+          textAlign: 'center',
+        },
+        previewRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: 4,
+        },
+        previewText: {
+          fontSize: 13,
+          fontWeight: '500',
+        },
 
         // Button
         joinBtnWrap: {

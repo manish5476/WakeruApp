@@ -1,6 +1,5 @@
 import GlobalLoader from '../../../components/common/GlobalLoader';
 import AppIcon from '../../../components/common/AppIcon';
-import { ExpandableFAB } from '../../../components/trips/planner/ExpandableFAB';
 // app/(app)/trips/[id]/[id].tsx
 import React, {
   useState,
@@ -25,16 +24,16 @@ import {
   Image,
   ImageBackground,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { captureRef } from 'react-native-view-shot';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 // Hooks & Stores
 import {
   useTrip,
@@ -46,6 +45,7 @@ import {
   useSettlement,
   useTripSummary,
   useTripAnalytics,
+  useInfiniteTripExpenses,
 } from '../../../hooks';
 import { useQuery } from '@tanstack/react-query';
 import { achievementsApi } from '../../../services/api';
@@ -58,10 +58,12 @@ import { useAuthStore } from '../../../stores/auth.store';
 import { useSocket } from '../../../hooks/useSocket';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { showToast } from '../../../utils/toast';
+import { isUserTripAdmin } from '../../../utils/tripPermissions';
 
 // UI Components
 import { InviteFriendModal } from '../../../components/trips/InviteFriendModal';
 import SettlementTab from '../../../components/trips/SettlementTab';
+import { TripLocalTab } from '../../../components/trips/TripLocalTab';
 import PlannerTab from '../../../components/trips/PlannerTab';
 import ExpensesTab from '../../../components/trips/ExpensesTab';
 import { GlassCard } from '../../../components/ui/GlassCard';
@@ -73,10 +75,21 @@ import { haptics } from '../../../utils/haptics';
 import { GlobalBackground } from '../../../components/ui/GlobalBackground';
 import { formatAmount } from '../../../utils/formatters';
 import { TabBar } from '../../../components/ui/TabBar';
+import { getStopCoverImage, getTripCoverImage } from '../../../utils/tripImage';
+import { StackedStopsDeck } from '../../../components/trips/StackedStopsDeck';
+import { TravelAffiliateCard } from '../../../components/ads/TravelAffiliateCard';
 
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
 
-const TABS = ['Overview', 'Planner', 'Expenses', 'Stops', 'Members', 'Settle'];
+const TABS = [
+  'Overview',
+  'Planner',
+  'Expenses',
+  'Stops',
+  'Members',
+  'Settle',
+  'Explore',
+];
 
 const TRIP_NAV_TABS = [
   {
@@ -95,9 +108,72 @@ const TRIP_NAV_TABS = [
     icon: 'circle-check',
     desc: 'Balances & settlements',
   },
+  {
+    key: 6,
+    label: 'Explore',
+    icon: 'compass',
+    desc: 'Local stays, food & activities',
+  },
 ];
 const DEFAULT_COVER =
   'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2';
+
+const getCategoryIconAndColor = (category?: string) => {
+  const cat = (category || '').toLowerCase();
+  if (
+    cat.includes('food') ||
+    cat.includes('drink') ||
+    cat.includes('restaurant') ||
+    cat.includes('dining')
+  ) {
+    return { icon: 'coffee', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' };
+  }
+  if (
+    cat.includes('transport') ||
+    cat.includes('cab') ||
+    cat.includes('taxi') ||
+    cat.includes('fuel') ||
+    cat.includes('train')
+  ) {
+    return {
+      icon: 'compass',
+      color: '#3B82F6',
+      bg: 'rgba(59, 130, 246, 0.15)',
+    };
+  }
+  if (
+    cat.includes('hotel') ||
+    cat.includes('stay') ||
+    cat.includes('room') ||
+    cat.includes('airbnb')
+  ) {
+    return { icon: 'home', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.15)' };
+  }
+  if (
+    cat.includes('activity') ||
+    cat.includes('tour') ||
+    cat.includes('ticket') ||
+    cat.includes('fun')
+  ) {
+    return { icon: 'smile', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)' };
+  }
+  if (
+    cat.includes('shop') ||
+    cat.includes('grocer') ||
+    cat.includes('market')
+  ) {
+    return {
+      icon: 'shopping-bag',
+      color: '#EC4899',
+      bg: 'rgba(236, 72, 153, 0.15)',
+    };
+  }
+  return {
+    icon: 'credit-card',
+    color: '#6366F1',
+    bg: 'rgba(99, 102, 241, 0.15)',
+  };
+};
 
 // ============================================================
 // Functional Components: Member Row & Stop Card
@@ -105,15 +181,39 @@ const DEFAULT_COVER =
 function MemberRow({
   member,
   currencySymbol,
+  settlementTransactions,
 }: {
   member: any;
   currencySymbol: string;
+  settlementTransactions?: any[];
 }) {
   const styles = useStyles();
   const theme = useTheme();
-  const netBalance = (member.totalPaidBase || 0) - (member.totalOwesBase || 0);
-  const isPositive = netBalance > 0;
-  const isNegative = netBalance < 0;
+
+  const hasSettlement =
+    Array.isArray(settlementTransactions) && settlementTransactions.length > 0;
+
+  let netBalance = (member.totalPaidBase || 0) - (member.totalOwesBase || 0);
+  let isSettled = false;
+
+  if (hasSettlement) {
+    const pendingToPay = settlementTransactions
+      .filter((t: any) => t.from === member.userId && t.status !== 'confirmed')
+      .reduce((sum: number, t: any) => sum + (t.amountBase || 0), 0);
+
+    const pendingToReceive = settlementTransactions
+      .filter((t: any) => t.to === member.userId && t.status !== 'confirmed')
+      .reduce((sum: number, t: any) => sum + (t.amountBase || 0), 0);
+
+    const netPending = pendingToReceive - pendingToPay;
+    netBalance = netPending;
+    isSettled = pendingToPay === 0 && pendingToReceive === 0;
+  } else {
+    isSettled = Math.abs(netBalance) < 0.01;
+  }
+
+  const isPositive = netBalance > 0.01;
+  const isNegative = netBalance < -0.01;
 
   return (
     <GlassCard style={styles.memberCard} intensity={theme.isDark ? 15 : 8}>
@@ -159,25 +259,31 @@ function MemberRow({
             style={[
               styles.memberBalanceText,
               {
-                color: isPositive
+                color: isSettled
                   ? theme.colors.success
-                  : isNegative
-                    ? theme.colors.danger
-                    : theme.colors.textSecondary,
+                  : isPositive
+                    ? theme.colors.success
+                    : isNegative
+                      ? theme.colors.danger
+                      : theme.colors.textSecondary,
               },
             ]}
           >
-            {isPositive ? '+' : isNegative ? '-' : ''}
-            {currencySymbol}
-            {Math.abs(netBalance).toLocaleString()}
+            {isSettled
+              ? `${currencySymbol}0`
+              : `${isPositive ? '+' : '-'}${currencySymbol}${Math.abs(netBalance).toLocaleString()}`}
           </Text>
           <Text
             style={[
               styles.memberBalanceLabel,
-              { color: theme.colors.textTertiary },
+              {
+                color: isSettled
+                  ? theme.colors.success
+                  : theme.colors.textTertiary,
+              },
             ]}
           >
-            {isPositive ? 'owes to them' : isNegative ? 'owes' : 'settled'}
+            {isSettled ? 'settled' : isPositive ? 'gets back' : 'owes'}
           </Text>
         </View>
       </View>
@@ -209,16 +315,21 @@ function MemberRow({
               { color: theme.colors.textTertiary },
             ]}
           >
-            {isNegative ? 'To Pay' : 'Gets Back'}
+            {isSettled ? 'Status' : isNegative ? 'To Pay' : 'Gets Back'}
           </Text>
           <Text
             style={[
               styles.memberStatValue,
-              { color: theme.colors.textPrimary },
+              {
+                color: isSettled
+                  ? theme.colors.success
+                  : theme.colors.textPrimary,
+              },
             ]}
           >
-            {currencySymbol}
-            {Math.abs(netBalance).toLocaleString()}
+            {isSettled
+              ? 'Settled'
+              : `${currencySymbol}${Math.abs(netBalance).toLocaleString()}`}
           </Text>
         </View>
       </View>
@@ -230,10 +341,12 @@ function StopCard({
   stop,
   onPress,
   index,
+  tripTitle,
 }: {
   stop: any;
   onPress: () => void;
   index: number;
+  tripTitle?: string;
 }) {
   const styles = useStyles();
   const theme = useTheme();
@@ -260,7 +373,7 @@ function StopCard({
       onPress={onPress}
     >
       <ImageBackground
-        source={{ uri: stop.coverImage || DEFAULT_COVER }}
+        source={{ uri: getStopCoverImage(stop, tripTitle) }}
         style={styles.stopCardBg}
         imageStyle={{ borderRadius: 16 }}
       >
@@ -361,7 +474,8 @@ export default function TripDetailScreen() {
 
   const isSmallScreen = width < 380;
   const isWebDesktop = Platform.OS === 'web' && width > 768;
-  const isWideDesktop = Platform.OS === 'web' && width >= 1200;
+  const isWideDesktop = Platform.OS === 'web' && width >= 1024;
+  const showRightSummary = isWideDesktop && width >= 1360;
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const { subscribeToTrip, unsubscribeFromTrip } = useSocket();
@@ -385,17 +499,29 @@ export default function TripDetailScreen() {
   }, [id, subscribeToTrip, unsubscribeFromTrip]);
 
   const { data: trip, isLoading, refetch: refetchTrip } = useTrip(id);
+  const { data: settlementData } = useSettlement(id as string);
+  const { user } = useAuthStore();
+  const isTripAdmin = useMemo(() => isUserTripAdmin(trip, user), [trip, user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchTrip();
+    }, [refetchTrip]),
+  );
+
   const { mutate: archiveTrip } = useArchiveTrip();
   const { mutate: unarchiveTrip } = useUnarchiveTrip();
   const { mutate: generateInvite } = useGenerateInvite();
   const { mutate: addTripMember, isPending: isAddingMember } =
     useAddTripMember();
-  const { data: pendingRequests } = usePendingJoinRequests(id as string);
+  const { data: pendingRequests } = usePendingJoinRequests(
+    id as string,
+    isTripAdmin,
+  );
   const { mutate: approveRequest, isPending: isApproving } =
     useApproveJoinRequest(id as string);
   const { mutate: rejectRequest, isPending: isRejecting } =
     useRejectJoinRequest(id as string);
-  const { user } = useAuthStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults = [], isFetching: isSearching } =
@@ -405,6 +531,17 @@ export default function TripDetailScreen() {
   const [isSharing, setIsSharing] = useState(false);
   const [showInviteFriendModal, setShowInviteFriendModal] = useState(false);
   const [showCompletionSheet, setShowCompletionSheet] = useState(false);
+  const [showMoreActionsModal, setShowMoreActionsModal] = useState(false);
+
+  // Fetch recent expenses for the overview tab
+  const { data: expensesInfiniteData } = useInfiniteTripExpenses(id as string, {
+    limit: 5,
+  });
+  const recentExpenses = useMemo(() => {
+    return (
+      (expensesInfiniteData?.pages?.[0] as any)?.expenses?.slice(0, 4) || []
+    );
+  }, [expensesInfiniteData]);
 
   // Build completion data when trip exists
   const completionData = trip
@@ -435,7 +572,7 @@ export default function TripDetailScreen() {
   }, [refetchTrip]);
 
   const handleArchive = () => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (
         window.confirm(
           'Are you sure you want to complete and archive this trip?',
@@ -467,7 +604,7 @@ export default function TripDetailScreen() {
   };
 
   const handleUnarchive = () => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (window.confirm('Restore trip to active list?')) {
         unarchiveTrip(id, {
           onSuccess: () => router.replace('/(app)/(tabs)/home'),
@@ -488,7 +625,7 @@ export default function TripDetailScreen() {
   };
 
   const handleInvite = () => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (window.confirm('Generate an invite code valid for 7 days?')) {
         generateInvite({ tripId: id, expiresInDays: 7 });
       }
@@ -522,7 +659,7 @@ export default function TripDetailScreen() {
         const message = `Join my trip "${trip.title}" on Wakeru!\nCode: ${trip.inviteCode}\nJoin: ${webUrl}\nApp: wakeru://join/${trip.inviteCode}`;
 
         if (Platform.OS === 'web') {
-          if (navigator.share)
+          if (typeof navigator !== 'undefined' && navigator.share)
             await navigator.share({ title: 'Trip Invite', text: message });
           else {
             await Clipboard.setStringAsync(message);
@@ -723,7 +860,7 @@ export default function TripDetailScreen() {
         </html>
         `;
 
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (
         window.confirm(
           'Would you like to print/save this report as a PDF?\n(Click Cancel to copy the text report to your clipboard instead)',
@@ -798,7 +935,7 @@ export default function TripDetailScreen() {
     }
   };
 
-  if (isLoading || !trip) {
+  if (!trip && isLoading) {
     return (
       <View
         style={[
@@ -811,6 +948,51 @@ export default function TripDetailScreen() {
           size="large"
           color={theme.colors.primary}
         />
+      </View>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { justifyContent: 'center', alignItems: 'center', padding: 24 },
+        ]}
+      >
+        <AppIcon name="alert-circle" size={48} color={theme.colors.warning} />
+        <Text
+          style={{
+            color: theme.colors.textPrimary,
+            fontSize: 18,
+            fontWeight: '700',
+            marginTop: 16,
+          }}
+        >
+          Trip Not Found
+        </Text>
+        <Text
+          style={{
+            color: theme.colors.textSecondary,
+            fontSize: 14,
+            textAlign: 'center',
+            marginTop: 8,
+          }}
+        >
+          This trip may have been removed or is unavailable offline.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            marginTop: 24,
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            backgroundColor: theme.colors.primary,
+            borderRadius: 12,
+          }}
+        >
+          <Text style={{ color: '#FFF', fontWeight: '600' }}>Go Back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -2059,332 +2241,162 @@ export default function TripDetailScreen() {
   // ============================================================
   const renderOverviewTab = () => (
     <View style={styles.tabContent}>
-      {/* Quick Actions Row */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.actionsRow}
-      >
+      {/* 5 Sleek Floating Action Buttons (matching media_1790183686571.jpg) */}
+      <View style={styles.quickActionsBar}>
         <Pressable
-          style={styles.actionBtn}
-          onPress={() => setActiveSubView('overview')}
+          style={styles.quickActionCircleBtn}
+          onPress={() => {
+            haptics.selection();
+            setShowInviteFriendModal(true);
+          }}
         >
-          <GlassCard
+          <View
             style={[
-              styles.actionIconWrap,
-              activeSubView === 'overview' && {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.14)'
-                  : theme.colors.primary,
-                borderColor: theme.colors.primary,
-              },
-            ]}
-            intensity={theme.isDark ? 15 : 8}
-          >
-            <AppIcon
-              name="home"
-              size={18}
-              color={
-                activeSubView === 'overview'
-                  ? theme.isDark
-                    ? theme.colors.primary
-                    : '#FFF'
-                  : theme.colors.primary
-              }
-            />
-          </GlassCard>
-          <Text
-            style={[
-              styles.actionText,
+              styles.quickActionCircleIcon,
               {
-                color:
-                  activeSubView === 'overview'
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-                fontWeight: activeSubView === 'overview' ? '800' : '600',
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.08)',
               },
             ]}
           >
-            Overview
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.actionBtn}
-          onPress={() => setActiveTab(TABS.indexOf('Settle'))}
-        >
-          <GlassCard
-            style={styles.actionIconWrap}
-            intensity={theme.isDark ? 15 : 8}
-          >
-            <AppIcon
-              name="credit-card"
-              size={18}
-              color={theme.colors.secondary}
-            />
-          </GlassCard>
-          <Text
-            style={[styles.actionText, { color: theme.colors.textSecondary }]}
-          >
-            Settle Up
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.actionBtn}
-          onPress={() => setActiveSubView('summary')}
-        >
-          <GlassCard
-            style={[
-              styles.actionIconWrap,
-              activeSubView === 'summary' && {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.14)'
-                  : theme.colors.primary,
-                borderColor: theme.colors.primary,
-              },
-            ]}
-            intensity={theme.isDark ? 15 : 8}
-          >
-            <AppIcon
-              name="activity"
-              size={18}
-              color={
-                activeSubView === 'summary'
-                  ? theme.isDark
-                    ? theme.colors.primary
-                    : '#FFF'
-                  : theme.colors.success
-              }
-            />
-          </GlassCard>
+            <AppIcon name="user-plus" size={19} color={theme.colors.primary} />
+          </View>
           <Text
             style={[
-              styles.actionText,
-              {
-                color:
-                  activeSubView === 'summary'
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-                fontWeight: activeSubView === 'summary' ? '800' : '600',
-              },
+              styles.quickActionCircleLabel,
+              { color: theme.colors.textSecondary },
             ]}
-          >
-            Summary
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.actionBtn}
-          onPress={() => setActiveSubView('analytics')}
-        >
-          <GlassCard
-            style={[
-              styles.actionIconWrap,
-              activeSubView === 'analytics' && {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.14)'
-                  : theme.colors.primary,
-                borderColor: theme.colors.primary,
-              },
-            ]}
-            intensity={theme.isDark ? 15 : 8}
-          >
-            <AppIcon
-              name="bar-chart-2"
-              size={18}
-              color={
-                activeSubView === 'analytics'
-                  ? theme.isDark
-                    ? theme.colors.primary
-                    : '#FFF'
-                  : theme.colors.info
-              }
-            />
-          </GlassCard>
-          <Text
-            style={[
-              styles.actionText,
-              {
-                color:
-                  activeSubView === 'analytics'
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-                fontWeight: activeSubView === 'analytics' ? '800' : '600',
-              },
-            ]}
-          >
-            Analytics
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.actionBtn}
-          onPress={() => setActiveSubView('rankings')}
-        >
-          <GlassCard
-            style={[
-              styles.actionIconWrap,
-              activeSubView === 'rankings' && {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.14)'
-                  : theme.colors.primary,
-                borderColor: theme.colors.primary,
-              },
-            ]}
-            intensity={theme.isDark ? 15 : 8}
-          >
-            <AppIcon
-              name="award"
-              size={18}
-              color={
-                activeSubView === 'rankings'
-                  ? theme.isDark
-                    ? theme.colors.primary
-                    : '#FFF'
-                  : theme.colors.warning
-              }
-            />
-          </GlassCard>
-          <Text
-            style={[
-              styles.actionText,
-              {
-                color:
-                  activeSubView === 'rankings'
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-                fontWeight: activeSubView === 'rankings' ? '800' : '600',
-              },
-            ]}
-          >
-            Rankings
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.actionBtn}
-          onPress={() => setActiveSubView('story')}
-        >
-          <GlassCard
-            style={[
-              styles.actionIconWrap,
-              activeSubView === 'story' && {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.14)'
-                  : theme.colors.primary,
-                borderColor: theme.colors.primary,
-              },
-            ]}
-            intensity={theme.isDark ? 15 : 8}
-          >
-            <AppIcon
-              name="play-circle"
-              size={18}
-              color={
-                activeSubView === 'story'
-                  ? theme.isDark
-                    ? theme.colors.primary
-                    : '#FFF'
-                  : theme.colors.info
-              }
-            />
-          </GlassCard>
-          <Text
-            style={[
-              styles.actionText,
-              {
-                color:
-                  activeSubView === 'story'
-                    ? theme.colors.primary
-                    : theme.colors.textSecondary,
-                fontWeight: activeSubView === 'story' ? '800' : '600',
-              },
-            ]}
-          >
-            Story
-          </Text>
-        </Pressable>
-
-        <Pressable style={styles.actionBtn} onPress={handleShareInvite}>
-          <GlassCard
-            style={styles.actionIconWrap}
-            intensity={theme.isDark ? 15 : 8}
-          >
-            <AppIcon name="link" size={18} color={theme.colors.primary} />
-          </GlassCard>
-          <Text
-            style={[styles.actionText, { color: theme.colors.textSecondary }]}
           >
             Invite
           </Text>
         </Pressable>
 
         <Pressable
-          style={styles.actionBtn}
-          onPress={() => router.push(`/(app)/trips/${id}/map`)}
+          style={styles.quickActionCircleBtn}
+          onPress={() => {
+            haptics.selection();
+            setActiveTab(1); // Itinerary / Planner
+          }}
         >
-          <GlassCard
-            style={styles.actionIconWrap}
-            intensity={theme.isDark ? 15 : 8}
+          <View
+            style={[
+              styles.quickActionCircleIcon,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.08)',
+              },
+            ]}
           >
-            <AppIcon name="map-pin" size={18} color={theme.colors.success} />
-          </GlassCard>
+            <AppIcon name="calendar" size={19} color="#3B82F6" />
+          </View>
           <Text
-            style={[styles.actionText, { color: theme.colors.textSecondary }]}
+            style={[
+              styles.quickActionCircleLabel,
+              { color: theme.colors.textSecondary },
+            ]}
           >
-            Map
+            Itinerary
           </Text>
         </Pressable>
 
-        <Pressable style={styles.actionBtn} onPress={handleGenerateReport}>
-          <GlassCard
-            style={styles.actionIconWrap}
-            intensity={theme.isDark ? 15 : 8}
+        <Pressable
+          style={styles.quickActionCircleBtn}
+          onPress={() => {
+            haptics.selection();
+            setActiveSubView('summary');
+          }}
+        >
+          <View
+            style={[
+              styles.quickActionCircleIcon,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.08)',
+              },
+            ]}
           >
-            <AppIcon name="file-text" size={18} color={theme.colors.info} />
-          </GlassCard>
+            <AppIcon name="pie-chart" size={19} color="#10B981" />
+          </View>
           <Text
-            style={[styles.actionText, { color: theme.colors.textSecondary }]}
+            style={[
+              styles.quickActionCircleLabel,
+              { color: theme.colors.textSecondary },
+            ]}
           >
-            Report
+            Budget
           </Text>
         </Pressable>
 
-        {trip.isArchived ? (
-          <Pressable style={styles.actionBtn} onPress={handleUnarchive}>
-            <GlassCard
-              style={styles.actionIconWrap}
-              intensity={theme.isDark ? 15 : 8}
-            >
-              <AppIcon
-                name="refresh-cw"
-                size={18}
-                color={theme.colors.success}
-              />
-            </GlassCard>
-            <Text
-              style={[styles.actionText, { color: theme.colors.textSecondary }]}
-            >
-              Unarchive
-            </Text>
-          </Pressable>
-        ) : (
-          <Pressable style={styles.actionBtn} onPress={handleArchive}>
-            <GlassCard
-              style={styles.actionIconWrap}
-              intensity={theme.isDark ? 15 : 8}
-            >
-              <AppIcon name="archive" size={18} color={theme.colors.danger} />
-            </GlassCard>
-            <Text
-              style={[styles.actionText, { color: theme.colors.textSecondary }]}
-            >
-              Archive
-            </Text>
-          </Pressable>
-        )}
-      </ScrollView>
+        <Pressable
+          style={styles.quickActionCircleBtn}
+          onPress={() => {
+            haptics.selection();
+            setActiveTab(2); // Split / Expenses
+          }}
+        >
+          <View
+            style={[
+              styles.quickActionCircleIcon,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.08)',
+              },
+            ]}
+          >
+            <AppIcon name="receipt" size={19} color="#8B5CF6" />
+          </View>
+          <Text
+            style={[
+              styles.quickActionCircleLabel,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            Split
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.quickActionCircleBtn}
+          onPress={() => {
+            haptics.selection();
+            setShowMoreActionsModal(true);
+          }}
+        >
+          <View
+            style={[
+              styles.quickActionCircleIcon,
+              {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.08)',
+              },
+            ]}
+          >
+            <AppIcon
+              name="more-horizontal"
+              size={19}
+              color={theme.colors.textPrimary}
+            />
+          </View>
+          <Text
+            style={[
+              styles.quickActionCircleLabel,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            More
+          </Text>
+        </Pressable>
+      </View>
 
       {/* DYNAMIC CONTENT SWITCHER */}
       {activeSubView === 'summary' && (
@@ -2415,370 +2427,406 @@ export default function TripDetailScreen() {
       {/* DEFAULT EXECUTIVE OVERVIEW */}
       {activeSubView === 'overview' && (
         <>
-          {/* Rectangular Executive Overview KPI Strip */}
-          <Text
-            style={[
-              styles.sectionHeader,
-              {
-                marginTop: 12,
-                paddingHorizontal: 4,
-                color: theme.colors.textPrimary,
-              },
-            ]}
-          >
-            Executive Overview
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ marginHorizontal: -16 }}
-            contentContainerStyle={[
-              styles.kpiCardsRow,
-              { paddingHorizontal: 16 },
-            ]}
-          >
-            {[
-              {
-                icon: 'wallet',
-                label: 'BUDGET',
-                value: `${formatAmount(budget, trip.baseCurrency)}`,
-                sub: dur > 0 ? `${dur} days allocated` : 'Trip limit',
-                color: '#2563EB',
-                bg: '#EFF6FF',
-              },
-              {
-                icon: 'credit-card',
-                label: 'TOTAL SPENT',
-                value: `${formatAmount(spent, trip.baseCurrency)}`,
-                sub:
-                  budget > 0
-                    ? `${progressPercent.toFixed(0)}% of budget`
-                    : 'Total expenses',
-                color: '#EF4444',
-                bg: '#FEF2F2',
-              },
-              {
-                icon: 'pie-chart',
-                label: 'REMAINING',
-                value: `${formatAmount(Math.max(budget - spent, 0), trip.baseCurrency)}`,
-                sub:
-                  budget > 0
-                    ? isOverBudget
-                      ? 'Budget exceeded'
-                      : `${formatAmount(budget - spent, trip.baseCurrency)} left`
-                    : 'Live tracking',
-                color: '#10B981',
-                bg: '#ECFDF5',
-              },
-              {
-                icon: 'calendar',
-                label: 'DAILY AVG',
-                value: `${formatAmount(dur > 0 ? spent / dur : spent, trip.baseCurrency)}`,
-                sub: dur > 0 ? `Avg per day (${dur}d)` : 'Daily estimate',
-                color: '#D97706',
-                bg: '#FEF3C7',
-              },
-            ].map((stat, i) => (
-              <GlassCard
-                key={i}
-                style={styles.rectangularKpiCard}
-                intensity={theme.isDark ? 15 : 10}
-              >
-                <View style={styles.kpiHeaderRow}>
-                  <View
-                    style={[
-                      styles.kpiIconWrap,
-                      {
-                        backgroundColor: theme.isDark
-                          ? `${stat.color}20`
-                          : stat.bg,
-                      },
-                    ]}
-                  >
-                    <AppIcon
-                      name={stat.icon as any}
-                      size={13}
-                      color={stat.color}
-                    />
-                  </View>
-                  <View
-                    style={[
-                      styles.kpiBadgePill,
-                      {
-                        backgroundColor: `${stat.color}15`,
-                        borderColor: `${stat.color}25`,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.kpiBadgeText, { color: stat.color }]}>
-                      {stat.label}
-                    </Text>
-                  </View>
-                </View>
-                <Text
-                  style={[styles.kpiValue, { color: theme.colors.textPrimary }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {stat.value}
-                </Text>
-                <Text
-                  style={[styles.kpiSub, { color: theme.colors.textTertiary }]}
-                  numberOfLines={1}
-                >
-                  {stat.sub}
-                </Text>
-              </GlassCard>
-            ))}
-          </ScrollView>
-
-          {/* Stops Overview */}
-          <Text
-            style={[
-              styles.sectionHeader,
-              {
-                marginTop: 24,
-                paddingHorizontal: 4,
-                color: theme.colors.textPrimary,
-              },
-            ]}
-          >
-            Stops Overview
-          </Text>
+          {/* Modern Trip Summary Card (matching media_1790183686571.jpg) */}
           <GlassCard
-            style={styles.overviewStopsCard}
-            intensity={theme.isDark ? 10 : 5}
+            style={styles.cleanSummaryCard}
+            intensity={theme.isDark ? 20 : 10}
           >
-            {trip?.stops?.length > 0 ? (
-              trip.stops.map((stop: any, idx: number) => {
-                const stopBudgetHealth = stop.budgetBase
-                  ? stop.totalSpentBase > stop.budgetBase
-                    ? 'danger'
-                    : stop.totalSpentBase > stop.budgetBase * 0.8
-                      ? 'warning'
-                      : 'success'
-                  : null;
+            <View style={styles.cleanSummaryHeader}>
+              <Text
+                style={[
+                  styles.cleanSummaryTitle,
+                  { color: theme.colors.textPrimary },
+                ]}
+              >
+                Trip Summary
+              </Text>
+              <View
+                style={[
+                  styles.cleanSummaryBadge,
+                  {
+                    backgroundColor:
+                      budget > 0
+                        ? isOverBudget
+                          ? 'rgba(239, 68, 68, 0.15)'
+                          : 'rgba(16, 185, 129, 0.15)'
+                        : 'rgba(59, 130, 246, 0.15)',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cleanSummaryBadgeText,
+                    {
+                      color:
+                        budget > 0
+                          ? isOverBudget
+                            ? theme.colors.danger
+                            : theme.colors.success
+                          : theme.colors.primary,
+                    },
+                  ]}
+                >
+                  {budget > 0
+                    ? isOverBudget
+                      ? 'Over Budget'
+                      : 'On Track'
+                    : 'Live Tracking'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.cleanSummaryAmountsRow}>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.cleanSummaryAmountLabel,
+                    { color: theme.colors.textTertiary },
+                  ]}
+                >
+                  Total Spent
+                </Text>
+                <Text
+                  style={[
+                    styles.cleanSummaryAmountValue,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  {cs}
+                  {spent.toLocaleString()}
+                </Text>
+              </View>
+              <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                <Text
+                  style={[
+                    styles.cleanSummaryAmountLabel,
+                    { color: theme.colors.textTertiary },
+                  ]}
+                >
+                  Trip Budget
+                </Text>
+                <Text
+                  style={[
+                    styles.cleanSummaryBudgetVal,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  {budget > 0 ? `${cs}${budget.toLocaleString()}` : 'No Limit'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Progress Bar */}
+            <View style={styles.cleanProgressBarBg}>
+              <View
+                style={[
+                  styles.cleanProgressBarFill,
+                  {
+                    width: `${Math.min(progressPercent, 100)}%`,
+                    backgroundColor: isOverBudget
+                      ? theme.colors.danger
+                      : theme.colors.primary,
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.cleanProgressFooter}>
+              <Text
+                style={[
+                  styles.cleanProgressSubtext,
+                  { color: theme.colors.textTertiary },
+                ]}
+              >
+                {budget > 0
+                  ? `${progressPercent.toFixed(0)}% of budget used`
+                  : `${trip.stops?.length || 0} destinations logged`}
+              </Text>
+              {budget > 0 && (
+                <Text
+                  style={[
+                    styles.cleanProgressRemaining,
+                    {
+                      color: isOverBudget
+                        ? theme.colors.danger
+                        : theme.colors.success,
+                    },
+                  ]}
+                >
+                  {isOverBudget
+                    ? `${cs}${(spent - budget).toLocaleString()} over`
+                    : `${cs}${(budget - spent).toLocaleString()} left`}
+                </Text>
+              )}
+            </View>
+          </GlassCard>
+
+          {/* Recent Expenses Section (matching media_1790183686571.jpg) */}
+          <View style={styles.sectionHeaderRow}>
+            <Text
+              style={[
+                styles.sectionHeaderTitle,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              Recent Expenses
+            </Text>
+            <Pressable onPress={() => setActiveTab(2)}>
+              <Text
+                style={[
+                  styles.sectionHeaderAction,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                View all
+              </Text>
+            </Pressable>
+          </View>
+
+          {recentExpenses.length > 0 ? (
+            <View style={styles.recentExpensesList}>
+              {recentExpenses.map((exp: any) => {
+                const catMeta = getCategoryIconAndColor(exp.category);
                 return (
                   <Pressable
-                    key={stop._id}
-                    style={({ hovered }: WebPressableState) => [
-                      styles.stopSummaryRow,
-                      idx === trip.stops.length - 1 && { borderBottomWidth: 0 },
-                      Platform.OS === 'web' &&
-                        hovered &&
-                        ({ opacity: 0.8 } as any),
+                    key={exp._id}
+                    style={({ pressed }) => [
+                      styles.recentExpenseRow,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.isDark
+                          ? 'rgba(255,255,255,0.06)'
+                          : 'rgba(0,0,0,0.05)',
+                      },
+                      pressed && { transform: [{ scale: 0.99 }] },
                     ]}
-                    onPress={() =>
-                      router.push(`/(app)/trips/${id}/stops/${stop._id}`)
-                    }
+                    onPress={() => setActiveTab(2)}
                   >
-                    <View style={styles.stopSummaryLeft}>
-                      <View style={styles.stopSummaryIconBox}>
-                        <Text style={styles.stopSummaryEmoji}>
-                          {stop.emoji || '📍'}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text
-                          style={[
-                            styles.stopSummaryName,
-                            { color: theme.colors.textPrimary },
-                          ]}
-                        >
-                          {stop.name}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.stopSummaryCount,
-                            { color: theme.colors.textSecondary },
-                          ]}
-                        >
-                          {stop.expenseCount} expenses
-                        </Text>
-                      </View>
+                    <View
+                      style={[
+                        styles.recentExpenseIconBox,
+                        { backgroundColor: catMeta.bg },
+                      ]}
+                    >
+                      <AppIcon
+                        name={catMeta.icon as any}
+                        size={18}
+                        color={catMeta.color}
+                      />
                     </View>
-                    <View style={styles.stopSummaryRight}>
+                    <View style={styles.recentExpenseInfo}>
                       <Text
                         style={[
-                          styles.stopSummaryAmount,
+                          styles.recentExpenseTitle,
+                          { color: theme.colors.textPrimary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {exp.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.recentExpenseSub,
+                          { color: theme.colors.textTertiary },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {exp.paidByName
+                          ? `Paid by ${exp.paidByName}`
+                          : trip.title}{' '}
+                        • {exp.category || 'General'}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text
+                        style={[
+                          styles.recentExpenseAmount,
                           { color: theme.colors.textPrimary },
                         ]}
                       >
-                        {stop.totalSpentLocal.toLocaleString()} {stop.currency}
+                        {exp.localCurrency === 'INR' ||
+                        trip.baseCurrency === 'INR'
+                          ? '₹'
+                          : exp.localCurrency || trip.baseCurrency || ''}{' '}
+                        {(
+                          exp.amountLocal ||
+                          exp.amountBase ||
+                          0
+                        ).toLocaleString()}
                       </Text>
-                      {stopBudgetHealth && (
-                        <View
-                          style={[
-                            styles.healthDot,
-                            {
-                              backgroundColor:
-                                stopBudgetHealth === 'success'
-                                  ? theme.colors.success
-                                  : stopBudgetHealth === 'warning'
-                                    ? theme.colors.warning
-                                    : theme.colors.danger,
-                            },
-                          ]}
-                        />
-                      )}
+                      <AppIcon
+                        name="chevron-right"
+                        size={14}
+                        color={theme.colors.textTertiary}
+                        style={{ marginTop: 2 }}
+                      />
                     </View>
                   </Pressable>
                 );
-              })
-            ) : (
-              <Text
-                style={[
-                  styles.emptyText,
-                  { color: theme.colors.textSecondary, marginBottom: 12 },
-                ]}
-              >
-                No stops added yet.
-              </Text>
-            )}
-            <Pressable
-              style={({ hovered }: WebPressableState) => [
-                styles.addStopBtnOutline,
-                Platform.OS === 'web' &&
-                  hovered &&
-                  ({ backgroundColor: theme.colors.primaryBg } as any),
-              ]}
-              onPress={() => router.push(`/(app)/trips/${id}/add-stop`)}
+              })}
+            </View>
+          ) : (
+            <GlassCard
+              style={styles.emptyExpenseMiniCard}
+              intensity={theme.isDark ? 10 : 5}
             >
               <Text
-                style={[styles.addStopBtnText, { color: theme.colors.primary }]}
+                style={[
+                  styles.emptyExpenseMiniText,
+                  { color: theme.colors.textSecondary },
+                ]}
               >
-                + Add New Stop
+                No expenses logged yet. Tap + to record your first bill!
+              </Text>
+              <Pressable
+                style={[
+                  styles.miniAddExpenseBtn,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                onPress={() => router.push(`/(app)/trips/${id}/add-expense`)}
+              >
+                <AppIcon name="plus" size={14} color="#FFF" />
+                <Text style={styles.miniAddExpenseBtnText}>Add Expense</Text>
+              </Pressable>
+            </GlassCard>
+          )}
+
+          {/* Stops Highlight Shortcut */}
+          <View style={[styles.sectionHeaderRow, { marginTop: 22 }]}>
+            <Text
+              style={[
+                styles.sectionHeaderTitle,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              Destinations ({trip.stops?.length || 0})
+            </Text>
+            <Pressable onPress={() => setActiveTab(3)}>
+              <Text
+                style={[
+                  styles.sectionHeaderAction,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                View Deck →
               </Text>
             </Pressable>
+          </View>
+
+          <GlassCard
+            style={styles.stopsHighlightCard}
+            intensity={theme.isDark ? 12 : 6}
+          >
+            {trip.stops && trip.stops.length > 0 ? (
+              <Pressable
+                style={styles.stopsHighlightContent}
+                onPress={() => setActiveTab(3)}
+              >
+                <Image
+                  source={{ uri: getStopCoverImage(trip.stops[0], trip.title) }}
+                  style={styles.stopsHighlightThumb}
+                />
+                <View style={{ flex: 1, paddingLeft: 12 }}>
+                  <Text
+                    style={[
+                      styles.stopsHighlightName,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {trip.stops[0].name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.stopsHighlightSub,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {trip.stops[0].expenseCount || 0} expenses ·{' '}
+                    {formatAmount(
+                      trip.stops[0].totalSpentBase || 0,
+                      trip.baseCurrency,
+                    )}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.stopsHighlightBadge,
+                    { backgroundColor: theme.colors.primaryBg },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stopsHighlightBadgeText,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    +{trip.stops.length} Stops
+                  </Text>
+                </View>
+              </Pressable>
+            ) : (
+              <View style={styles.stopsHighlightEmpty}>
+                <Text
+                  style={[
+                    styles.emptyExpenseMiniText,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Organize your trip by adding destinations.
+                </Text>
+                <Pressable
+                  style={[
+                    styles.miniAddExpenseBtn,
+                    { backgroundColor: theme.colors.primary, marginTop: 8 },
+                  ]}
+                  onPress={() => router.push(`/(app)/trips/${id}/add-stop`)}
+                >
+                  <AppIcon name="plus" size={14} color="#FFF" />
+                  <Text style={styles.miniAddExpenseBtnText}>
+                    Add First Stop
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </GlassCard>
+          {/* Contextual Travel Partner Deal */}
+          <View style={{ marginTop: 20 }}>
+            <TravelAffiliateCard destination={trip.title} type="hotel" />
+          </View>
         </>
       )}
     </View>
   );
 
   // ============================================================
-  // TAB 3: STOPS
+  // TAB 3: STOPS (PINTEREST-INSPIRED STACKED CARD DECK)
   // ============================================================
   const renderStopsTab = () => (
     <View style={styles.tabContent}>
-      {trip.stops.length === 0 ? (
-        <GlassCard style={styles.emptyState} intensity={theme.isDark ? 10 : 5}>
-          <Text style={styles.emptyEmoji}>📍</Text>
-          <Text
-            style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}
-          >
-            No Stops Yet
-          </Text>
-          <Text
-            style={[styles.emptyText, { color: theme.colors.textSecondary }]}
-          >
-            Add stops to organize expenses by location.
-          </Text>
-          <Pressable
-            style={[
-              styles.primaryButton,
-              { backgroundColor: theme.colors.primary },
-            ]}
-            onPress={() => router.push(`/(app)/trips/${id}/add-stop`)}
-          >
-            <Text style={styles.primaryButtonText}>Add First Stop</Text>
-          </Pressable>
-        </GlassCard>
-      ) : (
-        <View>
-          <View style={styles.stopsHeaderRow}>
-            <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
-            >
-              <Text
-                style={[
-                  styles.stopsHeaderLeft,
-                  { color: theme.colors.textPrimary },
-                ]}
-              >
-                Total {trip.stops.length} Stops
-              </Text>
-              {trip.stops.length > 1 && (
-                <Pressable
-                  onPress={() =>
-                    router.push(`/(app)/trips/${id}/stops/reorder`)
-                  }
-                >
-                  <Text
-                    style={{
-                      color: theme.colors.primary,
-                      fontWeight: '600',
-                      fontSize: 14,
-                    }}
-                  >
-                    Reorder
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            <Text
-              style={[
-                styles.stopsHeaderRight,
-                { color: theme.colors.textPrimary },
-              ]}
-            >
-              {cs}
-              {spent.toLocaleString()}
-            </Text>
-          </View>
-
-          <View
-            style={
-              Platform.OS === 'web'
-                ? styles.webGrid
-                : {
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    justifyContent: 'space-between',
-                  }
-            }
-          >
-            {trip.stops.map((stop: any, index: number) => (
-              <View
-                key={stop._id}
-                style={
-                  Platform.OS === 'web'
-                    ? styles.webGridItem
-                    : {
-                        width: isSmallScreen ? '100%' : '48%',
-                        marginBottom: 16,
-                      }
-                }
-              >
-                <StopCard
-                  stop={{ ...stop, baseCurrency: trip.baseCurrency }}
-                  onPress={() =>
-                    router.push(`/(app)/trips/${id}/stops/${stop._id}`)
-                  }
-                  index={index}
-                />
-              </View>
-            ))}
-          </View>
-
-          <Pressable
-            style={[
-              styles.addStopDashedBtn,
-              { borderColor: theme.colors.primary },
-            ]}
-            onPress={() => router.push(`/(app)/trips/${id}/add-stop`)}
-          >
-            <Text
-              style={[
-                styles.addStopDashedBtnText,
-                { color: theme.colors.primary },
-              ]}
-            >
-              + Add New Stop
-            </Text>
-          </Pressable>
-        </View>
-      )}
+      <StackedStopsDeck
+        stops={(trip.stops as any) || []}
+        tripTitle={trip.title}
+        tripId={id as string}
+        baseCurrency={trip.baseCurrency || 'INR'}
+        onSelectStop={stopId =>
+          router.push(`/(app)/trips/${id}/stops/${stopId}`)
+        }
+        onAddStop={() => router.push(`/(app)/trips/${id}/add-stop`)}
+        onAddExpenseToStop={stopId =>
+          router.push({
+            pathname: `/(app)/trips/${id}/add-expense`,
+            params: { stopId },
+          } as any)
+        }
+        onReorderStops={
+          trip.stops?.length > 1
+            ? () => router.push(`/(app)/trips/${id}/stops/reorder`)
+            : undefined
+        }
+      />
+      <View style={{ marginTop: 20 }}>
+        <TravelAffiliateCard destination={trip.title} type="activity" />
+      </View>
     </View>
   );
 
@@ -2802,14 +2850,20 @@ export default function TripDetailScreen() {
               key={member.userId}
               style={Platform.OS === 'web' ? styles.webGridItem : {}}
             >
-              <MemberRow member={member} currencySymbol={cs} />
+              <MemberRow
+                member={member}
+                currencySymbol={cs}
+                settlementTransactions={
+                  settlementData?.settlement?.transactions
+                }
+              />
             </View>
           ))}
         </View>
       </View>
 
       {/* Join Requests */}
-      {pendingRequests && pendingRequests.length > 0 && (
+      {isTripAdmin && pendingRequests && pendingRequests.length > 0 && (
         <GlassCard
           style={[styles.membersCard, { borderColor: theme.colors.primary }]}
           intensity={theme.isDark ? 12 : 6}
@@ -3119,13 +3173,30 @@ export default function TripDetailScreen() {
           <AvatarGroup urls={memberUrls} max={3} size={28} />
         )}
         <Pressable
-          onPress={() => router.push(`/(app)/trips/${id}/settings`)}
+          onPress={() => {
+            if (!isTripAdmin) {
+              showToast.info(
+                'Admin Only',
+                'Only trip admins can access trip settings.',
+              );
+              return;
+            }
+            router.push(`/(app)/trips/${id}/settings`);
+          }}
           style={[
             styles.iconBtn,
             { marginLeft: 12, backgroundColor: theme.colors.surface },
+            !isTripAdmin && { opacity: 0.45 },
           ]}
+          accessibilityLabel="Trip Settings"
         >
-          <AppIcon name="settings" size={18} color={theme.colors.textPrimary} />
+          <AppIcon
+            name="settings"
+            size={18}
+            color={
+              isTripAdmin ? theme.colors.textPrimary : theme.colors.textTertiary
+            }
+          />
         </Pressable>
       </View>
     </View>
@@ -3650,44 +3721,153 @@ export default function TripDetailScreen() {
                 {activeTab === 3 && renderStopsTab()}
                 {activeTab === 4 && renderMembersTab()}
                 {activeTab === 5 && <SettlementTab tripId={id as string} />}
+                {activeTab === 6 && (
+                  <TripLocalTab
+                    tripId={id as string}
+                    destinationCity={
+                      (trip as any)?.destination ||
+                      (trip as any)?.destinationCity ||
+                      'Goa'
+                    }
+                  />
+                )}
               </View>
             </ScrollView>
           </View>
 
           {/* RIGHT SUMMARY COLUMN */}
-          {renderRightSummaryColumn()}
+          {showRightSummary && renderRightSummaryColumn()}
         </View>
       ) : (
         <>
           {/* MOBILE/TABLET LAYOUT */}
-          <Animated.View
-            style={{ zIndex: 10 }}
-            entering={FadeInDown.duration(400).springify()}
-          >
-            <View
-              style={[
-                styles.headerWrapper,
-                {
-                  paddingTop:
-                    Platform.OS === 'web'
-                      ? 16
-                      : Math.max(
-                          insets.top,
-                          Platform.OS === 'android'
-                            ? (StatusBar.currentHeight ?? 38)
-                            : 24,
-                        ) + 12,
-                },
-              ]}
-            >
-              {renderStickyHeaderContent()}
-              {renderCinematicHeaderText()}
+          <View style={{ zIndex: 10 }}>
+            <View style={styles.cinematicHeroWrapper}>
+              <ImageBackground
+                source={{ uri: getTripCoverImage(trip) }}
+                style={styles.cinematicHeroBg}
+                imageStyle={{
+                  borderBottomLeftRadius: 28,
+                  borderBottomRightRadius: 28,
+                }}
+              >
+                <LinearGradient
+                  colors={[
+                    'rgba(0,0,0,0.35)',
+                    'rgba(15,23,42,0.55)',
+                    'rgba(15,23,42,0.95)',
+                  ]}
+                  locations={[0, 0.45, 1]}
+                  style={StyleSheet.absoluteFill}
+                />
+                {/* Top Nav Bar */}
+                <View
+                  style={[
+                    styles.heroTopBar,
+                    {
+                      paddingTop:
+                        Platform.OS === 'web'
+                          ? 16
+                          : Math.max(
+                              insets.top,
+                              Platform.OS === 'android'
+                                ? (StatusBar.currentHeight ?? 38)
+                                : 24,
+                            ) + 8,
+                    },
+                  ]}
+                >
+                  <Pressable
+                    onPress={() => router.back()}
+                    style={styles.heroGlassIconBtn}
+                  >
+                    <AppIcon name="arrow-left" size={18} color="#FFFFFF" />
+                  </Pressable>
+
+                  <View style={styles.heroTopCenter}>
+                    <View
+                      style={[
+                        styles.heroStatusBadge,
+                        {
+                          backgroundColor: trip.isArchived
+                            ? 'rgba(148, 163, 184, 0.25)'
+                            : 'rgba(16, 185, 129, 0.25)',
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.heroStatusDot,
+                          {
+                            backgroundColor: trip.isArchived
+                              ? '#94A3B8'
+                              : '#10B981',
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.heroStatusText,
+                          { color: trip.isArchived ? '#CBD5E1' : '#34D399' },
+                        ]}
+                      >
+                        {trip.isArchived ? 'Archived' : 'Active'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Pressable
+                    onPress={() => {
+                      if (!isTripAdmin) {
+                        showToast.info(
+                          'Admin Only',
+                          'Only trip admins can access trip settings.',
+                        );
+                        return;
+                      }
+                      router.push(`/(app)/trips/${id}/settings`);
+                    }}
+                    style={[
+                      styles.heroGlassIconBtn,
+                      !isTripAdmin && { opacity: 0.45 },
+                    ]}
+                    accessibilityLabel="Trip Settings"
+                  >
+                    <AppIcon
+                      name="settings"
+                      size={18}
+                      color={isTripAdmin ? '#FFFFFF' : 'rgba(255,255,255,0.4)'}
+                    />
+                  </Pressable>
+                </View>
+
+                {/* Hero Bottom: Title, Dates, Member Avatars */}
+                <View style={styles.heroBottomContent}>
+                  <Text
+                    style={styles.heroTripTitle}
+                    numberOfLines={2}
+                    adjustsFontSizeToFit
+                  >
+                    {trip.title}
+                  </Text>
+                  <View style={styles.heroSubtitleRow}>
+                    <Text style={styles.heroTripDates}>
+                      {format(s, 'MMM d')} – {format(e, 'MMM d, yyyy')} • {dur}{' '}
+                      {dur === 1 ? 'Day' : 'Days'} • {activeMembers.length}{' '}
+                      {activeMembers.length === 1 ? 'Member' : 'Members'}
+                    </Text>
+                    {activeMembers.length > 0 && (
+                      <AvatarGroup urls={memberUrls} max={3} size={28} />
+                    )}
+                  </View>
+                </View>
+              </ImageBackground>
             </View>
 
             <View
               style={[
                 styles.tabsContainer,
-                { marginHorizontal: 16, overflow: 'hidden' },
+                { marginHorizontal: 16, marginTop: 12, overflow: 'hidden' },
               ]}
             >
               <TabBar
@@ -3701,7 +3881,7 @@ export default function TripDetailScreen() {
                 variant="segmented"
               />
             </View>
-          </Animated.View>
+          </View>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -3732,51 +3912,44 @@ export default function TripDetailScreen() {
               {activeTab === 3 && renderStopsTab()}
               {activeTab === 4 && renderMembersTab()}
               {activeTab === 5 && <SettlementTab tripId={id as string} />}
+              {activeTab === 6 && (
+                <TripLocalTab
+                  tripId={id as string}
+                  destinationCity={
+                    (trip as any)?.destination ||
+                    (trip as any)?.destinationCity ||
+                    'Goa'
+                  }
+                />
+              )}
             </View>
           </ScrollView>
         </>
       )}
 
-      {/* EXPANDABLE FAB (Enhanced UI) */}
-      <View
-        style={{
-          position: 'absolute',
-          bottom: insets.bottom + 24,
-          right: 24,
-          zIndex: 9999,
+      {/* FAB */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.fab,
+          {
+            bottom: insets.bottom + 24,
+            backgroundColor: theme.colors.secondary,
+          },
+          pressed && { transform: [{ scale: 0.95 }] },
+        ]}
+        onPress={() => {
+          haptics.medium();
+          router.push(`/(app)/trips/${id}/add-expense`);
         }}
       >
-        <ExpandableFAB
-          actions={[
-            {
-              id: 'add-expense',
-              label: 'Add Expense',
-              icon: 'receipt',
-              color: theme.colors.primary,
-            },
-            {
-              id: 'add-stop',
-              label: 'Add Stop',
-              icon: 'map-pin',
-              color: theme.colors.secondary,
-            },
-            {
-              id: 'invite',
-              label: 'Invite Friend',
-              icon: 'user-plus',
-              color: theme.colors.success,
-            },
-          ]}
-          onPress={(actionId: string) => {
-            haptics.medium();
-            if (actionId === 'add-expense')
-              router.push(`/(app)/trips/${id}/add-expense`);
-            if (actionId === 'add-stop')
-              router.push(`/(app)/trips/${id}/add-stop`);
-            if (actionId === 'invite') setShowInviteFriendModal(true);
-          }}
+        <LinearGradient
+          colors={theme.gradients.secondary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
         />
-      </View>
+        <AppIcon name="plus" size={28} color="#FFF" />
+      </Pressable>
 
       <TripCompletionSheet
         visible={showCompletionSheet}
@@ -3784,6 +3957,284 @@ export default function TripDetailScreen() {
         onClose={() => setShowCompletionSheet(false)}
         onViewReport={handleGenerateReport}
       />
+
+      {/* More Actions Modal */}
+      <Modal
+        visible={showMoreActionsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMoreActionsModal(false)}
+      >
+        <Pressable
+          style={styles.moreModalOverlay}
+          onPress={() => setShowMoreActionsModal(false)}
+        >
+          <Pressable
+            style={[
+              styles.moreModalSheet,
+              {
+                backgroundColor: theme.isDark ? '#0F172A' : '#FFFFFF',
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.12)'
+                  : 'rgba(0,0,0,0.08)',
+              },
+            ]}
+            onPress={e => e.stopPropagation()}
+          >
+            <View style={styles.moreModalHeader}>
+              <Text
+                style={[
+                  styles.moreModalTitle,
+                  { color: theme.colors.textPrimary },
+                ]}
+              >
+                Trip Actions & Tools
+              </Text>
+              <Pressable
+                onPress={() => setShowMoreActionsModal(false)}
+                style={[
+                  styles.moreModalCloseBtn,
+                  { backgroundColor: theme.colors.surface },
+                ]}
+              >
+                <AppIcon name="x" size={16} color={theme.colors.textPrimary} />
+              </Pressable>
+            </View>
+
+            <View style={styles.moreModalGrid}>
+              <Pressable
+                style={styles.moreModalItem}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  setActiveTab(5); // Settle
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: `${theme.colors.secondary}15` },
+                  ]}
+                >
+                  <AppIcon
+                    name="credit-card"
+                    size={20}
+                    color={theme.colors.secondary}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  Settle Up
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.moreModalItem}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  setActiveSubView('analytics');
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: 'rgba(59, 130, 246, 0.15)' },
+                  ]}
+                >
+                  <AppIcon name="bar-chart-2" size={20} color="#3B82F6" />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  Analytics
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.moreModalItem}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  setActiveSubView('rankings');
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: 'rgba(245, 158, 11, 0.15)' },
+                  ]}
+                >
+                  <AppIcon name="award" size={20} color="#F59E0B" />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  Rankings
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.moreModalItem}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  setActiveSubView('story');
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: 'rgba(168, 85, 247, 0.15)' },
+                  ]}
+                >
+                  <AppIcon name="play-circle" size={20} color="#A855F7" />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  Trip Story
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.moreModalItem}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  router.push(`/(app)/trips/${id}/map`);
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
+                  ]}
+                >
+                  <AppIcon name="map-pin" size={20} color="#10B981" />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  Map View
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.moreModalItem}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  handleGenerateReport();
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: 'rgba(6, 182, 212, 0.15)' },
+                  ]}
+                >
+                  <AppIcon name="file-text" size={20} color="#06B6D4" />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  PDF Report
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.moreModalItem}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  if (trip.isArchived) handleUnarchive();
+                  else handleArchive();
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: 'rgba(239, 68, 68, 0.15)' },
+                  ]}
+                >
+                  <AppIcon
+                    name={trip.isArchived ? 'refresh-cw' : 'archive'}
+                    size={20}
+                    color="#EF4444"
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  {trip.isArchived ? 'Unarchive' : 'Archive'}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.moreModalItem,
+                  !isTripAdmin && { opacity: 0.45 },
+                ]}
+                onPress={() => {
+                  setShowMoreActionsModal(false);
+                  if (!isTripAdmin) {
+                    showToast.info(
+                      'Admin Only',
+                      'Only trip admins can access trip settings.',
+                    );
+                    return;
+                  }
+                  router.push(`/(app)/trips/${id}/settings`);
+                }}
+              >
+                <View
+                  style={[
+                    styles.moreModalIconWrap,
+                    { backgroundColor: 'rgba(148, 163, 184, 0.15)' },
+                  ]}
+                >
+                  <AppIcon name="settings" size={20} color="#94A3B8" />
+                </View>
+                <Text
+                  style={[
+                    styles.moreModalLabel,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  Settings
+                </Text>
+                {!isTripAdmin && (
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      color: theme.colors.textTertiary,
+                      marginLeft: 'auto',
+                    }}
+                  >
+                    Admin only
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -3797,8 +4248,8 @@ const useStyles = () => {
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: 'transparent' },
-        contentBody: { flex: 1 },
-        webDesktopContent: { flex: 1, width: '100%' },
+        contentBody: { flex: 1, width: '100%', minWidth: 0 },
+        webDesktopContent: { flex: 1, width: '100%', minWidth: 0 },
         hoverLift: { transform: [{ translateY: -2 }] },
         webGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
         webGridItem: {
@@ -3814,10 +4265,10 @@ const useStyles = () => {
           maxWidth: 1600,
           alignSelf: 'center',
           height: '100%',
-          gap: 32,
-          paddingTop: 32,
+          gap: 24,
+          paddingTop: 24,
         },
-        desktopSidebar: { width: 280, flexShrink: 0, paddingLeft: 16 },
+        desktopSidebar: { width: 260, flexShrink: 0, paddingLeft: 12 },
         // Desktop Left Navigation
         desktopNavCard: {
           borderRadius: 24,
@@ -3918,12 +4369,17 @@ const useStyles = () => {
           fontSize: 13,
           fontWeight: '700',
         },
-        desktopMainContent: { flex: 1, height: '100%' },
+        desktopMainContent: {
+          flex: 1,
+          height: '100%',
+          minWidth: 0,
+          overflow: Platform.OS === 'web' ? 'hidden' : 'visible',
+        },
         desktopSummary: {
-          width: 340,
+          width: 320,
           flexShrink: 0,
-          gap: 24,
-          paddingRight: 16,
+          gap: 20,
+          paddingRight: 12,
           marginTop: -8,
         },
         verticalTabBtn: {
@@ -4426,6 +4882,364 @@ const useStyles = () => {
             },
             android: { elevation: 8 },
           }),
+        },
+
+        // Cinematic Mobile Hero Banner
+        cinematicHeroWrapper: {
+          width: '100%',
+          minHeight: 230,
+          backgroundColor: '#0F172A',
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
+          overflow: 'hidden',
+        },
+        cinematicHeroBg: {
+          width: '100%',
+          minHeight: 230,
+          justifyContent: 'space-between',
+        },
+        heroTopBar: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          zIndex: 10,
+        },
+        heroGlassIconBtn: {
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          backgroundColor: 'rgba(15,23,42,0.65)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.2)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        heroTopCenter: {
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+        heroStatusBadge: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
+        },
+        heroStatusDot: {
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+        },
+        heroStatusText: {
+          fontSize: 11,
+          fontWeight: '800',
+        },
+        heroBottomContent: {
+          paddingHorizontal: 20,
+          paddingBottom: 18,
+        },
+        heroTripTitle: {
+          fontSize: 26,
+          fontWeight: '900',
+          color: '#FFFFFF',
+          letterSpacing: -0.5,
+          marginBottom: 4,
+        },
+        heroSubtitleRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+        },
+        heroTripDates: {
+          fontSize: 12,
+          fontWeight: '600',
+          color: 'rgba(255,255,255,0.85)',
+        },
+
+        // 5 Quick Action Floating Buttons
+        quickActionsBar: {
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          marginBottom: 20,
+          paddingHorizontal: 8,
+        },
+        quickActionCircleBtn: {
+          alignItems: 'center',
+          gap: 6,
+        },
+        quickActionCircleIcon: {
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          borderWidth: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+            },
+            android: { elevation: 3 },
+          }),
+        },
+        quickActionCircleLabel: {
+          fontSize: 11,
+          fontWeight: '700',
+        },
+
+        // Clean Trip Summary Card
+        cleanSummaryCard: {
+          borderRadius: 24,
+          padding: 18,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+          marginBottom: 20,
+        },
+        cleanSummaryHeader: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 12,
+        },
+        cleanSummaryTitle: {
+          fontSize: 16,
+          fontWeight: '900',
+        },
+        cleanSummaryBadge: {
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: 8,
+        },
+        cleanSummaryBadgeText: {
+          fontSize: 11,
+          fontWeight: '800',
+        },
+        cleanSummaryAmountsRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-end',
+          marginBottom: 12,
+        },
+        cleanSummaryAmountLabel: {
+          fontSize: 11,
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          marginBottom: 3,
+        },
+        cleanSummaryAmountValue: {
+          fontSize: 24,
+          fontWeight: '900',
+          letterSpacing: -0.5,
+        },
+        cleanSummaryBudgetVal: {
+          fontSize: 18,
+          fontWeight: '800',
+        },
+        cleanProgressBarBg: {
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: 'rgba(255,255,255,0.1)',
+          overflow: 'hidden',
+          marginBottom: 8,
+        },
+        cleanProgressBarFill: {
+          height: '100%',
+          borderRadius: 3,
+        },
+        cleanProgressFooter: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        },
+        cleanProgressSubtext: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
+        cleanProgressRemaining: {
+          fontSize: 11,
+          fontWeight: '800',
+        },
+
+        // Recent Expenses Section
+        sectionHeaderRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 12,
+          paddingHorizontal: 4,
+        },
+        sectionHeaderTitle: {
+          fontSize: 16,
+          fontWeight: '900',
+          letterSpacing: -0.3,
+        },
+        sectionHeaderAction: {
+          fontSize: 13,
+          fontWeight: '700',
+        },
+        recentExpensesList: {
+          gap: 8,
+        },
+        recentExpenseRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: 12,
+          borderRadius: 18,
+          borderWidth: 1,
+          gap: 12,
+        },
+        recentExpenseIconBox: {
+          width: 42,
+          height: 42,
+          borderRadius: 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        recentExpenseInfo: {
+          flex: 1,
+        },
+        recentExpenseTitle: {
+          fontSize: 14,
+          fontWeight: '800',
+        },
+        recentExpenseSub: {
+          fontSize: 11,
+          marginTop: 2,
+        },
+        recentExpenseAmount: {
+          fontSize: 14,
+          fontWeight: '900',
+        },
+        emptyExpenseMiniCard: {
+          padding: 20,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+          alignItems: 'center',
+          gap: 10,
+        },
+        emptyExpenseMiniText: {
+          fontSize: 13,
+          textAlign: 'center',
+          lineHeight: 18,
+        },
+        miniAddExpenseBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: 16,
+          paddingVertical: 9,
+          borderRadius: 12,
+        },
+        miniAddExpenseBtnText: {
+          color: '#FFFFFF',
+          fontSize: 12,
+          fontWeight: '800',
+        },
+
+        // Destinations Highlight
+        stopsHighlightCard: {
+          padding: 14,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+          marginBottom: 24,
+        },
+        stopsHighlightContent: {
+          flexDirection: 'row',
+          alignItems: 'center',
+        },
+        stopsHighlightThumb: {
+          width: 48,
+          height: 48,
+          borderRadius: 14,
+        },
+        stopsHighlightName: {
+          fontSize: 15,
+          fontWeight: '800',
+        },
+        stopsHighlightSub: {
+          fontSize: 11,
+          marginTop: 2,
+        },
+        stopsHighlightBadge: {
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 12,
+        },
+        stopsHighlightBadgeText: {
+          fontSize: 11,
+          fontWeight: '800',
+        },
+        stopsHighlightEmpty: {
+          alignItems: 'center',
+          paddingVertical: 8,
+        },
+
+        // More Actions Modal Sheet
+        moreModalOverlay: {
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          justifyContent: 'flex-end',
+        },
+        moreModalSheet: {
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          borderWidth: 1,
+          padding: 22,
+          paddingBottom: 40,
+        },
+        moreModalHeader: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+        },
+        moreModalTitle: {
+          fontSize: 17,
+          fontWeight: '900',
+        },
+        moreModalCloseBtn: {
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        moreModalGrid: {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          gap: 12,
+          justifyContent: 'space-between',
+        },
+        moreModalItem: {
+          width: '22%',
+          minWidth: 70,
+          alignItems: 'center',
+          gap: 6,
+          marginBottom: 10,
+        },
+        moreModalIconWrap: {
+          width: 50,
+          height: 50,
+          borderRadius: 18,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        moreModalLabel: {
+          fontSize: 11,
+          fontWeight: '700',
+          textAlign: 'center',
         },
       }),
     [theme],

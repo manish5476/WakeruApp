@@ -1,5 +1,4 @@
-// app/(app)/analytics.tsx
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,6 +26,11 @@ import AppIcon from '../../components/common/AppIcon';
 import GlobalLoader from '../../components/common/GlobalLoader';
 import { GlobalBackground } from '../../components/ui/GlobalBackground';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { useAds } from '../../hooks/useAds';
+import { useAdPlacement } from '../../hooks/useAdPlacement';
+import { TravelAffiliateCard } from '../../components/ads/TravelAffiliateCard';
+import { AdMobBanner } from '../../components/ads/AdMobBanner';
 import type { Theme } from '../../theme';
 
 // ─── Category Configuration ──────────────────────────────────
@@ -111,6 +115,12 @@ export default function AnalyticsScreen() {
   );
   const [refreshing, setRefreshing] = useState(false);
 
+  // Ads & Placement Lifecycle
+  const { isAdFree } = useAds();
+
+  // Trigger interstitial ad controlled by session frequency manager on entrance
+  useAdPlacement('analytics', { autoTriggerOnMount: true, delayMs: 600 });
+
   // Queries
   const { data: rawDashboard, refetch: refetchDashboard } = useDashboard();
 
@@ -183,7 +193,10 @@ export default function AnalyticsScreen() {
     );
   }, [dayPattern]);
 
-  if (analyticsLoading && !refreshing) {
+  const hasData =
+    totalSpent > 0 || categories.length > 0 || monthlySpending.length > 0;
+
+  if (analyticsLoading && !refreshing && !hasData) {
     return (
       <GlobalBackground>
         <View style={styles.loadingContainer}>
@@ -201,9 +214,6 @@ export default function AnalyticsScreen() {
       </GlobalBackground>
     );
   }
-
-  const hasData =
-    totalSpent > 0 || categories.length > 0 || monthlySpending.length > 0;
 
   return (
     <View style={styles.root}>
@@ -294,11 +304,9 @@ export default function AnalyticsScreen() {
       >
         <View style={styles.mainWrapper}>
           {/* Timeframe Filter Pills */}
-          <View
-            style={[
-              styles.filterBarCard,
-              { backgroundColor: theme.colors.surface },
-            ]}
+          <GlassCard
+            style={styles.filterBarCard}
+            intensity={theme.isDark ? 16 : 24}
           >
             <Text
               style={[
@@ -322,7 +330,11 @@ export default function AnalyticsScreen() {
                       styles.filterPill,
                       isActive
                         ? { backgroundColor: theme.colors.primary }
-                        : { backgroundColor: theme.colors.background },
+                        : {
+                            backgroundColor: theme.isDark
+                              ? 'rgba(255,255,255,0.06)'
+                              : 'rgba(0,0,0,0.04)',
+                          },
                     ]}
                   >
                     <Text
@@ -330,7 +342,7 @@ export default function AnalyticsScreen() {
                         styles.filterPillText,
                         {
                           color: isActive
-                            ? '#FFFFFF'
+                            ? theme.colors.textInverse
                             : theme.colors.textSecondary,
                           fontWeight: isActive ? '800' : '600',
                         },
@@ -342,7 +354,15 @@ export default function AnalyticsScreen() {
                 );
               })}
             </View>
-          </View>
+          </GlassCard>
+
+          {/* AdMob Banner Slot for Free Users */}
+          {!isAdFree && (
+            <AdMobBanner
+              placementId="analytics_top_banner"
+              style={{ marginVertical: 4 }}
+            />
+          )}
 
           {!hasData ? (
             <EmptyState
@@ -355,152 +375,169 @@ export default function AnalyticsScreen() {
           ) : (
             <>
               {/* ── TOP BENTO EXECUTIVE STRIP ── */}
-              <View style={styles.bentoTopStrip}>
-                {/* Tile 1: Total Spent */}
-                <View
-                  style={[
-                    styles.metricTile,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
-                >
-                  <View style={styles.metricHeaderRow}>
-                    <View
-                      style={[styles.iconAura, { backgroundColor: '#FEE2E2' }]}
-                    >
-                      <AppIcon name="credit-card" size={15} color="#EF4444" />
+              <View
+                style={[
+                  styles.bentoTopStrip,
+                  isDesktop && styles.desktopBentoStrip,
+                ]}
+              >
+                <View style={styles.metricsRow}>
+                  {/* Tile 1: Total Spent */}
+                  <GlassCard
+                    style={styles.metricTile}
+                    intensity={theme.isDark ? 16 : 24}
+                  >
+                    <View style={styles.metricHeaderRow}>
+                      <View
+                        style={[
+                          styles.iconAura,
+                          { backgroundColor: '#FEE2E2' },
+                        ]}
+                      >
+                        <AppIcon name="credit-card" size={15} color="#EF4444" />
+                      </View>
+                      <Text style={[styles.metricTag, { color: '#EF4444' }]}>
+                        TOTAL OUTFLOW
+                      </Text>
                     </View>
-                    <Text style={[styles.metricTag, { color: '#EF4444' }]}>
-                      TOTAL OUTFLOW
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      ₹{totalSpent.toLocaleString('en-IN')}
                     </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.metricValue,
-                      { color: theme.colors.textPrimary },
-                    ]}
+                    <Text
+                      style={[
+                        styles.metricSub,
+                        { color: theme.colors.textTertiary },
+                      ]}
+                    >
+                      {totalTransactions} total entries
+                    </Text>
+                  </GlassCard>
+
+                  {/* Tile 2: Daily Burn Rate */}
+                  <GlassCard
+                    style={styles.metricTile}
+                    intensity={theme.isDark ? 16 : 24}
                   >
-                    ₹{totalSpent.toLocaleString('en-IN')}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.metricSub,
-                      { color: theme.colors.textTertiary },
-                    ]}
-                  >
-                    {totalTransactions} total entries
-                  </Text>
+                    <View style={styles.metricHeaderRow}>
+                      <View
+                        style={[
+                          styles.iconAura,
+                          { backgroundColor: '#ECFDF5' },
+                        ]}
+                      >
+                        <AppIcon name="activity" size={15} color="#10B981" />
+                      </View>
+                      <Text style={[styles.metricTag, { color: '#10B981' }]}>
+                        BURN RATE / DAY
+                      </Text>
+                    </View>
+                    <Text style={[styles.metricValue, { color: '#10B981' }]}>
+                      ₹{Math.round(avgPerDay).toLocaleString('en-IN')}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.metricSub,
+                        { color: theme.colors.textTertiary },
+                      ]}
+                    >
+                      Daily average
+                    </Text>
+                  </GlassCard>
                 </View>
 
-                {/* Tile 2: Daily Burn Rate */}
-                <View
-                  style={[
-                    styles.metricTile,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
-                >
-                  <View style={styles.metricHeaderRow}>
-                    <View
-                      style={[styles.iconAura, { backgroundColor: '#ECFDF5' }]}
-                    >
-                      <AppIcon name="activity" size={15} color="#10B981" />
-                    </View>
-                    <Text style={[styles.metricTag, { color: '#10B981' }]}>
-                      BURN RATE / DAY
-                    </Text>
-                  </View>
-                  <Text style={[styles.metricValue, { color: '#10B981' }]}>
-                    ₹{Math.round(avgPerDay).toLocaleString('en-IN')}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.metricSub,
-                      { color: theme.colors.textTertiary },
-                    ]}
+                <View style={styles.metricsRow}>
+                  {/* Tile 3: Peak Single Expense */}
+                  <GlassCard
+                    style={styles.metricTile}
+                    intensity={theme.isDark ? 16 : 24}
                   >
-                    Daily average
-                  </Text>
-                </View>
+                    <View style={styles.metricHeaderRow}>
+                      <View
+                        style={[
+                          styles.iconAura,
+                          { backgroundColor: '#EFF6FF' },
+                        ]}
+                      >
+                        <AppIcon
+                          name="arrow-up-right"
+                          size={15}
+                          color="#2563EB"
+                        />
+                      </View>
+                      <Text style={[styles.metricTag, { color: '#2563EB' }]}>
+                        PEAK SINGLE COST
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      ₹
+                      {(highestExpense?.amountBase || 0).toLocaleString(
+                        'en-IN',
+                      )}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.metricSub,
+                        { color: theme.colors.textTertiary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {highestExpense?.title || 'No single peak recorded'}
+                    </Text>
+                  </GlassCard>
 
-                {/* Tile 3: Peak Single Expense */}
-                <View
-                  style={[
-                    styles.metricTile,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
-                >
-                  <View style={styles.metricHeaderRow}>
-                    <View
-                      style={[styles.iconAura, { backgroundColor: '#EFF6FF' }]}
-                    >
-                      <AppIcon
-                        name="arrow-up-right"
-                        size={15}
-                        color="#2563EB"
-                      />
+                  {/* Tile 4: Lowest Transaction */}
+                  <GlassCard
+                    style={styles.metricTile}
+                    intensity={theme.isDark ? 16 : 24}
+                  >
+                    <View style={styles.metricHeaderRow}>
+                      <View
+                        style={[
+                          styles.iconAura,
+                          { backgroundColor: '#FEF3C7' },
+                        ]}
+                      >
+                        <AppIcon
+                          name="arrow-down-left"
+                          size={15}
+                          color="#D97706"
+                        />
+                      </View>
+                      <Text style={[styles.metricTag, { color: '#D97706' }]}>
+                        MIN TRANSACTION
+                      </Text>
                     </View>
-                    <Text style={[styles.metricTag, { color: '#2563EB' }]}>
-                      PEAK SINGLE COST
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.metricValue,
-                      { color: theme.colors.textPrimary },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    ₹{(highestExpense?.amountBase || 0).toLocaleString('en-IN')}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.metricSub,
-                      { color: theme.colors.textTertiary },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {highestExpense?.title || 'No single peak recorded'}
-                  </Text>
-                </View>
-
-                {/* Tile 4: Lowest Transaction */}
-                <View
-                  style={[
-                    styles.metricTile,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
-                >
-                  <View style={styles.metricHeaderRow}>
-                    <View
-                      style={[styles.iconAura, { backgroundColor: '#FEF3C7' }]}
+                    <Text
+                      style={[
+                        styles.metricValue,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                      numberOfLines={1}
                     >
-                      <AppIcon
-                        name="arrow-down-left"
-                        size={15}
-                        color="#D97706"
-                      />
-                    </View>
-                    <Text style={[styles.metricTag, { color: '#D97706' }]}>
-                      MIN TRANSACTION
+                      ₹
+                      {(lowestExpense?.amountBase || 0).toLocaleString('en-IN')}
                     </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.metricValue,
-                      { color: theme.colors.textPrimary },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    ₹{(lowestExpense?.amountBase || 0).toLocaleString('en-IN')}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.metricSub,
-                      { color: theme.colors.textTertiary },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {lowestExpense?.title || 'Base entry'}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.metricSub,
+                        { color: theme.colors.textTertiary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {lowestExpense?.title || 'Base entry'}
+                    </Text>
+                  </GlassCard>
                 </View>
               </View>
 
@@ -512,11 +549,9 @@ export default function AnalyticsScreen() {
                 <View style={[styles.bentoColumn, isDesktop && { flex: 1.25 }]}>
                   {/* Category Breakdown Panel */}
                   {categories.length > 0 && (
-                    <View
-                      style={[
-                        styles.panelCard,
-                        { backgroundColor: theme.colors.surface },
-                      ]}
+                    <GlassCard
+                      style={styles.panelCard}
+                      intensity={theme.isDark ? 18 : 30}
                     >
                       <View style={styles.panelHeader}>
                         <View
@@ -615,7 +650,11 @@ export default function AnalyticsScreen() {
                               <View
                                 style={[
                                   styles.progressTrack,
-                                  { backgroundColor: theme.colors.background },
+                                  {
+                                    backgroundColor: theme.isDark
+                                      ? 'rgba(255,255,255,0.06)'
+                                      : 'rgba(0,0,0,0.05)',
+                                  },
                                 ]}
                               >
                                 <View
@@ -632,16 +671,14 @@ export default function AnalyticsScreen() {
                           );
                         })}
                       </View>
-                    </View>
+                    </GlassCard>
                   )}
 
                   {/* Monthly Outflow Rhythm (Custom Flex Bars) */}
                   {monthlySpending.length > 0 && (
-                    <View
-                      style={[
-                        styles.panelCard,
-                        { backgroundColor: theme.colors.surface },
-                      ]}
+                    <GlassCard
+                      style={styles.panelCard}
+                      intensity={theme.isDark ? 18 : 30}
                     >
                       <View style={styles.panelHeader}>
                         <View
@@ -700,7 +737,11 @@ export default function AnalyticsScreen() {
                               <View
                                 style={[
                                   styles.barTrack,
-                                  { backgroundColor: theme.colors.background },
+                                  {
+                                    backgroundColor: theme.isDark
+                                      ? 'rgba(255,255,255,0.06)'
+                                      : 'rgba(0,0,0,0.05)',
+                                  },
                                 ]}
                               >
                                 <LinearGradient
@@ -728,7 +769,7 @@ export default function AnalyticsScreen() {
                           );
                         })}
                       </View>
-                    </View>
+                    </GlassCard>
                   )}
                 </View>
 
@@ -736,11 +777,9 @@ export default function AnalyticsScreen() {
                 <View style={[styles.bentoColumn, isDesktop && { flex: 1 }]}>
                   {/* Trip Breakdown Panel */}
                   {tripBreakdown.length > 0 && (
-                    <View
-                      style={[
-                        styles.panelCard,
-                        { backgroundColor: theme.colors.surface },
-                      ]}
+                    <GlassCard
+                      style={styles.panelCard}
+                      intensity={theme.isDark ? 18 : 30}
                     >
                       <View style={styles.panelHeader}>
                         <View
@@ -780,7 +819,11 @@ export default function AnalyticsScreen() {
                             }
                             style={[
                               styles.tripItem,
-                              { backgroundColor: theme.colors.background },
+                              {
+                                backgroundColor: theme.isDark
+                                  ? 'rgba(255,255,255,0.04)'
+                                  : 'rgba(0,0,0,0.03)',
+                              },
                             ]}
                           >
                             <View style={styles.tripLeft}>
@@ -828,16 +871,14 @@ export default function AnalyticsScreen() {
                           </Pressable>
                         ))}
                       </View>
-                    </View>
+                    </GlassCard>
                   )}
 
                   {/* Day of Week Habits */}
                   {dayPattern.length > 0 && (
-                    <View
-                      style={[
-                        styles.panelCard,
-                        { backgroundColor: theme.colors.surface },
-                      ]}
+                    <GlassCard
+                      style={styles.panelCard}
+                      intensity={theme.isDark ? 18 : 30}
                     >
                       <View style={styles.panelHeader}>
                         <View
@@ -881,7 +922,11 @@ export default function AnalyticsScreen() {
                               <View
                                 style={[
                                   styles.dayBarTrack,
-                                  { backgroundColor: theme.colors.background },
+                                  {
+                                    backgroundColor: theme.isDark
+                                      ? 'rgba(255,255,255,0.06)'
+                                      : 'rgba(0,0,0,0.05)',
+                                  },
                                 ]}
                               >
                                 <View
@@ -909,16 +954,14 @@ export default function AnalyticsScreen() {
                           );
                         })}
                       </View>
-                    </View>
+                    </GlassCard>
                   )}
 
                   {/* Year-over-Year Delta Tile */}
                   {yearly?.yearOverYear && (
-                    <View
-                      style={[
-                        styles.panelCard,
-                        { backgroundColor: theme.colors.surface },
-                      ]}
+                    <GlassCard
+                      style={styles.panelCard}
+                      intensity={theme.isDark ? 18 : 30}
                     >
                       <View style={styles.panelHeader}>
                         <View
@@ -971,6 +1014,99 @@ export default function AnalyticsScreen() {
                           </Text>
                         </View>
                       </View>
+                    </GlassCard>
+                  )}
+
+                  {/* Contextual Affiliate Banner & Pro Upgrade for Free Users */}
+                  {!isAdFree && (
+                    <View style={{ marginTop: 14 }}>
+                      <AdMobBanner
+                        placementId="analytics_bottom_banner"
+                        style={{ marginBottom: 10 }}
+                      />
+                      <TravelAffiliateCard compact />
+
+                      <GlassCard
+                        style={{ marginTop: 14, padding: 16, borderRadius: 16 }}
+                        intensity={theme.isDark ? 20 : 30}
+                      >
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 12,
+                          }}
+                        >
+                          <View style={{ flex: 1, minWidth: 200 }}>
+                            <View
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 6,
+                                marginBottom: 4,
+                              }}
+                            >
+                              <AppIcon
+                                name="sparkles"
+                                size={14}
+                                color="#8B5CF6"
+                              />
+                              <Text
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: '800',
+                                  color: '#8B5CF6',
+                                }}
+                              >
+                                TRIPSPLIT PRO
+                              </Text>
+                            </View>
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                fontWeight: '700',
+                                color: theme.colors.textPrimary,
+                              }}
+                            >
+                              Enjoy 100% Ad-Free Intelligence
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: theme.colors.textSecondary,
+                                marginTop: 2,
+                              }}
+                            >
+                              Get unlimited AI receipt scanning, custom export
+                              reports, and zero advertisements forever.
+                            </Text>
+                          </View>
+                          <Pressable
+                            onPress={() => router.push('/(app)/plans' as any)}
+                            style={({ pressed }) => [
+                              {
+                                paddingVertical: 10,
+                                paddingHorizontal: 16,
+                                borderRadius: 12,
+                                backgroundColor: theme.colors.primary,
+                                opacity: pressed ? 0.85 : 1,
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={{
+                                color: theme.colors.textInverse,
+                                fontWeight: '700',
+                                fontSize: 13,
+                              }}
+                            >
+                              Upgrade →
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </GlassCard>
                     </View>
                   )}
                 </View>
@@ -1088,14 +1224,19 @@ function createStyles(theme: Theme, isDesktop: boolean) {
 
     // Bento Top Strip (4-Tile)
     bentoTopStrip: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
       gap: 10,
+    },
+    desktopBentoStrip: {
+      flexDirection: 'row',
+    },
+    metricsRow: {
+      flexDirection: 'row',
+      gap: 10,
+      flex: 1,
     },
     metricTile: {
       flex: 1,
-      minWidth: 150,
-      padding: 14,
+      padding: 12,
       borderRadius: 18,
       borderWidth: 1,
       borderColor: theme.isDark
@@ -1109,12 +1250,7 @@ function createStyles(theme: Theme, isDesktop: boolean) {
 
         default: {
           shadowColor: '#000',
-
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-
+          shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1,
           shadowRadius: 10,
           elevation: 4,
@@ -1398,6 +1534,108 @@ function createStyles(theme: Theme, isDesktop: boolean) {
     yoyDeltaLabel: {
       fontSize: 12,
       fontWeight: '500',
+    },
+
+    // Pro Locked Gateway Styles
+    lockedContainer: {
+      paddingVertical: 12,
+      alignItems: 'center',
+      width: '100%',
+    },
+    lockedCard: {
+      width: '100%',
+      maxWidth: 640,
+      padding: 28,
+      borderRadius: 28,
+      alignItems: 'center',
+      gap: 20,
+    },
+    lockedIconWrap: {
+      marginBottom: 4,
+    },
+    lockedIconGrad: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#8B5CF6',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    lockedTextWrap: {
+      alignItems: 'center',
+      gap: 8,
+    },
+    proTagBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 99,
+      backgroundColor: 'rgba(139, 92, 246, 0.12)',
+    },
+    proTagText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: '#8B5CF6',
+      letterSpacing: 0.6,
+    },
+    lockedTitle: {
+      fontSize: 22,
+      fontWeight: '900',
+      textAlign: 'center',
+      letterSpacing: -0.5,
+    },
+    lockedDesc: {
+      fontSize: 13.5,
+      lineHeight: 20,
+      textAlign: 'center',
+      maxWidth: 480,
+    },
+    lockedButtonsRow: {
+      width: '100%',
+      gap: 12,
+      marginTop: 4,
+    },
+    watchAdBtn: {
+      borderRadius: 16,
+      borderWidth: 1.5,
+      overflow: 'hidden',
+    },
+    watchAdBtnInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      gap: 8,
+    },
+    watchAdBtnText: {
+      fontSize: 14.5,
+      fontWeight: '700',
+    },
+    upgradePlanBtn: {
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    upgradePlanGrad: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 15,
+      gap: 8,
+    },
+    upgradePlanText: {
+      color: '#FFFFFF',
+      fontSize: 14.5,
+      fontWeight: '700',
+    },
+    lockedAdPreview: {
+      width: '100%',
+      marginTop: 8,
     },
   });
 }

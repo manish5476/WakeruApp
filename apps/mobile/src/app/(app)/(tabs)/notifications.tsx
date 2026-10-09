@@ -31,9 +31,11 @@ import {
   useAcceptFriendRequest,
   useDeclineFriendRequest,
 } from '../../../hooks/useFriends';
+import { joinRequestsApi } from '../../../services/api/joinRequests.api';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useQueryClient } from '@tanstack/react-query';
+import { showToast } from '../../../utils/toast';
 
 // UI Components
 import { GlobalBackground } from '../../../components/ui/GlobalBackground';
@@ -41,6 +43,10 @@ import { GlassCard } from '../../../components/ui/GlassCard';
 import { Badge } from '../../../components/ui/Badge';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import AppIcon from '../../../components/common/AppIcon';
+import GlobalLoader from '../../../components/common/GlobalLoader';
+import { useAds } from '../../../hooks/useAds';
+import { insertAdsIntoList, isAdItem } from '../../../utils/insertAdsIntoList';
+import { SponsoredTripCard } from '../../../components/ads/SponsoredTripCard';
 import type { Theme } from '../../../theme';
 
 // ============================================================
@@ -59,6 +65,8 @@ const TYPE_ICONS: Record<string, string> = {
   SETTLEMENT_COMPLETED: 'check-circle',
   SETTLEMENT_DISPUTED: 'alert-circle',
   SETTLEMENT_CALCULATED: 'pie-chart',
+  SETTLEMENT_REVERTED: 'rotate-ccw',
+  PAYMENT_REVERSED: 'rotate-ccw',
   PAYMENT_REMINDER: 'bell',
   TRIP_FULLY_SETTLED: 'award',
   TRIP_INVITATION: 'mail',
@@ -112,6 +120,8 @@ const TYPE_COLORS: Record<string, string> = {
   SETTLEMENT_COMPLETED: '#10B981',
   SETTLEMENT_DISPUTED: '#F43F5E',
   SETTLEMENT_CALCULATED: '#06B6D4',
+  SETTLEMENT_REVERTED: '#F43F5E',
+  PAYMENT_REVERSED: '#F43F5E',
   PAYMENT_REMINDER: '#F59E0B',
   TRIP_FULLY_SETTLED: '#10B981',
   TRIP_INVITATION: '#6366F1',
@@ -205,14 +215,19 @@ export default function NotificationsScreen() {
   const isGrid = columns > 1;
 
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
+  const [actionInProgressId, setActionInProgressId] = useState<string | null>(
+    null,
+  );
 
   const styles = useStyles(theme, isDesktop, columns, isGrid);
 
-  const { data, isRefetching, refetch } = useNotifications();
+  const { data, isLoading, isRefetching, refetch } = useNotifications();
   const { mutate: markAsRead } = useMarkAsRead();
-  const { mutate: markAllAsRead } = useMarkAllAsRead();
+  const { mutate: markAllAsRead, isPending: isMarkingAllRead } =
+    useMarkAllAsRead();
   const { mutate: deleteNotification } = useDeleteNotification();
-  const { mutate: clearAllNotifications } = useClearAllNotifications();
+  const { mutate: clearAllNotifications, isPending: isClearingAll } =
+    useClearAllNotifications();
   const { mutate: acceptInvitation } = useAcceptInvitation();
   const { mutate: declineInvitation } = useDeclineInvitation();
   const { mutate: acceptFriendRequest } = useAcceptFriendRequest();
@@ -220,6 +235,26 @@ export default function NotificationsScreen() {
 
   const notifications = data?.notifications || [];
   const unreadCount = data?.unreadCount || 0;
+
+  const handleClearAll = useCallback(() => {
+    const message = 'Delete all notifications from your feed?';
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(message)) {
+        clearAllNotifications();
+      }
+    } else {
+      Alert.alert('Clear All', message, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: () => clearAllNotifications(),
+        },
+      ]);
+    }
+  }, [clearAllNotifications]);
+
+  const { isAdFree } = useAds();
 
   // Filter Logic
   const filteredNotifications = useMemo(() => {
@@ -242,6 +277,10 @@ export default function NotificationsScreen() {
       return true;
     });
   }, [notifications, activeFilter]);
+
+  const notificationsWithAds = useMemo(() => {
+    return insertAdsIntoList(filteredNotifications, 4, isAdFree);
+  }, [filteredNotifications, isAdFree]);
 
   const actionableCount = useMemo(() => {
     return notifications.filter(
@@ -301,62 +340,140 @@ export default function NotificationsScreen() {
       const isDeclineAction =
         action === 'decline' || action === 'decline_invitation';
 
+      setActionInProgressId(item._id);
+
+      const finishAction = () => {
+        setActionInProgressId(null);
+      };
+
       if (item.type === 'FRIEND_REQUEST') {
         if (!requestId) {
-          Alert.alert('Error', 'Request ID is missing.');
+          showToast.warning('Notice', 'Request ID is missing.');
+          finishAction();
           return;
         }
         if (isAcceptAction) {
           acceptFriendRequest(requestId, {
             onSuccess: () => {
-              Alert.alert('Success', 'Friend request accepted!');
               if (!item.isRead) markAsRead(item._id);
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              finishAction();
             },
             onError: (error: any) => {
-              Alert.alert(
-                'Error',
-                error.message || 'Failed to accept friend request.',
-              );
+              showToast.fromError(error, 'Failed to accept friend request');
+              finishAction();
             },
           });
         } else if (isDeclineAction) {
           declineFriendRequest(requestId, {
             onSuccess: () => {
-              Alert.alert('Success', 'Friend request declined.');
               if (!item.isRead) markAsRead(item._id);
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              finishAction();
             },
             onError: (error: any) => {
-              Alert.alert(
-                'Error',
-                error.message || 'Failed to decline friend request.',
-              );
+              showToast.fromError(error, 'Failed to decline friend request');
+              finishAction();
             },
           });
         }
         return;
       }
 
+      if (
+        item.type === 'TRIP_JOIN_REQUEST' ||
+        notificationData.type === 'join_request'
+      ) {
+        if (!tripId || !requestId) {
+          finishAction();
+          router.push('/(app)/requests');
+          return;
+        }
+
+        if (isAcceptAction) {
+          try {
+            const res = await joinRequestsApi.approve(tripId, requestId);
+            if (res.success) {
+              showToast.success(
+                'Approved',
+                'Join request approved successfully!',
+              );
+              if (!item.isRead) markAsRead(item._id);
+              queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              queryClient.invalidateQueries({
+                queryKey: ['admin-join-requests'],
+              });
+              queryClient.invalidateQueries({
+                queryKey: ['pending-join-requests', tripId],
+              });
+              queryClient.invalidateQueries({ queryKey: ['trips'] });
+              queryClient.invalidateQueries({ queryKey: ['trip', tripId] });
+            } else {
+              showToast.error(
+                'Failed',
+                res.message || 'Failed to approve join request',
+              );
+            }
+          } catch (error: any) {
+            showToast.fromError(error, 'Failed to approve join request');
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          } finally {
+            finishAction();
+          }
+        } else if (isDeclineAction) {
+          try {
+            const res = await joinRequestsApi.reject(tripId, requestId);
+            if (res.success) {
+              showToast.info('Declined', 'Join request declined.');
+              if (!item.isRead) markAsRead(item._id);
+              queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              queryClient.invalidateQueries({
+                queryKey: ['admin-join-requests'],
+              });
+              queryClient.invalidateQueries({
+                queryKey: ['pending-join-requests', tripId],
+              });
+            } else {
+              showToast.error(
+                'Failed',
+                res.message || 'Failed to decline join request',
+              );
+            }
+          } catch (error: any) {
+            showToast.fromError(error, 'Failed to decline join request');
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          } finally {
+            finishAction();
+          }
+        }
+        return;
+      }
+
+      if (
+        action === 'view_settlement' ||
+        action === 'settle' ||
+        action === 'mark_paid'
+      ) {
+        if (tripId) {
+          if (!item.isRead) markAsRead(item._id);
+          finishAction();
+          router.push(`/(app)/settlements/${tripId}` as any);
+          return;
+        }
+      }
+
       if (isAcceptAction) {
         const doAccept = (id: string) => {
           acceptInvitation(id, {
             onSuccess: () => {
-              Alert.alert(
-                'Success',
-                'Invitation accepted! You have joined the trip.',
-              );
               if (!item.isRead) markAsRead(item._id);
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              finishAction();
             },
             onError: (err: any) => {
-              Alert.alert(
-                'Notice',
-                err?.response?.data?.message ||
-                  err?.message ||
-                  'Failed to accept invitation',
-              );
+              showToast.fromError(err, 'Failed to accept invitation');
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              finishAction();
             },
           });
         };
@@ -371,15 +488,17 @@ export default function NotificationsScreen() {
           if (foundId) {
             doAccept(foundId);
           } else {
-            Alert.alert(
-              'Invitation Not Found',
+            showToast.warning(
+              'Not Found',
               'This invitation may have already been accepted, declined, or expired.',
             );
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            finishAction();
           }
           return;
         }
 
+        finishAction();
         router.push('/(app)/requests');
       } else if (isDeclineAction) {
         const doDecline = (id: string) => {
@@ -387,60 +506,63 @@ export default function NotificationsScreen() {
             onSuccess: () => {
               if (!item.isRead) markAsRead(item._id);
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              finishAction();
             },
             onError: (err: any) => {
-              Alert.alert(
-                'Notice',
-                err?.response?.data?.message ||
-                  err?.message ||
-                  'Failed to decline invitation',
-              );
+              showToast.fromError(err, 'Failed to decline invitation');
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              finishAction();
             },
           });
         };
 
+        const confirmDecline = (id: string) => {
+          if (Platform.OS === 'web') {
+            if (
+              typeof window !== 'undefined' &&
+              window.confirm('Are you sure you want to decline?')
+            ) {
+              doDecline(id);
+            } else {
+              finishAction();
+            }
+          } else {
+            Alert.alert(
+              'Decline Invitation',
+              'Are you sure you want to decline?',
+              [
+                { text: 'Cancel', style: 'cancel', onPress: finishAction },
+                {
+                  text: 'Decline',
+                  style: 'destructive',
+                  onPress: () => doDecline(id),
+                },
+              ],
+            );
+          }
+        };
+
         if (invitationId) {
-          Alert.alert(
-            'Decline Invitation',
-            'Are you sure you want to decline?',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Decline',
-                style: 'destructive',
-                onPress: () => doDecline(invitationId),
-              },
-            ],
-          );
+          confirmDecline(invitationId);
           return;
         }
 
         if (tripId) {
           const foundId = await findInvitationByTripId(tripId);
           if (foundId) {
-            Alert.alert(
-              'Decline Invitation',
-              'Are you sure you want to decline?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Decline',
-                  style: 'destructive',
-                  onPress: () => doDecline(foundId),
-                },
-              ],
-            );
+            confirmDecline(foundId);
           } else {
-            Alert.alert(
+            showToast.warning(
               'Not Found',
               'This invitation may have already been responded to or expired.',
             );
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            finishAction();
           }
           return;
         }
 
+        finishAction();
         router.push('/(app)/requests');
       }
     },
@@ -457,6 +579,18 @@ export default function NotificationsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: any }) => {
+      if (isAdItem(item)) {
+        return (
+          <View style={[styles.notifCardWrapper, { marginVertical: 6 }]}>
+            <SponsoredTripCard
+              title="Exclusive Hotel & Flight Deals"
+              subtitle="Save on hotels & flights across the globe with our verified partners"
+              ctaText="Explore Deals →"
+            />
+          </View>
+        );
+      }
+
       const iconName = TYPE_ICONS[item.type] || 'bell';
       const iconColor = TYPE_COLORS[item.type] || theme.colors.primary;
       const category = getCategoryName(item.type);
@@ -470,6 +604,7 @@ export default function NotificationsScreen() {
         'TRIP_FRIEND_INVITE',
       ].includes(item.type);
       const showActions = hasActionButtons || isActionableType;
+      const isItemProcessing = actionInProgressId === item._id;
 
       return (
         <View style={styles.notifCardWrapper}>
@@ -482,27 +617,74 @@ export default function NotificationsScreen() {
             ]}
             onPress={() => {
               if (!item.isRead) markAsRead(item._id);
-              if (item.data?.tripId) {
-                router.push(`/(app)/trips/${item.data.tripId}`);
-              } else if (item.actionUrl) {
+
+              // 1. If explicit internal actionUrl or deepLink is provided
+              if (item.actionUrl) {
                 if (item.actionUrl.startsWith('http')) {
                   Linking.openURL(item.actionUrl).catch(err =>
                     console.error("Couldn't open URL", err),
                   );
-                } else {
-                  router.push(item.actionUrl as any);
+                  return;
                 }
+                // Normalize settlement links
+                if (item.actionUrl.includes('/settle') && item.data?.tripId) {
+                  router.push(`/(app)/settlements/${item.data.tripId}` as any);
+                  return;
+                }
+                if (item.actionUrl.startsWith('/settlements/')) {
+                  router.push(`/(app)${item.actionUrl}` as any);
+                  return;
+                }
+                if (item.actionUrl.startsWith('/trips/')) {
+                  router.push(`/(app)${item.actionUrl}` as any);
+                  return;
+                }
+                router.push(item.actionUrl as any);
+                return;
+              }
+
+              // 2. Settlement / Payment event types route to settlement workspace
+              if (
+                item.type?.startsWith('SETTLEMENT_') ||
+                item.type?.startsWith('PAYMENT_') ||
+                item.type === 'TRIP_FULLY_SETTLED'
+              ) {
+                if (item.data?.tripId) {
+                  router.push(`/(app)/settlements/${item.data.tripId}` as any);
+                  return;
+                }
+              }
+
+              // 3. Friend event types route to friends
+              if (item.type?.startsWith('FRIEND_')) {
+                router.push('/(app)/friends' as any);
+                return;
+              }
+
+              // 4. Default trip navigation
+              if (item.data?.tripId) {
+                router.push(`/(app)/trips/${item.data.tripId}` as any);
               }
             }}
             onLongPress={() => {
-              Alert.alert('Delete Notification', 'Delete this notification?', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => deleteNotification(item._id),
-                },
-              ]);
+              const deleteMsg = 'Delete this notification?';
+              if (Platform.OS === 'web') {
+                if (
+                  typeof window !== 'undefined' &&
+                  window.confirm(deleteMsg)
+                ) {
+                  deleteNotification(item._id);
+                }
+              } else {
+                Alert.alert('Delete Notification', deleteMsg, [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => deleteNotification(item._id),
+                  },
+                ]);
+              }
             }}
           >
             {/* Unread Glowing Side Pillar */}
@@ -595,11 +777,13 @@ export default function NotificationsScreen() {
                     item.actionButtons.map((button: any) => (
                       <Pressable
                         key={button.value}
+                        disabled={isItemProcessing}
                         style={({ pressed }) => [
                           styles.actionBtnBase,
                           button.style === 'primary'
                             ? styles.actionBtnPrimary
                             : styles.actionBtnDanger,
+                          isItemProcessing && { opacity: 0.6 },
                           pressed && styles.pressedState,
                         ]}
                         onPress={e => {
@@ -607,24 +791,38 @@ export default function NotificationsScreen() {
                           handleAction(item, button.action);
                         }}
                       >
-                        <Text
-                          style={[
-                            styles.actionBtnLabel,
-                            button.style === 'danger'
-                              ? styles.actionLabelDanger
-                              : styles.actionLabelPrimary,
-                          ]}
-                        >
-                          {button.label}
-                        </Text>
+                        {isItemProcessing ? (
+                          <GlobalLoader
+                            variant="inline"
+                            size="small"
+                            color={
+                              button.style === 'danger'
+                                ? theme.colors.danger
+                                : '#FFF'
+                            }
+                          />
+                        ) : (
+                          <Text
+                            style={[
+                              styles.actionBtnLabel,
+                              button.style === 'danger'
+                                ? styles.actionLabelDanger
+                                : styles.actionLabelPrimary,
+                            ]}
+                          >
+                            {button.label}
+                          </Text>
+                        )}
                       </Pressable>
                     ))
                   ) : item.type === 'FRIEND_REQUEST' ? (
                     <>
                       <Pressable
+                        disabled={isItemProcessing}
                         style={({ pressed }) => [
                           styles.actionBtnBase,
                           styles.actionBtnPrimary,
+                          isItemProcessing && { opacity: 0.6 },
                           pressed && styles.pressedState,
                         ]}
                         onPress={e => {
@@ -632,20 +830,32 @@ export default function NotificationsScreen() {
                           handleAction(item, 'accept');
                         }}
                       >
-                        <AppIcon name="check" size={14} color="#FFF" />
-                        <Text
-                          style={[
-                            styles.actionBtnLabel,
-                            styles.actionLabelPrimary,
-                          ]}
-                        >
-                          Accept
-                        </Text>
+                        {isItemProcessing ? (
+                          <GlobalLoader
+                            variant="inline"
+                            size="small"
+                            color="#FFF"
+                          />
+                        ) : (
+                          <>
+                            <AppIcon name="check" size={14} color="#FFF" />
+                            <Text
+                              style={[
+                                styles.actionBtnLabel,
+                                styles.actionLabelPrimary,
+                              ]}
+                            >
+                              Accept
+                            </Text>
+                          </>
+                        )}
                       </Pressable>
                       <Pressable
+                        disabled={isItemProcessing}
                         style={({ pressed }) => [
                           styles.actionBtnBase,
                           styles.actionBtnDanger,
+                          isItemProcessing && { opacity: 0.6 },
                           pressed && styles.pressedState,
                         ]}
                         onPress={e => {
@@ -653,19 +863,29 @@ export default function NotificationsScreen() {
                           handleAction(item, 'decline');
                         }}
                       >
-                        <AppIcon
-                          name="x"
-                          size={14}
-                          color={theme.colors.danger}
-                        />
-                        <Text
-                          style={[
-                            styles.actionBtnLabel,
-                            styles.actionLabelDanger,
-                          ]}
-                        >
-                          Decline
-                        </Text>
+                        {isItemProcessing ? (
+                          <GlobalLoader
+                            variant="inline"
+                            size="small"
+                            color={theme.colors.danger}
+                          />
+                        ) : (
+                          <>
+                            <AppIcon
+                              name="x"
+                              size={14}
+                              color={theme.colors.danger}
+                            />
+                            <Text
+                              style={[
+                                styles.actionBtnLabel,
+                                styles.actionLabelDanger,
+                              ]}
+                            >
+                              Decline
+                            </Text>
+                          </>
+                        )}
                       </Pressable>
                     </>
                   ) : (
@@ -698,7 +918,14 @@ export default function NotificationsScreen() {
         </View>
       );
     },
-    [theme, styles, markAsRead, deleteNotification, handleAction],
+    [
+      theme,
+      styles,
+      markAsRead,
+      deleteNotification,
+      handleAction,
+      actionInProgressId,
+    ],
   );
 
   const filterOptions: { label: string; key: FilterType; count?: number }[] = [
@@ -763,60 +990,74 @@ export default function NotificationsScreen() {
           <View style={styles.headerActions}>
             {unreadCount > 0 && (
               <Pressable
+                disabled={isMarkingAllRead || isClearingAll}
                 onPress={() => markAllAsRead()}
                 style={({ pressed }) => [
                   styles.batchBtn,
                   { backgroundColor: theme.colors.surface },
+                  (isMarkingAllRead || isClearingAll) && { opacity: 0.6 },
                   pressed && styles.pressedState,
                 ]}
               >
-                <AppIcon
-                  name="check-check"
-                  size={14}
-                  color={theme.colors.primary}
-                />
-                <Text
-                  style={[styles.batchBtnText, { color: theme.colors.primary }]}
-                >
-                  Mark all read
-                </Text>
+                {isMarkingAllRead ? (
+                  <GlobalLoader
+                    variant="inline"
+                    size="small"
+                    color={theme.colors.primary}
+                  />
+                ) : (
+                  <>
+                    <AppIcon
+                      name="check-check"
+                      size={14}
+                      color={theme.colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.batchBtnText,
+                        { color: theme.colors.primary },
+                      ]}
+                    >
+                      Mark all read
+                    </Text>
+                  </>
+                )}
               </Pressable>
             )}
             {notifications.length > 0 && (
               <Pressable
-                onPress={() => {
-                  Alert.alert(
-                    'Clear All',
-                    'Delete all notifications from your feed?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Clear All',
-                        style: 'destructive',
-                        onPress: () => clearAllNotifications(),
-                      },
-                    ],
-                  );
-                }}
+                disabled={isClearingAll || isMarkingAllRead}
+                onPress={handleClearAll}
                 style={({ pressed }) => [
                   styles.batchBtn,
                   { backgroundColor: theme.colors.surface },
+                  (isClearingAll || isMarkingAllRead) && { opacity: 0.6 },
                   pressed && styles.pressedState,
                 ]}
               >
-                <AppIcon
-                  name="trash-2"
-                  size={14}
-                  color={theme.colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.batchBtnText,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  Clear
-                </Text>
+                {isClearingAll ? (
+                  <GlobalLoader
+                    variant="inline"
+                    size="small"
+                    color={theme.colors.textSecondary}
+                  />
+                ) : (
+                  <>
+                    <AppIcon
+                      name="trash-2"
+                      size={14}
+                      color={theme.colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.batchBtnText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Clear
+                    </Text>
+                  </>
+                )}
               </Pressable>
             )}
           </View>
@@ -891,8 +1132,8 @@ export default function NotificationsScreen() {
       <View style={styles.webWrapper}>
         <FlatList
           key={`cols-${columns}`}
-          data={filteredNotifications}
-          keyExtractor={item => item._id}
+          data={notificationsWithAds}
+          keyExtractor={(item: any) => (isAdItem(item) ? item.adId : item._id)}
           renderItem={renderItem}
           numColumns={columns}
           columnWrapperStyle={isGrid ? styles.row : undefined}
@@ -911,19 +1152,29 @@ export default function NotificationsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <EmptyState
-                icon="🎉"
-                title={
-                  activeFilter === 'ALL'
-                    ? 'Zero inbox achieved'
-                    : 'No notifications in this filter'
-                }
-                description={
-                  activeFilter === 'ALL'
-                    ? 'You are up to date on all group activities, payments, and trip schedules.'
-                    : 'Switch filters to see other notifications or check back later.'
-                }
-              />
+              {isLoading && !notifications.length ? (
+                <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                  <GlobalLoader
+                    variant="inline"
+                    size="medium"
+                    message="Loading notifications..."
+                  />
+                </View>
+              ) : (
+                <EmptyState
+                  icon="🎉"
+                  title={
+                    activeFilter === 'ALL'
+                      ? 'Zero inbox achieved'
+                      : 'No notifications in this filter'
+                  }
+                  description={
+                    activeFilter === 'ALL'
+                      ? 'You are up to date on all group activities, payments, and trip schedules.'
+                      : 'Switch filters to see other notifications or check back later.'
+                  }
+                />
+              )}
             </View>
           }
         />

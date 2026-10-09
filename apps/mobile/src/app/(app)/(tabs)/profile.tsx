@@ -26,11 +26,13 @@ import { GlassCard } from '../../../components/ui/GlassCard';
 import { useAuthStore } from '../../../stores/auth.store';
 import { useVerifyUpi } from '../../../hooks';
 import { useQuickStats } from '../../../hooks/useAnalytics';
-import { useDashboard } from '../../../hooks/useDashboard';
-import { useUserStats } from '../../../hooks/useUsers';
 import { achievements } from '../../../utils/achievements';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { storage } from '../../../utils/storage';
+import { useEntitlements } from '../../../hooks/useEntitlements';
+import { AdminBroadcastModal } from '../../../components/admin/AdminBroadcastModal';
+import { AppAboutModal } from '../../../components/common/AppAboutModal';
+import { APP_NAME, SUPPORT_EMAIL } from '../../../config/branding';
 
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
 
@@ -130,14 +132,14 @@ export default function ProfileScreen() {
   const { width } = useWindowDimensions();
   const { user, logout } = useAuthStore();
   const { data: quickStats } = useQuickStats();
-  const { data: userStats } = useUserStats();
-  const { data: dashboardData } = useDashboard();
   const { mutate: verifyUpi, isPending: isVerifying } = useVerifyUpi();
 
   const [refreshing, setRefreshing] = useState(false);
 
-  const isDesktop = width >= 860;
-  const isWideDesktop = width >= 1180;
+  // Keep native landscape in the same document flow as the floating mobile
+  // navigation; the two-column web composition is reserved for the web shell.
+  const isDesktop = Platform.OS === 'web' && width >= 860;
+  const isWideDesktop = Platform.OS === 'web' && width >= 1180;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -169,14 +171,14 @@ export default function ProfileScreen() {
   const unlockedAchievements = achievements.getUnlockedCount();
   const totalAchievements = Object.keys(achievements.getAll()).length;
 
-  const dashboardStats = dashboardData?.data;
-  const totalLent =
-    userStats?.totalLentAcrossTrips ?? dashboardStats?.balances?.totalLent ?? 0;
-  const totalOwed =
-    userStats?.totalOwedAcrossTrips ?? dashboardStats?.balances?.totalOwed ?? 0;
-  const netBalance = userStats?.netBalance ?? totalLent - totalOwed;
-
   const appUpdateLink = storage.getString('latest_app_update_link');
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [aboutModalTab, setAboutModalTab] = useState<'about' | 'support'>(
+    'about',
+  );
+  const { planName, isPaid, getLimitStatus } = useEntitlements();
+  const tripsStatus = getLimitStatus('trips');
 
   return (
     <View style={styles.container}>
@@ -217,6 +219,7 @@ export default function ProfileScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           isDesktop && styles.desktopScrollContent,
+          { paddingBottom: Math.max(insets.bottom, 20) + 100 },
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -236,12 +239,28 @@ export default function ProfileScreen() {
           {/* ======================================================== */}
           <View style={[styles.bentoColumn, isDesktop && { flex: 1.15 }]}>
             {/* Profile Executive Hero Card */}
-            <LinearGradient
-              colors={['#0F172A', '#1E1B4B', '#1E293B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <GlassCard
+              intensity={theme.isDark ? 25 : 35}
               style={styles.heroProfileCard}
             >
+              <LinearGradient
+                colors={
+                  theme.isDark
+                    ? [
+                        'rgba(15, 23, 42, 0.40)',
+                        'rgba(30, 27, 75, 0.35)',
+                        'rgba(30, 41, 59, 0.40)',
+                      ]
+                    : [
+                        'rgba(255, 255, 255, 0.75)',
+                        'rgba(241, 245, 249, 0.65)',
+                        'rgba(255, 255, 255, 0.80)',
+                      ]
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
               <View style={styles.heroTopRow}>
                 <View style={styles.avatarWrap}>
                   {user?.avatar?.startsWith('http') ||
@@ -254,7 +273,7 @@ export default function ProfileScreen() {
                     <View
                       style={[
                         styles.avatarFallback,
-                        { backgroundColor: '#3B82F6' },
+                        { backgroundColor: theme.colors.primary },
                       ]}
                     >
                       <Text style={styles.avatarInitial}>
@@ -275,7 +294,7 @@ export default function ProfileScreen() {
                         <AppIcon
                           name="check-circle"
                           size={12}
-                          color="#10B981"
+                          color={theme.colors.success}
                         />
                         <Text style={styles.verifiedText}>Verified</Text>
                       </View>
@@ -288,7 +307,7 @@ export default function ProfileScreen() {
                     <AppIcon
                       name="calendar"
                       size={11}
-                      color="rgba(255,255,255,0.6)"
+                      color={theme.colors.textTertiary}
                     />
                     <Text style={styles.memberDateText}>
                       Joined{' '}
@@ -323,155 +342,132 @@ export default function ProfileScreen() {
                   <Text style={styles.heroStatLabel}>AWARDS</Text>
                 </View>
               </View>
-            </LinearGradient>
+            </GlassCard>
 
-            {/* Financial Summary Bento Tile */}
-            <View
-              style={[
-                styles.bentoTile,
-                { backgroundColor: theme.colors.surface },
-              ]}
+            {/* Membership & Subscription Plan Bento Tile */}
+            <GlassCard
+              style={styles.bentoTile}
+              intensity={theme.isDark ? 18 : 30}
             >
               <View style={styles.tileHeader}>
-                <Text
-                  style={[
-                    styles.tileTitle,
-                    { color: theme.colors.textPrimary },
-                  ]}
-                >
-                  Financial Balances
-                </Text>
-                <Pressable
-                  onPress={() => router.push('/(app)/profile/dashboard' as any)}
-                >
+                <View style={styles.planTitleGroup}>
+                  <AppIcon
+                    name="sparkles"
+                    size={15}
+                    color={isPaid ? theme.colors.primary : theme.colors.warning}
+                  />
+                  <Text
+                    style={[
+                      styles.tileTitle,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    Membership & Plan
+                  </Text>
+                </View>
+                <Pressable onPress={() => router.push('/(app)/plans' as any)}>
                   <Text
                     style={[
                       styles.tileActionLink,
                       { color: theme.colors.primary },
                     ]}
                   >
-                    View Details
+                    {isPaid ? 'Manage' : 'Upgrade'}
                   </Text>
                 </Pressable>
               </View>
 
-              <View style={styles.financeGrid}>
-                <View
-                  style={[
-                    styles.financeTile,
-                    { backgroundColor: theme.colors.background },
-                  ]}
-                >
+              <View style={styles.planCardContent}>
+                <View style={styles.planHeaderRow}>
                   <View
                     style={[
-                      styles.financeIconWrap,
-                      { backgroundColor: '#ECFDF5' },
+                      styles.planPill,
+                      {
+                        backgroundColor: isPaid
+                          ? `${theme.colors.primary}18`
+                          : `${theme.colors.warning}18`,
+                        borderColor: isPaid
+                          ? `${theme.colors.primary}30`
+                          : `${theme.colors.warning}30`,
+                      },
                     ]}
                   >
-                    <AppIcon name="arrow-up-right" size={16} color="#10B981" />
-                  </View>
-                  <Text
-                    style={[
-                      styles.financeLabel,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    Total Lent
-                  </Text>
-                  <Text style={[styles.financeValue, { color: '#10B981' }]}>
-                    ₹{totalLent.toLocaleString()}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.financeTile,
-                    { backgroundColor: theme.colors.background },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.financeIconWrap,
-                      { backgroundColor: '#FEF2F2' },
-                    ]}
-                  >
-                    <AppIcon name="arrow-down-left" size={16} color="#EF4444" />
-                  </View>
-                  <Text
-                    style={[
-                      styles.financeLabel,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    Total Owed
-                  </Text>
-                  <Text style={[styles.financeValue, { color: '#EF4444' }]}>
-                    ₹{totalOwed.toLocaleString()}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.financeTile,
-                    { backgroundColor: theme.colors.background },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.financeIconWrap,
-                      { backgroundColor: '#EFF6FF' },
-                    ]}
-                  >
-                    <AppIcon name="scale" size={16} color="#2563EB" />
-                  </View>
-                  <Text
-                    style={[
-                      styles.financeLabel,
-                      { color: theme.colors.textSecondary },
-                    ]}
-                  >
-                    Net Balance
-                  </Text>
-                  <Text
-                    style={[
-                      styles.financeValue,
-                      { color: netBalance >= 0 ? '#10B981' : '#EF4444' },
-                    ]}
-                  >
-                    ₹{netBalance.toLocaleString()}
-                  </Text>
-                </View>
-              </View>
-
-              {(stats?.pendingSettlements || 0) > 0 && (
-                <Pressable
-                  onPress={() => router.push('/(app)/(tabs)/expenses')}
-                  style={({ pressed }) => [
-                    styles.pendingBanner,
-                    pressed && { opacity: 0.8 },
-                  ]}
-                >
-                  <View style={styles.pendingLeft}>
-                    <AppIcon name="alert-circle" size={18} color="#D97706" />
-                    <Text style={styles.pendingBannerText}>
-                      <Text style={{ fontWeight: '800' }}>
-                        {stats?.pendingSettlements} pending
-                      </Text>{' '}
-                      settlement{stats?.pendingSettlements !== 1 ? 's' : ''} to
-                      resolve
+                    <Text
+                      style={[
+                        styles.planPillText,
+                        {
+                          color: isPaid
+                            ? theme.colors.primary
+                            : theme.colors.warning,
+                        },
+                      ]}
+                    >
+                      {planName.toUpperCase()}
                     </Text>
                   </View>
-                  <AppIcon name="arrow-right" size={16} color="#D97706" />
-                </Pressable>
-              )}
-            </View>
+                  <Text
+                    style={[
+                      styles.planRenewalText,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    {isPaid ? 'Active Subscription' : 'Free Tier'}
+                  </Text>
+                </View>
+
+                {/* Live Trip Usage Progress Bar */}
+                <View style={styles.planUsageBlock}>
+                  <View style={styles.planUsageHeader}>
+                    <Text
+                      style={[
+                        styles.planUsageLabel,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Trips Created
+                    </Text>
+                    <Text
+                      style={[
+                        styles.planUsageValue,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      {tripsStatus.used} /{' '}
+                      {tripsStatus.total === null ? '∞' : tripsStatus.total}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.planProgressBarBg,
+                      {
+                        backgroundColor: theme.isDark
+                          ? 'rgba(255,255,255,0.08)'
+                          : 'rgba(0,0,0,0.06)',
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.planProgressBarFill,
+                        {
+                          width: `${tripsStatus.total === null ? 100 : tripsStatus.percent}%`,
+                          backgroundColor: tripsStatus.isReached
+                            ? theme.colors.danger
+                            : tripsStatus.isApproaching
+                              ? theme.colors.warning
+                              : theme.colors.primary,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+              </View>
+            </GlassCard>
 
             {/* UPI & Banking Management Tile */}
-            <View
-              style={[
-                styles.bentoTile,
-                { backgroundColor: theme.colors.surface },
-              ]}
+            <GlassCard
+              style={styles.bentoTile}
+              intensity={theme.isDark ? 18 : 30}
             >
               <View style={styles.tileHeader}>
                 <Text
@@ -527,7 +523,11 @@ export default function ProfileScreen() {
                 {user?.bankingDetails?.upiId &&
                   (user.bankingDetails.upiVerified ? (
                     <View style={styles.upiActivePill}>
-                      <AppIcon name="check" size={12} color="#059669" />
+                      <AppIcon
+                        name="check"
+                        size={12}
+                        color={theme.colors.successDark}
+                      />
                       <Text style={styles.upiActiveText}>Active</Text>
                     </View>
                   ) : (
@@ -551,7 +551,7 @@ export default function ProfileScreen() {
                     </Pressable>
                   ))}
               </View>
-            </View>
+            </GlassCard>
           </View>
 
           {/* ======================================================== */}
@@ -559,11 +559,9 @@ export default function ProfileScreen() {
           {/* ======================================================== */}
           <View style={[styles.bentoColumn, isDesktop && { flex: 1 }]}>
             {/* Traveler Hub & Social Links */}
-            <View
-              style={[
-                styles.bentoTile,
-                { backgroundColor: theme.colors.surface },
-              ]}
+            <GlassCard
+              style={styles.bentoTile}
+              intensity={theme.isDark ? 18 : 30}
             >
               <View style={styles.tileHeader}>
                 <Text
@@ -607,14 +605,12 @@ export default function ProfileScreen() {
                   }).catch(err => console.log('Share error:', err));
                 }}
               />
-            </View>
+            </GlassCard>
 
             {/* System, Preferences & Support */}
-            <View
-              style={[
-                styles.bentoTile,
-                { backgroundColor: theme.colors.surface },
-              ]}
+            <GlassCard
+              style={styles.bentoTile}
+              intensity={theme.isDark ? 18 : 30}
             >
               <View style={styles.tileHeader}>
                 <Text
@@ -626,6 +622,35 @@ export default function ProfileScreen() {
                   Preferences & System
                 </Text>
               </View>
+              {user?.role === 'admin' && (
+                <>
+                  <MenuRow
+                    icon={
+                      <AppIcon name="shield" color={theme.colors.warning} />
+                    }
+                    title="Admin: Plan Management"
+                    sub="Manage pricing, dynamic limits & features"
+                    onPress={() => router.push('/(app)/admin/plans' as any)}
+                  />
+                  <MenuRow
+                    icon={
+                      <AppIcon
+                        name="message-square"
+                        color={theme.colors.primary}
+                      />
+                    }
+                    title="Admin: User Feedback & Reviews"
+                    sub="Review user bug reports, ideas & ratings"
+                    onPress={() => router.push('/(app)/profile/reviews' as any)}
+                  />
+                  <MenuRow
+                    icon={<AppIcon name="radio" color={theme.colors.success} />}
+                    title="Admin: Broadcast App Update"
+                    sub="Push release notices to all app users"
+                    onPress={() => setShowBroadcastModal(true)}
+                  />
+                </>
+              )}
               <MenuRow
                 icon={<AppIcon name="pen-tool" />}
                 title="Appearance"
@@ -645,20 +670,70 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/(app)/profile/feedback')}
               />
               <MenuRow
+                icon={
+                  <AppIcon name="help-circle" color={theme.colors.primary} />
+                }
+                title="Help & Support"
+                sub={`Contact our team at ${SUPPORT_EMAIL}`}
+                onPress={() => {
+                  setAboutModalTab('support');
+                  setShowAboutModal(true);
+                }}
+              />
+              <MenuRow
+                icon={
+                  <AppIcon
+                    name="info"
+                    color={theme.colors.accent || '#3B82F6'}
+                  />
+                }
+                title={`About ${APP_NAME}`}
+                sub="Features, capabilities & version details"
+                onPress={() => {
+                  setAboutModalTab('about');
+                  setShowAboutModal(true);
+                }}
+              />
+              <MenuRow
                 icon={<AppIcon name="download" />}
                 title="App Version & Updates"
                 sub={
                   appUpdateLink
                     ? 'A new update is ready'
-                    : 'You are on the latest version'
+                    : `You are on the latest version (v1.0.0)`
                 }
                 onPress={() => {
-                  if (appUpdateLink) {
+                  if (user?.role === 'admin') {
+                    Alert.alert(
+                      'App Version & Updates',
+                      `${APP_NAME} v1.0.0 (Production)`,
+                      [
+                        {
+                          text: 'Broadcast Update',
+                          onPress: () => setShowBroadcastModal(true),
+                        },
+                        {
+                          text: appUpdateLink
+                            ? 'Open Update Link'
+                            : 'Check Status',
+                          onPress: () => {
+                            if (appUpdateLink) Linking.openURL(appUpdateLink);
+                            else
+                              Alert.alert(
+                                'Up to Date',
+                                `You are running the latest version of ${APP_NAME}.`,
+                              );
+                          },
+                        },
+                        { text: 'Cancel', style: 'cancel' },
+                      ],
+                    );
+                  } else if (appUpdateLink) {
                     Linking.openURL(appUpdateLink);
                   } else {
                     Alert.alert(
                       'Up to Date',
-                      'You are running the latest version of Wakeru.',
+                      `You are running the latest version of ${APP_NAME}.`,
                     );
                   }
                 }}
@@ -671,11 +746,11 @@ export default function ProfileScreen() {
                 isDestructive
                 hideBorder
               />
-            </View>
+            </GlassCard>
 
             {/* Version Footer */}
             <View style={styles.versionContainer}>
-              <Text style={styles.versionText}>Wakeru v1.0.0</Text>
+              <Text style={styles.versionText}>{APP_NAME} v1.0.0</Text>
               <View
                 style={[
                   styles.versionDot,
@@ -687,6 +762,17 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <AdminBroadcastModal
+        visible={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+      />
+
+      <AppAboutModal
+        visible={showAboutModal}
+        onClose={() => setShowAboutModal(false)}
+        initialTab={aboutModalTab}
+      />
     </View>
   );
 }
@@ -736,7 +822,9 @@ const getStyles = (theme: any) =>
       paddingHorizontal: 14,
       paddingVertical: 8,
       borderRadius: 14,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.10)'
+        : 'rgba(0,0,0,0.06)',
       borderWidth: 1,
       borderColor: theme.colors.borderLight,
 
@@ -747,15 +835,9 @@ const getStyles = (theme: any) =>
 
         default: {
           shadowColor: '#000',
-
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 4,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 6,
         },
       }),
     },
@@ -803,15 +885,9 @@ const getStyles = (theme: any) =>
 
         default: {
           shadowColor: '#000',
-
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 4,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
         },
       }),
     },
@@ -869,7 +945,7 @@ const getStyles = (theme: any) =>
       height: 68,
       borderRadius: 34,
       borderWidth: 2,
-      borderColor: 'rgba(255,255,255,0.2)',
+      borderColor: theme.colors.borderLight,
     },
     avatarFallback: {
       width: 68,
@@ -878,7 +954,7 @@ const getStyles = (theme: any) =>
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
-      borderColor: 'rgba(255,255,255,0.2)',
+      borderColor: theme.colors.borderLight,
     },
     avatarInitial: {
       fontSize: 28,
@@ -892,9 +968,9 @@ const getStyles = (theme: any) =>
       width: 14,
       height: 14,
       borderRadius: 7,
-      backgroundColor: '#10B981',
+      backgroundColor: theme.colors.success,
       borderWidth: 2,
-      borderColor: '#0F172A',
+      borderColor: theme.colors.background,
     },
     heroInfo: {
       flex: 1,
@@ -907,28 +983,28 @@ const getStyles = (theme: any) =>
     heroName: {
       fontSize: 20,
       fontWeight: '900',
-      color: '#FFF',
+      color: theme.colors.textPrimary,
       letterSpacing: -0.4,
     },
     verifiedBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: 'rgba(16, 185, 129, 0.2)',
+      backgroundColor: `${theme.colors.success}20`,
       paddingHorizontal: 8,
       paddingVertical: 2,
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: 'rgba(16, 185, 129, 0.4)',
+      borderColor: `${theme.colors.success}40`,
     },
     verifiedText: {
       fontSize: 10,
       fontWeight: '800',
-      color: '#10B981',
+      color: theme.colors.success,
     },
     heroEmail: {
       fontSize: 13,
-      color: 'rgba(255,255,255,0.7)',
+      color: theme.colors.textSecondary,
       fontWeight: '500',
       marginTop: 2,
     },
@@ -940,7 +1016,7 @@ const getStyles = (theme: any) =>
     },
     memberDateText: {
       fontSize: 11,
-      color: 'rgba(255,255,255,0.6)',
+      color: theme.colors.textTertiary,
       fontWeight: '600',
     },
 
@@ -948,12 +1024,14 @@ const getStyles = (theme: any) =>
     heroStatStrip: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(255,255,255,0.08)',
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.06)'
+        : 'rgba(0,0,0,0.04)',
       borderRadius: 16,
       paddingVertical: 14,
       paddingHorizontal: 8,
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.1)',
+      borderColor: theme.colors.borderLight,
     },
     heroStatItem: {
       flex: 1,
@@ -962,19 +1040,19 @@ const getStyles = (theme: any) =>
     heroStatValue: {
       fontSize: 17,
       fontWeight: '900',
-      color: '#FFF',
+      color: theme.colors.textPrimary,
     },
     heroStatLabel: {
       fontSize: 9,
       fontWeight: '800',
-      color: 'rgba(255,255,255,0.6)',
+      color: theme.colors.textTertiary,
       letterSpacing: 0.6,
       marginTop: 2,
     },
     heroStatDivider: {
       width: 1,
       height: 24,
-      backgroundColor: 'rgba(255,255,255,0.15)',
+      backgroundColor: theme.colors.borderLight,
     },
 
     // Financial Grid
@@ -988,7 +1066,7 @@ const getStyles = (theme: any) =>
       padding: 14,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: 'rgba(15,23,42,0.04)',
+      borderColor: theme.colors.borderLight,
     },
     financeIconWrap: {
       width: 30,
@@ -1011,12 +1089,12 @@ const getStyles = (theme: any) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: '#FEF3C7',
+      backgroundColor: theme.colors.warningBg,
       borderRadius: 14,
       paddingHorizontal: 14,
       paddingVertical: 10,
       borderWidth: 1,
-      borderColor: '#FDE68A',
+      borderColor: theme.colors.warningBg,
       marginTop: 4,
     },
     pendingLeft: {
@@ -1027,8 +1105,63 @@ const getStyles = (theme: any) =>
     },
     pendingBannerText: {
       fontSize: 12,
-      color: '#92400E',
+      color: theme.colors.warningDark,
       fontWeight: '600',
+    },
+
+    // Subscription Plan Card
+    planTitleGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    planCardContent: {
+      gap: 12,
+    },
+    planHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    planPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    planPillText: {
+      fontSize: 11,
+      fontWeight: '900',
+      letterSpacing: 0.5,
+    },
+    planRenewalText: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    planUsageBlock: {
+      gap: 6,
+    },
+    planUsageHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    planUsageLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    planUsageValue: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    planProgressBarBg: {
+      height: 6,
+      borderRadius: 3,
+      overflow: 'hidden',
+    },
+    planProgressBarFill: {
+      height: '100%',
+      borderRadius: 3,
     },
 
     // UPI Box
@@ -1038,9 +1171,13 @@ const getStyles = (theme: any) =>
       gap: 12,
       padding: 12,
       borderRadius: 16,
-      backgroundColor: theme.colors.background,
+      backgroundColor: theme.isDark
+        ? 'rgba(255, 255, 255, 0.05)'
+        : 'rgba(0, 0, 0, 0.03)',
       borderWidth: 1,
-      borderColor: 'rgba(15,23,42,0.04)',
+      borderColor: theme.isDark
+        ? 'rgba(255, 255, 255, 0.08)'
+        : 'rgba(0, 0, 0, 0.04)',
     },
     upiIconBox: {
       width: 40,
@@ -1065,7 +1202,7 @@ const getStyles = (theme: any) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: '#ECFDF5',
+      backgroundColor: theme.colors.successBg,
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 999,
@@ -1073,7 +1210,7 @@ const getStyles = (theme: any) =>
     upiActiveText: {
       fontSize: 11,
       fontWeight: '800',
-      color: '#059669',
+      color: theme.colors.successDark,
     },
     verifyBtnSmall: {
       backgroundColor: theme.colors.primary,
@@ -1082,7 +1219,7 @@ const getStyles = (theme: any) =>
       borderRadius: 10,
     },
     verifyBtnSmallText: {
-      color: '#FFF',
+      color: theme.colors.textInverse,
       fontSize: 12,
       fontWeight: '700',
     },
@@ -1138,715 +1275,3 @@ const getStyles = (theme: any) =>
       borderRadius: 2,
     },
   });
-// import GlobalLoader from '../../../components/common/GlobalLoader';
-// import AppIcon from '../../../components/common/AppIcon';
-// import React, { useState, useCallback, useMemo } from 'react';
-// import { View, Text, StyleSheet, ScrollView, Alert, RefreshControl, Platform, useWindowDimensions, Pressable, PressableStateCallbackType, Linking, Image, Share } from 'react-native';
-// import { router } from 'expo-router';
-// import { GlobalBackground } from '../../../components/ui/GlobalBackground';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { useAuthStore } from '../../../stores/auth.store';
-// import { useVerifyUpi } from '../../../hooks';
-// import { useQuickStats } from '../../../hooks/useAnalytics';
-// import { useDashboard } from '../../../hooks/useDashboard';
-// import { useUserStats } from '../../../hooks/useUsers';
-// import { achievements } from '../../../utils/achievements';
-// import { format } from 'date-fns';
-// import { useTheme } from '../../../providers/ThemeProvider';
-// import { notificationsApi } from '../../../services/api/notifications.api';
-// import { GlassCard } from '../../../components/ui/GlassCard';
-// import { storage } from '../../../utils/storage';
-
-// // Safe web pressable type
-// type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
-
-// // ============================================================
-// // Helper Components
-// // ============================================================
-
-// function MenuRow({
-//     icon,
-//     title,
-//     sub,
-//     onPress,
-//     rightElement,
-//     isDestructive,
-//     hideBorder,
-// }: {
-//     icon: React.ReactNode;
-//     title: string;
-//     sub?: string;
-//     onPress?: () => void;
-//     rightElement?: React.ReactNode;
-//     isDestructive?: boolean;
-//     hideBorder?: boolean;
-// }) {
-//     const theme = useTheme();
-//     const styles = useMemo(() => getStyles(theme), [theme]);
-
-//     const content = (
-//         <View style={[
-//             styles.menuRow,
-//             hideBorder && { borderBottomWidth: 0 }
-//         ]}>
-//             <View style={[
-//                 styles.menuIconWrap,
-//                 { backgroundColor: isDestructive ? theme.colors.dangerBg : theme.colors.primaryBg }
-//             ]}>
-//                 {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, {
-//                     color: isDestructive ? theme.colors.danger : theme.colors.primary,
-//                 }) : icon}
-//             </View>
-//             <View style={styles.menuTextWrap}>
-//                 <Text style={[
-//                     styles.menuTitle,
-//                     isDestructive && { color: theme.colors.danger }
-//                 ]}>
-//                     {title}
-//                 </Text>
-//                 {sub && <Text style={styles.menuSub}>{sub}</Text>}
-//             </View>
-//             {rightElement || (
-//                 <AppIcon name="chevron-right" size={18} color={theme.colors.textTertiary} />
-//             )}
-//         </View>
-//     );
-
-//     if (onPress) {
-//         return (
-//             <Pressable
-//                 onPress={onPress}
-//                 style={({ hovered, pressed }: WebPressableState) => [
-//                     Platform.OS === 'web' && hovered && { opacity: 0.8, cursor: 'pointer' },
-//                     pressed && { opacity: 0.6 }
-//                 ]}
-//             >
-//                 {content}
-//             </Pressable>
-//         );
-//     }
-//     return content;
-// }
-
-// // ============================================================
-// // Profile Screen
-// // ============================================================
-
-// export default function ProfileScreen() {
-//     const theme = useTheme();
-//     const styles = useMemo(() => getStyles(theme), [theme]);
-//     const insets = useSafeAreaInsets();
-//     const { width } = useWindowDimensions();
-//     const { user, logout } = useAuthStore();
-//     const { data: quickStats } = useQuickStats();
-//     const { data: userStats } = useUserStats();
-
-//     const { data: dashboardData } = useDashboard();
-//     const { mutate: verifyUpi, isPending: isVerifying } = useVerifyUpi();
-
-//     const [refreshing, setRefreshing] = useState(false);
-//     const isWebDesktop = Platform.OS === 'web' && width > 768;
-
-//     const onRefresh = useCallback(async () => {
-//         setRefreshing(true);
-//         await new Promise((r) => setTimeout(r, 1000));
-//         setRefreshing(false);
-//     }, []);
-
-//     const handleVerifyUpi = () => {
-//         if (!user?.bankingDetails?.upiId) {
-//             Alert.alert('No UPI ID', 'Please set your UPI ID first', [
-//                 { text: 'Cancel', style: 'cancel' },
-//                 { text: 'Set UPI', onPress: () => router.push('/(app)/profile/edit') },
-//             ]);
-//             return;
-//         }
-//         verifyUpi(undefined, {
-//             onSuccess: (verified) => {
-//                 Alert.alert(verified ? 'Verified! ✅' : 'Failed', verified ? 'Your UPI ID is verified' : 'Verification failed. Try again.');
-//             },
-//         });
-//     };
-
-//     const stats = quickStats?.data;
-//     const unlockedAchievements = achievements.getUnlockedCount();
-//     const totalAchievements = Object.keys(achievements.getAll()).length;
-
-//     // Use dynamic balances from dashboard or new userStats API
-//     const dashboardStats = dashboardData?.data;
-//     const totalLent = userStats?.totalLentAcrossTrips ?? dashboardStats?.balances?.totalLent ?? 0;
-//     const totalOwed = userStats?.totalOwedAcrossTrips ?? dashboardStats?.balances?.totalOwed ?? 0;
-//     const netBalance = userStats?.netBalance ?? (totalLent - totalOwed);
-
-//     // App Update Link
-//     const appUpdateLink = storage.getString('latest_app_update_link');
-
-//     return (
-//         <View style={styles.container}>
-//             {/* Global Gradient Background */}
-//             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-//                 <GlobalBackground />
-//             </View>
-
-//             <View style={[styles.webDesktopContent, isWebDesktop && styles.webDesktopContentCentered]}>
-//                 {/* Header Title */}
-//                 <View style={[styles.headerTop, { paddingTop: Platform.OS === 'web' ? theme.spacing['4'] : insets.top + 16 }]}>
-//                     <Text style={styles.headerTitle}>Profile</Text>
-//                     <Pressable
-//                         onPress={() => router.push('/(app)/profile/edit')}
-//                         style={({ hovered }: WebPressableState) => [
-//                             styles.editIconBtn,
-//                             Platform.OS === 'web' && hovered && { opacity: 0.7 }
-//                         ]}
-//                     >
-//                         <AppIcon name="edit-2" size={18} color={theme.colors.textPrimary} />
-//                     </Pressable>
-//                 </View>
-
-//                 <ScrollView
-//                     contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === 'web' ? 120 : insets.bottom + 100 }]}
-//                     showsVerticalScrollIndicator={false}
-//                     keyboardShouldPersistTaps="handled"
-//                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} tintColor={theme.colors.primary} />}
-//                 >
-//                     {/* PROFILE HEADER CARD */}
-//                     <GlassCard style={styles.profileCard} intensity={theme.isDark ? 30 : 20}>
-//                         <View style={styles.profileTopRow}>
-//                             <View style={[styles.avatar, { overflow: 'hidden' }]}>
-//                                 {user?.avatar?.startsWith('http') || user?.photoURL?.startsWith('http') ? (
-//                                     <Image
-//                                         source={{ uri: user.avatar || user.photoURL }}
-//                                         style={{ width: '100%', height: '100%' }}
-//                                     />
-//                                 ) : (
-//                                     <View style={[styles.avatarFallback, { backgroundColor: theme.colors.secondaryBg }]}>
-//                                         <Text style={styles.avatarText}>
-//                                             {user?.displayName?.charAt(0)?.toUpperCase() || '👤'}
-//                                         </Text>
-//                                     </View>
-//                                 )}
-//                             </View>
-//                             <View style={styles.profileInfo}>
-//                                 <Text style={styles.userName}>{user?.displayName || 'Traveler'}</Text>
-//                                 <Text style={styles.userEmail}>{user?.email}</Text>
-//                                 <View style={styles.memberSinceRow}>
-//                                     <AppIcon name="calendar" size={12} color={theme.colors.textTertiary} />
-//                                     <Text style={styles.memberSince}>Member since {user?.createdAt ? format(new Date(user.createdAt), 'MMM yyyy') : '2026'}</Text>
-//                                 </View>
-//                             </View>
-//                         </View>
-//                         <View style={styles.profileStatsRow}>
-//                             <View style={styles.profileStat}>
-//                                 <Text style={styles.profileStatVal}>{stats?.activeTrips || 0}</Text>
-//                                 <Text style={styles.profileStatLbl}>Active Trips</Text>
-//                             </View>
-//                             <View style={styles.statDivider} />
-//                             <View style={styles.profileStat}>
-//                                 <Text style={styles.profileStatVal}>₹{stats?.thisMonth?.total?.toLocaleString() || 0}</Text>
-//                                 <Text style={styles.profileStatLbl}>This Month</Text>
-//                             </View>
-//                             <View style={styles.statDivider} />
-//                             <View style={styles.profileStat}>
-//                                 <Text style={styles.profileStatVal}>{unlockedAchievements}/{totalAchievements}</Text>
-//                                 <Text style={styles.profileStatLbl}>Awards</Text>
-//                             </View>
-//                         </View>
-//                     </GlassCard>
-
-//                     {/* FINANCIAL SUMMARY */}
-//                     <View style={styles.section}>
-//                         <Text style={styles.sectionTitle}>Financial Summary</Text>
-//                         <View style={styles.financeGrid}>
-//                             <GlassCard style={styles.financeCard} intensity={theme.isDark ? 15 : 8}>
-//                                 <View style={[styles.financeIconWrap, { backgroundColor: theme.colors.successBg }]}>
-//                                     <Text style={[styles.financeIcon, { color: theme.colors.success }]}>↗</Text>
-//                                 </View>
-//                                 <Text style={styles.financeLabel}>Total Lent</Text>
-//                                 <Text style={[styles.financeValue, { color: theme.colors.success }]}>
-//                                     ₹{totalLent.toLocaleString()}
-//                                 </Text>
-//                             </GlassCard>
-
-//                             <GlassCard style={styles.financeCard} intensity={theme.isDark ? 15 : 8}>
-//                                 <View style={[styles.financeIconWrap, { backgroundColor: theme.colors.dangerBg }]}>
-//                                     <Text style={[styles.financeIcon, { color: theme.colors.danger }]}>↙</Text>
-//                                 </View>
-//                                 <Text style={styles.financeLabel}>Total Owed</Text>
-//                                 <Text style={[styles.financeValue, { color: theme.colors.danger }]}>
-//                                     ₹{totalOwed.toLocaleString()}
-//                                 </Text>
-//                             </GlassCard>
-
-//                             <GlassCard style={styles.financeCard} intensity={theme.isDark ? 15 : 8}>
-//                                 <View style={[styles.financeIconWrap, { backgroundColor: theme.colors.secondaryBg }]}>
-//                                     <Text style={[styles.financeIcon, { color: theme.colors.secondary }]}>⚖️</Text>
-//                                 </View>
-//                                 <Text style={styles.financeLabel}>Net Balance</Text>
-//                                 <Text style={[styles.financeValue, { color: netBalance >= 0 ? theme.colors.success : theme.colors.danger }]}>
-//                                     ₹{netBalance.toLocaleString()}
-//                                 </Text>
-//                             </GlassCard>
-//                         </View>
-
-//                         {(stats?.pendingSettlements || 0) > 0 && (
-//                             <Pressable
-//                                 onPress={() => router.push('/(app)/(tabs)/expenses')}
-//                                 style={({ hovered, pressed }: WebPressableState) => [
-//                                     styles.pendingAlert,
-//                                     Platform.OS === 'web' && hovered && { opacity: 0.9, cursor: 'pointer' },
-//                                     pressed && { opacity: 0.8 }
-//                                 ]}
-//                             >
-//                                 <View style={[styles.pendingAlertIconWrap, { backgroundColor: theme.colors.warningBg }]}>
-//                                     <AppIcon name="alert-circle" size={18} color={theme.colors.warning} />
-//                                 </View>
-//                                 <Text style={styles.pendingAlertText}>
-//                                     You have <Text style={{ fontWeight: '700' }}>{stats?.pendingSettlements} pending</Text> settlement{stats?.pendingSettlements !== 1 ? 's' : ''}
-//                                 </Text>
-//                                 <AppIcon name="chevron-right" size={18} color={theme.colors.warning} />
-//                             </Pressable>
-//                         )}
-//                     </View>
-
-//                     {/* SETTINGS GROUPS */}
-//                     <Text style={styles.sectionTitle}>Account</Text>
-//                     <GlassCard style={styles.menuGroup} intensity={theme.isDark ? 20 : 10}>
-//                         <MenuRow
-//                             icon={<AppIcon name="user" size={18} />}
-//                             title="Edit Profile"
-//                             sub="Update your name, email and avatar"
-//                             onPress={() => router.push('/(app)/profile/edit')}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="shield" size={18} />}
-//                             title="Privacy & Security"
-//                             sub="Password, app lock and data controls"
-//                             onPress={() => router.push('/(app)/privacy')}
-//                             hideBorder
-//                         />
-//                     </GlassCard>
-
-//                     <Text style={styles.sectionTitle}>Banking & Payment</Text>
-//                     <GlassCard style={styles.menuGroup} intensity={theme.isDark ? 20 : 10}>
-//                         <MenuRow
-//                             icon={<AppIcon name="credit-card" size={18} />}
-//                             title="UPI ID"
-//                             sub={user?.bankingDetails?.upiId ? `${user.bankingDetails.upiId} ${user.bankingDetails.upiVerified ? '✅' : ''}` : 'Not set'}
-//                             onPress={() => router.push('/(app)/profile/edit')}
-//                             hideBorder={user?.bankingDetails?.upiId && !user?.bankingDetails?.upiVerified ? false : true}
-//                         />
-//                         {user?.bankingDetails?.upiId && !user?.bankingDetails?.upiVerified && (
-//                             <View style={[styles.menuRow, { borderBottomWidth: 0, paddingVertical: 12 }]}>
-//                                 <Pressable
-//                                     onPress={handleVerifyUpi}
-//                                     disabled={isVerifying}
-//                                     style={({ hovered, pressed }: WebPressableState) => [
-//                                         styles.verifyUpiBtn,
-//                                         Platform.OS === 'web' && hovered && !isVerifying && { opacity: 0.9, cursor: 'pointer' },
-//                                         pressed && !isVerifying && { opacity: 0.8 }
-//                                     ]}
-//                                 >
-//                                     {isVerifying ? (
-//                                         <GlobalLoader variant="inline" size="small" color={theme.colors.surface} />
-//                                     ) : (
-//                                         <>
-//                                             <AppIcon name="check-circle" size={16} color={theme.colors.surface} style={{ marginRight: 8 }} />
-//                                             <Text style={styles.verifyUpiText}>Verify UPI ID Now</Text>
-//                                         </>
-//                                     )}
-//                                 </Pressable>
-//                             </View>
-//                         )}
-//                     </GlassCard>
-
-//                     <Text style={styles.sectionTitle}>Preferences</Text>
-//                     <GlassCard style={styles.menuGroup} intensity={theme.isDark ? 20 : 10}>
-//                         <MenuRow
-//                             icon={<AppIcon name="pen-tool" size={18} />}
-//                             title="Appearance"
-//                             sub="Customize the look and feel"
-//                             onPress={() => router.push('/(app)/appearance')}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="shield" size={18} />}
-//                             title="Privacy & Security"
-//                             sub="Manage app lock and data controls"
-//                             onPress={() => router.push('/(app)/privacy')}
-//                             hideBorder
-//                         />
-//                     </GlassCard>
-
-//                     <Text style={styles.sectionTitle}>Quick Links</Text>
-//                     <GlassCard style={styles.menuGroup} intensity={theme.isDark ? 20 : 10}>
-//                         <MenuRow
-//                             icon={<AppIcon name="download" size={18} />}
-//                             title="Download App"
-//                             sub={appUpdateLink ? "A new version is available" : "No new updates"}
-//                             onPress={() => {
-//                                 if (appUpdateLink) {
-//                                     Linking.openURL(appUpdateLink);
-//                                 } else {
-//                                     Alert.alert("No Update Available", "Check back later for new updates.");
-//                                 }
-//                             }}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="share-2" size={18} />}
-//                             title="Share App"
-//                             sub="Send the download link to friends"
-//                             onPress={() => {
-//                                 const link = appUpdateLink || 'https://wakeru.app';
-//                                 Share.share({
-//                                     message: `Join me on Wakeru! Download the app here: ${link}`,
-//                                     url: link,
-//                                     title: 'Download Wakeru'
-//                                 }).catch(err => console.log('Share error:', err));
-//                             }}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="users" size={18} />}
-//                             title="My Friends"
-//                             sub="View and manage your friends list"
-//                             onPress={() => router.push('/(app)/friends' as any)}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="mail" size={18} />}
-//                             title="Trip Invitations"
-//                             sub="View pending invites"
-//                             onPress={() => router.push('/(app)/invitations' as any)}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="pie-chart" size={18} />}
-//                             title="My Dashboard"
-//                             sub="View all stats and balances"
-//                             onPress={() => router.push('/(app)/profile/dashboard' as any)}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="award" size={18} />}
-//                             title="My Achievements"
-//                             sub={`${unlockedAchievements} unlocked`}
-//                             onPress={() => router.push('/(app)/achievements')}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="log-out" size={18} />}
-//                             title="Logout"
-//                             sub="You will be returned to the login screen"
-//                             onPress={logout}
-//                             isDestructive
-//                             hideBorder
-//                         />
-//                     </GlassCard>
-
-//                     {/* SUPPORT */}
-//                     <Text style={styles.sectionTitle}>Support</Text>
-//                     <GlassCard style={styles.menuGroup} intensity={theme.isDark ? 20 : 10}>
-//                         <MenuRow
-//                             icon={<AppIcon name="message-square" size={18} />}
-//                             title="Give Feedback"
-//                             sub="Submit ideas, suggestions or report bugs"
-//                             onPress={() => router.push('/(app)/profile/feedback')}
-//                         />
-//                         <MenuRow
-//                             icon={<AppIcon name="star" size={18} />}
-//                             title="View App Reviews"
-//                             sub="See logs and summary details of app reviews"
-//                             onPress={() => router.push('/(app)/profile/reviews')}
-//                         />
-//                     </GlassCard>
-
-//                     {/* App Version */}
-//                     <View style={styles.versionContainer}>
-//                         <Text style={styles.versionText}>Wakeru v1.0.0</Text>
-//                         <View style={[styles.versionDot, { backgroundColor: theme.colors.textTertiary }]} />
-//                         <Text style={styles.versionText}>Crafted for Travelers</Text>
-//                     </View>
-//                 </ScrollView>
-//             </View>
-//         </View>
-//     );
-// }
-
-// // ============================================================
-// // Styles
-// // ============================================================
-
-// const getStyles = (theme: any) => StyleSheet.create({
-//     container: {
-//         flex: 1,
-//         backgroundColor: 'transparent',
-//     },
-//     webDesktopContent: {
-//         flex: 1,
-//         width: '100%',
-//     },
-//     webDesktopContentCentered: {
-//         maxWidth: 1024,
-//         alignSelf: 'center',
-//         backgroundColor: 'transparent',
-//     },
-//     headerTop: {
-//         paddingHorizontal: 20,
-//         paddingBottom: 12,
-//         backgroundColor: 'transparent',
-//         flexDirection: 'row',
-//         justifyContent: 'space-between',
-//         alignItems: 'center',
-//     },
-//     headerTitle: {
-//         fontSize: 32,
-//         fontWeight: '800',
-//         color: theme.colors.textPrimary,
-//         letterSpacing: -0.5,
-//     },
-//     editIconBtn: {
-//         width: 40,
-//         height: 40,
-//         borderRadius: 20,
-//         backgroundColor: theme.colors.surface,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         borderWidth: 1,
-//         borderColor: theme.colors.borderLight,
-//     },
-//     scrollContent: {
-//         paddingHorizontal: 20,
-//     },
-//     profileCard: {
-//         borderRadius: 24,
-//         padding: 20,
-//         marginBottom: 24,
-//         borderWidth: 1,
-//         borderColor: theme.glass.borderTopColor,
-//     },
-//     profileTopRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         marginBottom: 20,
-//     },
-//     avatar: {
-//         width: 80,
-//         height: 80,
-//         borderRadius: 40,
-//         marginRight: 16,
-//         borderWidth: 2,
-//         borderColor: theme.colors.secondaryBg,
-//     },
-//     avatarFallback: {
-//         width: '100%',
-//         height: '100%',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         borderRadius: 40,
-//     },
-//     avatarText: {
-//         fontSize: 32,
-//         fontWeight: '800',
-//         color: theme.colors.primary,
-//     },
-//     profileInfo: {
-//         flex: 1,
-//         justifyContent: 'center',
-//     },
-//     userName: {
-//         fontSize: 22,
-//         fontWeight: '900',
-//         color: theme.colors.textPrimary,
-//         marginBottom: 2,
-//     },
-//     userEmail: {
-//         fontSize: 14,
-//         color: theme.colors.textSecondary,
-//         fontWeight: '500',
-//         marginBottom: 6,
-//     },
-//     memberSinceRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 4,
-//     },
-//     memberSince: {
-//         fontSize: 11,
-//         color: theme.colors.textTertiary,
-//         fontWeight: '600',
-//     },
-//     profileStatsRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         backgroundColor: theme.isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.15)',
-//         borderRadius: 16,
-//         paddingVertical: 12,
-//         marginBottom: 0,
-//         borderWidth: 1,
-//         borderColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.3)',
-//     },
-//     profileStat: {
-//         flex: 1,
-//         alignItems: 'center',
-//     },
-//     profileStatVal: {
-//         fontSize: 18,
-//         fontWeight: '800',
-//         color: theme.colors.textPrimary,
-//     },
-//     profileStatLbl: {
-//         fontSize: 11,
-//         color: theme.isDark ? '#94A3B8' : '#475569',
-//         fontWeight: '600',
-//         marginTop: 2,
-//     },
-//     statDivider: {
-//         width: 1,
-//         height: 24,
-//         backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-//     },
-//     section: {
-//         marginBottom: 24,
-//     },
-//     sectionTitle: {
-//         fontSize: 13,
-//         fontWeight: '700',
-//         color: theme.colors.textTertiary,
-//         textTransform: 'uppercase',
-//         letterSpacing: 0.8,
-//         marginBottom: 12,
-//         marginLeft: 4,
-//     },
-//     financeGrid: {
-//         flexDirection: 'row',
-//         gap: 12,
-//         marginBottom: 16,
-//     },
-//     financeCard: {
-//         flex: 1,
-//         padding: 16,
-//         borderRadius: 16,
-//         alignItems: 'center',
-//         borderWidth: 1,
-//         borderColor: theme.glass.borderTopColor,
-//     },
-//     financeIconWrap: {
-//         width: 32,
-//         height: 32,
-//         borderRadius: 16,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         marginBottom: 8,
-//     },
-//     financeIcon: {
-//         fontSize: 16,
-//         fontWeight: '800',
-//     },
-//     financeLabel: {
-//         fontSize: 11,
-//         color: theme.colors.textSecondary,
-//         fontWeight: '600',
-//         marginBottom: 4,
-//     },
-//     financeValue: {
-//         fontSize: 18,
-//         fontWeight: '800',
-//     },
-//     pendingAlert: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         backgroundColor: theme.colors.warningBg,
-//         borderRadius: 16,
-//         padding: 16,
-//         borderWidth: 1,
-//         borderColor: theme.colors.warningLight || theme.colors.warning,
-//     },
-//     pendingAlertIconWrap: {
-//         width: 36,
-//         height: 36,
-//         borderRadius: 18,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         marginRight: 12,
-//     },
-//     pendingAlertText: {
-//         flex: 1,
-//         fontSize: 14,
-//         color: theme.colors.warning,
-//         fontWeight: '500',
-//     },
-//     menuGroup: {
-//         marginBottom: 24,
-//         borderRadius: 20,
-//         overflow: 'hidden',
-//         borderWidth: 1,
-//         borderColor: theme.glass.borderTopColor,
-//     },
-//     menuRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         paddingVertical: 16,
-//         paddingHorizontal: 16,
-//         borderBottomWidth: 1,
-//         borderBottomColor: theme.colors.borderLight,
-//     },
-//     menuIconWrap: {
-//         width: 40,
-//         height: 40,
-//         borderRadius: 12,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         marginRight: 12,
-//     },
-//     menuIcon: {
-//         fontSize: 18,
-//     },
-//     menuTextWrap: {
-//         flex: 1,
-//         justifyContent: 'center',
-//     },
-//     menuTitle: {
-//         fontSize: 15,
-//         fontWeight: '600',
-//         color: theme.colors.textPrimary,
-//     },
-//     menuSub: {
-//         fontSize: 12,
-//         color: theme.colors.textSecondary,
-//         marginTop: 2,
-//         fontWeight: '500',
-//     },
-//     verifyUpiBtn: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         backgroundColor: theme.colors.primary,
-//         borderRadius: 12,
-//         paddingVertical: 12,
-//         paddingHorizontal: 16,
-//         marginHorizontal: 16,
-//     },
-//     verifyUpiText: {
-//         color: theme.colors.surface,
-//         fontSize: 14,
-//         fontWeight: '700',
-//     },
-//     versionContainer: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         gap: 8,
-//         paddingVertical: 24,
-//     },
-//     versionText: {
-//         fontSize: 12,
-//         color: theme.colors.textTertiary,
-//         fontWeight: '500',
-//     },
-//     versionDot: {
-//         width: 4,
-//         height: 4,
-//         borderRadius: 2,
-//     },
-//     codeInput: {
-//         backgroundColor: 'transparent',
-//         borderWidth: 1,
-//         borderColor: theme.colors.borderLight,
-//         borderRadius: 12,
-//         color: theme.colors.textPrimary,
-//     },
-// });

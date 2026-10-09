@@ -27,13 +27,21 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { useAddStop } from '../../../../hooks';
+import { useAddStop, useTrip } from '../../../../hooks';
+import { useEntitlements } from '../../../../hooks/useEntitlements';
+import { PlanLimitModal } from '../../../../components/subscription/PlanLimitModal';
 import { useTheme } from '../../../../providers/ThemeProvider';
 import { useThemeStore } from '../../../../stores/theme.store';
 import { haptics } from '../../../../utils/haptics';
+import { showToast } from '../../../../utils/toast';
 import { LeafletMap } from '../../../../components/map/LeafletMap';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { locationApi } from '../../../../services/api/location.api';
+import {
+  COUNTRY_CURRENCY_MAP as DEFAULT_COUNTRY_MAP,
+  POPULAR_COUNTRY_CODES,
+  getCurrencyInfo,
+} from '../../../../constants/countries';
 
 // Safe web pressable type
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -73,6 +81,23 @@ export default function AddStopScreen() {
   const backTo = params.backTo || `/(app)/trips/${tripId}`;
   const isDarkMode = useThemeStore(s => s.mode) === 'dark';
   const insets = useSafeAreaInsets();
+
+  const { data: trip } = useTrip(tripId);
+  const baseTripCurrency =
+    trip?.baseCurrency || (trip as any)?.currency || 'INR';
+
+  const { planName, getLimitStatus } = useEntitlements();
+  const stopsStatus = getLimitStatus('stopsPerTrip');
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitModalData, setLimitModalData] = useState<{
+    message?: string;
+    limitValue?: number;
+    currentUsage?: number;
+  }>({});
+  const tripStopsCount = trip?.stops?.length ?? 0;
+  const isStopLimitReached =
+    stopsStatus.total !== null && tripStopsCount >= stopsStatus.total;
+
   const { mutate: addStop, isPending } = useAddStop();
 
   const { data: countriesResponse } = useQuery({
@@ -85,7 +110,7 @@ export default function AddStopScreen() {
     const map: Record<
       string,
       { currency: string; emoji: string; name: string }
-    > = {};
+    > = { ...DEFAULT_COUNTRY_MAP };
     raw.forEach((c: any) => {
       map[c.code] = { currency: c.currency, emoji: c.emoji, name: c.name };
     });
@@ -99,7 +124,8 @@ export default function AddStopScreen() {
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
   const [coverImage, setCoverImage] = useState('');
-  const [currency, setCurrency] = useState('INR');
+  const [currency, setCurrency] = useState(baseTripCurrency);
+  const [hasInitializedCurrency, setHasInitializedCurrency] = useState(false);
   const [exchangeRate, setExchangeRate] = useState('1.0');
   const [budget, setBudget] = useState('');
   const [startDate, setStartDate] = useState(new Date());
@@ -107,6 +133,13 @@ export default function AddStopScreen() {
     new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
   );
   const [notes, setNotes] = useState('');
+
+  React.useEffect(() => {
+    if (trip && !hasInitializedCurrency) {
+      setCurrency(baseTripCurrency);
+      setHasInitializedCurrency(true);
+    }
+  }, [trip, baseTripCurrency, hasInitializedCurrency]);
 
   // UI State
   const [showStartDate, setShowStartDate] = useState(false);
@@ -146,7 +179,7 @@ export default function AddStopScreen() {
 
   // Derived state
   const selectedCountry = COUNTRY_CURRENCY_MAP[country];
-  const isSameCurrency = currency === 'INR';
+  const isSameCurrency = currency === baseTripCurrency;
 
   // Location search handler
   const handleLocationSearch = (text: string) => {
@@ -179,7 +212,7 @@ export default function AddStopScreen() {
       if (mapped) {
         setCountry(result.countryCode);
         setCurrency(mapped.currency);
-        if (mapped.currency === 'INR') setExchangeRate('1.0');
+        if (mapped.currency === baseTripCurrency) setExchangeRate('1.0');
       }
     }
     if (result.lat && result.lng) {
@@ -196,7 +229,7 @@ export default function AddStopScreen() {
     const countryData = COUNTRY_CURRENCY_MAP[code];
     if (countryData) {
       setCurrency(countryData.currency);
-      if (countryData.currency === 'INR') {
+      if (countryData.currency === baseTripCurrency) {
         setExchangeRate('1.0');
       }
     }
@@ -206,11 +239,11 @@ export default function AddStopScreen() {
   const handleSubmit = () => {
     haptics.medium();
     if (!name.trim()) {
-      Alert.alert('Missing Name', 'Please enter a stop name.');
+      showToast.warning('Missing Name', 'Please enter a stop name.');
       return;
     }
     if (!currency) {
-      Alert.alert(
+      showToast.warning(
         'Missing Currency',
         'Please select a currency for this stop.',
       );
@@ -242,7 +275,22 @@ export default function AddStopScreen() {
           router.back();
         },
         onError: (error: any) => {
-          Alert.alert('Error', error.message || 'Failed to add stop');
+          if (
+            error?.code === 'PLAN_LIMIT_REACHED' ||
+            error?.message?.includes('PLAN_LIMIT_REACHED') ||
+            error?.statusCode === 403
+          ) {
+            setLimitModalData({
+              message:
+                error.message ||
+                'You have reached your plan limit for stops per trip. Upgrade to add more stops.',
+              limitValue: error?.details?.maxAllowed ?? stopsStatus.total ?? 10,
+              currentUsage: error?.details?.currentUsage ?? tripStopsCount,
+            });
+            setShowLimitModal(true);
+          } else {
+            showToast.fromError(error, 'Failed to add stop');
+          }
         },
       },
     );
@@ -254,7 +302,7 @@ export default function AddStopScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Global Background */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <GlobalBackground />
       </View>
 
@@ -299,6 +347,62 @@ export default function AddStopScreen() {
         <View
           style={[styles.formWrapper, isWebDesktop && styles.webDesktopForm]}
         >
+          {stopsStatus.total !== null &&
+            (isStopLimitReached || stopsStatus.isApproaching) && (
+              <View
+                style={[
+                  styles.limitWarningBanner,
+                  {
+                    backgroundColor: isStopLimitReached
+                      ? `${theme.colors.danger}15`
+                      : `${theme.colors.warning}15`,
+                    borderColor: isStopLimitReached
+                      ? `${theme.colors.danger}40`
+                      : `${theme.colors.warning}40`,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    flex: 1,
+                  }}
+                >
+                  <AppIcon
+                    name="shield"
+                    size={14}
+                    color={
+                      isStopLimitReached
+                        ? theme.colors.danger
+                        : theme.colors.warning
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.limitWarningText,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    {isStopLimitReached
+                      ? `You have reached your limit of ${stopsStatus.total} stops per trip on ${planName}.`
+                      : `${tripStopsCount}/${stopsStatus.total} stops added on this trip (${planName}).`}
+                  </Text>
+                </View>
+                <Pressable onPress={() => router.push('/(app)/plans' as any)}>
+                  <Text
+                    style={[
+                      styles.limitUpgradeLink,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    Upgrade
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
           {/* Section 1: Basic Info */}
           <Animated.View
             entering={FadeInDown.delay(100).duration(500).springify()}
@@ -862,9 +966,9 @@ export default function AddStopScreen() {
                                     ]}
                                   >
                                     {c.currency}{' '}
-                                    {c.currency !== 'INR'
+                                    {c.currency !== baseTripCurrency
                                       ? '• Foreign'
-                                      : '• Local'}
+                                      : '• Trip Base'}
                                   </Text>
                                 </View>
                                 {isActive && (
@@ -961,7 +1065,7 @@ export default function AddStopScreen() {
                       ]}
                       placeholder="1.0"
                       placeholderTextColor={theme.colors.textTertiary}
-                      value={exchangeRate}
+                      value={isSameCurrency ? '1.0' : exchangeRate}
                       onChangeText={setExchangeRate}
                       onFocus={() => {
                         haptics.light();
@@ -971,14 +1075,23 @@ export default function AddStopScreen() {
                       keyboardType="decimal-pad"
                       editable={!isSameCurrency}
                     />
-                    {!isSameCurrency && (
+                    {!isSameCurrency ? (
                       <Text
                         style={[
                           styles.fieldHint,
                           { color: theme.colors.textTertiary },
                         ]}
                       >
-                        1 {currency} = ? INR
+                        1 {currency} = ? {baseTripCurrency}
+                      </Text>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.fieldHint,
+                          { color: theme.colors.primary },
+                        ]}
+                      >
+                        Same as trip base ({baseTripCurrency})
                       </Text>
                     )}
                   </View>
@@ -1039,7 +1152,7 @@ export default function AddStopScreen() {
                         { color: theme.colors.textTertiary },
                       ]}
                     >
-                      {currency === 'INR' ? '₹' : currency}
+                      {getCurrencyInfo(currency).symbol.trim() || currency}
                     </Text>
                     <TextInput
                       style={[
@@ -1408,6 +1521,17 @@ export default function AddStopScreen() {
           />
         </View>
       </Modal>
+
+      <PlanLimitModal
+        visible={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        title="Stop Limit Reached"
+        limitKey="stopsPerTrip"
+        currentPlanName={planName}
+        limitValue={limitModalData.limitValue ?? stopsStatus.total ?? 10}
+        currentUsage={limitModalData.currentUsage ?? tripStopsCount}
+        message={limitModalData.message}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1423,6 +1547,28 @@ const useStyles = () => {
         container: { flex: 1, backgroundColor: 'transparent' },
         formWrapper: { width: '100%' },
         webDesktopForm: { maxWidth: 640, alignSelf: 'center' },
+
+        limitWarningBanner: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          borderRadius: 14,
+          borderWidth: 1,
+          marginBottom: 16,
+          width: '100%',
+        },
+        limitWarningText: {
+          fontSize: 12.5,
+          fontWeight: '600',
+          flex: 1,
+        },
+        limitUpgradeLink: {
+          fontSize: 12.5,
+          fontWeight: '800',
+          marginLeft: 12,
+        },
 
         // Header
         header: {

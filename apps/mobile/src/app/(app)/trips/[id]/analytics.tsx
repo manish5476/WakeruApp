@@ -15,11 +15,14 @@ import { useTripAnalytics } from '../../../../hooks/useExpenses';
 import AppIcon from '../../../../components/common/AppIcon';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { GlobalBackground } from '../../../../components/ui/GlobalBackground';
+import { useAds } from '../../../../hooks/useAds';
+import { AdMobBanner } from '../../../../components/ads/AdMobBanner';
 
 export default function TripAnalyticsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const { isAdFree } = useAds();
   const { data: analytics, isLoading, error } = useTripAnalytics(id);
 
   const cs = '₹'; // You could get this from trip settings if available
@@ -81,6 +84,9 @@ export default function TripAnalyticsScreen() {
               {(analytics.overall?.totalSpent || 0).toLocaleString()}
             </Text>
           </GlassCard>
+
+          {/* In-page banner for free users */}
+          {!isAdFree && <AdMobBanner style={{ marginVertical: 4 }} />}
 
           <GlassCard style={styles.card}>
             <Text

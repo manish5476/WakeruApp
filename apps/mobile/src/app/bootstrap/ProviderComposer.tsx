@@ -12,6 +12,7 @@ export function ProviderComposer() {
   const mode = useThemeStore(s => s.mode) || 'system';
   const preset = useThemeStore(s => s.preset);
   const fontColor = useThemeStore(s => s.fontColor);
+  const fontPreset = useThemeStore(s => s.fontPreset);
 
   const queryClient = useMemo(
     () =>
@@ -33,6 +34,7 @@ export function ProviderComposer() {
         mode={mode as any}
         preset={preset || undefined}
         fontColor={fontColor || undefined}
+        fontPreset={fontPreset}
       >
         <QueryClientProvider client={queryClient}>
           <AppServicesProvider>

@@ -1,384 +1,856 @@
-import GlobalLoader from '../../components/common/GlobalLoader';
-import AppIcon from '../../components/common/AppIcon';
-
 // app/(auth)/forgot-password.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
   Platform,
+  Pressable,
+  useWindowDimensions,
+  PressableStateCallbackType,
+  Image,
+  ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useAuthStore } from '../../stores/auth.store';
-import AuthLayout from '../../components/auth/AuthLayout';
-import { useTheme } from '../../providers/ThemeProvider';
-import { useGlobalStyles } from '../../hooks/useGlobalStyles';
-import { useMemo } from 'react';
+import { router, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GlobalBackground } from '../../components/ui/GlobalBackground';
+import Animated, {
+  FadeInDown,
+  FadeInLeft,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '../../stores/auth.store';
+import { useTheme } from '../../providers/ThemeProvider';
+import { haptics } from '../../utils/haptics';
+import { showToast } from '../../utils/toast';
+import { GlassCard } from '../../components/ui/GlassCard';
+import GlobalLoader from '../../components/common/GlobalLoader';
+import AppIcon from '../../components/common/AppIcon';
+import AppLogo from '../../components/common/AppLogo';
+import { Typography } from '../../components/ui/Typography';
+
+type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const FULL_BG_IMAGE = {
+  uri: 'https://images.pexels.com/photos/24235314/pexels-photo-24235314.jpeg',
+};
 
 export default function ForgotPasswordScreen() {
   const theme = useTheme();
-  const globalStyles = useGlobalStyles();
   const styles = useStyles();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+
   const [email, setEmail] = useState('');
   const [isEmailFocused, setIsEmailFocused] = useState(false);
-  const { forgotPassword, isLoading, error, clearError } = useAuthStore();
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Clear any global auth errors when entering the screen
+  const { forgotPassword, error, clearError } = useAuthStore();
+
+  const isDesktop = width >= 960;
+  const actionButtonScale = useSharedValue(1);
+
   useEffect(() => {
     clearError();
   }, []);
 
   const handleReset = async () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email address');
+    haptics.medium();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      showToast.warning('Email Required', 'Please enter your email address.');
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    if (!emailRegex.test(trimmedEmail)) {
+      showToast.warning('Invalid Email', 'Please enter a valid email address.');
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      await forgotPassword(email.trim());
+      await forgotPassword(trimmedEmail);
+      showToast.success(
+        'Reset Email Sent',
+        'Check your inbox for password reset instructions.',
+      );
       setIsSuccess(true);
-    } catch {}
+    } catch {
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBackToLogin = () => {
+    haptics.light();
     router.replace('/(auth)/login');
   };
 
-  return (
-    <GlobalBackground>
-      <AuthLayout
-        title="Reset Password"
-        subtitle="We'll send you instructions to reset it."
+  const renderDesktopHero = () => {
+    if (!isDesktop) return null;
+    return (
+      <Animated.View
+        entering={FadeInLeft.duration(600).springify()}
+        style={styles.heroLeftSection}
       >
-        {error && (
-          <View
-            style={[
-              styles.errorContainer,
-              {
-                backgroundColor: theme.colors.dangerBg,
-                borderColor: theme.colors.danger + '30',
-              },
-            ]}
-          >
-            <AppIcon
-              name="alert-circle"
-              size={16}
-              color={theme.colors.danger}
-            />
-            <Text style={[styles.errorText, { color: theme.colors.danger }]}>
-              {error}
-            </Text>
-            <TouchableOpacity onPress={clearError} style={styles.errorDismiss}>
-              <AppIcon name="x" size={16} color={theme.colors.danger} />
-            </TouchableOpacity>
+        {/* Brand Badge */}
+        <View style={styles.heroBrandRow}>
+          <View style={styles.heroLogoWrap}>
+            <AppLogo size={36} />
           </View>
-        )}
+          <Text style={styles.heroBrandTitle}>TRIPSPLIT</Text>
+          <View style={styles.heroProBadge}>
+            <Text style={styles.heroProBadgeText}>ACCOUNT</Text>
+          </View>
+        </View>
 
-        {isSuccess ? (
-          <View style={styles.successContainer}>
-            <View
-              style={[
-                styles.successIconWrap,
-                { backgroundColor: theme.colors.successBg },
-              ]}
-            >
-              <AppIcon
-                name="check-circle"
-                size={48}
-                color={theme.colors.success}
-              />
-            </View>
-            <Text
-              style={[styles.successTitle, { color: theme.colors.textPrimary }]}
-            >
-              Check your email
-            </Text>
-            <Text
-              style={[
-                styles.successText,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
-              We've sent password reset instructions to{' '}
-              <Text style={styles.highlightText}>{email}</Text>. Please check
-              your inbox and follow the link to reset your password.
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={handleBackToLogin}
-            >
-              <AppIcon name="log-in" size={18} color="#FFF" />
-              <Text style={styles.primaryButtonText}>Back to Login</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text
-                style={[styles.label, { color: theme.colors.textSecondary }]}
-              >
-                Email Address
-              </Text>
-              <View
-                style={[
-                  styles.inputBox,
-                  {
-                    borderColor: isEmailFocused
-                      ? theme.colors.primary
-                      : theme.colors.borderLight,
-                    backgroundColor: theme.colors.surface,
-                  },
-                  isEmailFocused && styles.inputBoxFocused,
-                ]}
-              >
-                <AppIcon
-                  name="mail"
-                  size={18}
-                  color={theme.colors.textTertiary}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[styles.input, { color: theme.colors.textPrimary }]}
-                  placeholder="you@example.com"
-                  placeholderTextColor={theme.colors.textTertiary}
-                  value={email}
-                  onChangeText={t => {
-                    setEmail(t);
-                    clearError();
-                  }}
-                  onFocus={() => setIsEmailFocused(true)}
-                  onBlur={() => setIsEmailFocused(false)}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                />
+        {/* Hero Title & Subtitle */}
+        <View style={styles.heroHeadingBlock}>
+          <Text style={styles.heroHeadlineGradient}>Quick Recovery.</Text>
+          <Text style={styles.heroHeadlineWhite}>Back on Track.</Text>
+          <Text style={styles.heroSubheadline}>
+            Don't worry, it happens to the best of us. Reset your credentials
+            securely and jump right back into your active trip expenses.
+          </Text>
+        </View>
+
+        {/* 3 Glass Bento Feature Badges */}
+        <View style={styles.heroFeatureGrid}>
+          {[
+            {
+              icon: 'lock' as const,
+              title: 'Encrypted Security',
+              desc: 'Protected reset links sent directly to your verified address.',
+            },
+            {
+              icon: 'clock' as const,
+              title: 'Fast 1-Min Reset',
+              desc: 'Restore full access to your split accounts immediately.',
+            },
+            {
+              icon: 'shield' as const,
+              title: 'Data Safe & Sound',
+              desc: 'All your past and present group trip ledger data stays safe.',
+            },
+          ].map((feature, i) => (
+            <View key={i} style={styles.heroFeatureCard}>
+              <View style={styles.heroFeatureIconWrap}>
+                <AppIcon name={feature.icon} size={18} color="#60A5FA" />
+              </View>
+              <View style={styles.heroFeatureTextWrap}>
+                <Text style={styles.heroFeatureTitle}>{feature.title}</Text>
+                <Text style={styles.heroFeatureDesc}>{feature.desc}</Text>
               </View>
             </View>
+          ))}
+        </View>
+      </Animated.View>
+    );
+  };
 
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
-              onPress={handleReset}
-              disabled={isLoading}
-              activeOpacity={0.8}
+  return (
+    <View style={[styles.fullCanvas, { height }]}>
+      {/* ── 1. Full-Bleed Cover Background Image ── */}
+      <Image
+        source={FULL_BG_IMAGE}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+
+      {/* ── 2. Cinematic Dark Ambient Scrim & Vignette ── */}
+      <LinearGradient
+        colors={[
+          'rgba(15, 23, 42, 0.70)',
+          'rgba(15, 23, 42, 0.82)',
+          'rgba(10, 15, 30, 0.92)',
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* ── 3. Responsive 2-Column Bento / Centered Viewport ── */}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContainer,
+            isDesktop
+              ? styles.scrollContainerDesktop
+              : styles.scrollContainerMobile,
+            {
+              paddingTop: Math.max(insets.top + 20, isDesktop ? 48 : 28),
+              paddingBottom: Math.max(insets.bottom + 20, isDesktop ? 48 : 28),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces
+        >
+          <View
+            style={[
+              styles.layoutWrapper,
+              isDesktop && styles.layoutWrapperDesktop,
+            ]}
+          >
+            {/* Desktop Hero Left Column */}
+            {renderDesktopHero()}
+
+            {/* Floating Frosted Glass Modal */}
+            <GlassCard
+              variant="prominent"
+              padding="none"
+              intensity={theme.isDark ? 65 : 90}
+              style={styles.floatingModal}
             >
-              <LinearGradient
-                colors={theme.gradients.secondary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.primaryGradient}
-              >
-                {isLoading ? (
-                  <GlobalLoader variant="inline" color="#FFF" />
-                ) : (
-                  <>
-                    <AppIcon name="send" size={18} color="#FFF" />
-                    <Text style={styles.primaryButtonText}>
-                      Send Reset Link
-                    </Text>
-                  </>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                {!isDesktop && (
+                  <View style={styles.brandRow}>
+                    <View
+                      style={[
+                        styles.brandIconWrap,
+                        {
+                          backgroundColor: theme.isDark
+                            ? 'rgba(255,255,255,0.08)'
+                            : '#EFF6FF',
+                        },
+                      ]}
+                    >
+                      <AppLogo size={34} />
+                    </View>
+                    <View>
+                      <View style={styles.brandTitleRow}>
+                        <Text
+                          style={[
+                            styles.brandTitleText,
+                            { color: theme.colors.textPrimary },
+                          ]}
+                        >
+                          TRIPSPLIT
+                        </Text>
+                        <View style={styles.brandBadge}>
+                          <Text style={styles.brandBadgeText}>RECOVERY</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.brandTagline}>
+                        TRAVEL TOGETHER · SPLIT SMARTER
+                      </Text>
+                    </View>
+                  </View>
                 )}
-              </LinearGradient>
-            </TouchableOpacity>
 
-            <View style={styles.footer}>
-              <TouchableOpacity
-                onPress={handleBackToLogin}
-                style={styles.footerBtn}
-              >
-                <AppIcon
-                  name="arrow-left"
-                  size={16}
-                  color={theme.colors.textSecondary}
-                />
-                <Text
+                <Typography
+                  variant="h2"
+                  weight="black"
+                  color="textPrimary"
+                  style={styles.welcomeHeading}
+                >
+                  {isSuccess ? 'Check your email' : 'Reset password'}
+                </Typography>
+                <Typography
+                  variant="bodySm"
+                  color="textSecondary"
+                  style={styles.welcomeSubtext}
+                >
+                  {isSuccess
+                    ? `We've dispatched recovery instructions to your inbox.`
+                    : `Enter your account's email and we'll send a password recovery link.`}
+                </Typography>
+              </View>
+
+              {/* Error Banner */}
+              {error ? (
+                <Animated.View
+                  entering={FadeInDown.duration(400).springify()}
                   style={[
-                    styles.footerLink,
-                    { color: theme.colors.textSecondary },
+                    styles.errorBox,
+                    {
+                      backgroundColor: theme.colors.dangerBg,
+                      borderColor: theme.colors.danger + '35',
+                    },
                   ]}
                 >
-                  Back to Login
-                </Text>
-              </TouchableOpacity>
-            </View>
+                  <AppIcon
+                    name="alert-circle"
+                    size={16}
+                    color={theme.colors.danger}
+                  />
+                  <Text
+                    style={[styles.errorMsg, { color: theme.colors.danger }]}
+                  >
+                    {error}
+                  </Text>
+                  <Pressable
+                    onPress={clearError}
+                    style={({ hovered }: WebPressableState) => [
+                      hovered && Platform.OS === 'web' && { opacity: 0.7 },
+                    ]}
+                  >
+                    <AppIcon name="x" size={16} color={theme.colors.danger} />
+                  </Pressable>
+                </Animated.View>
+              ) : null}
 
-            <View style={styles.helpTextContainer}>
-              <AppIcon
-                name="info"
-                size={14}
-                color={theme.colors.textTertiary}
-              />
-              <Text
-                style={[styles.helpText, { color: theme.colors.textTertiary }]}
-              >
-                You'll receive a password reset link via email
-              </Text>
-            </View>
+              {/* Content */}
+              {isSuccess ? (
+                <View style={styles.successWrapper}>
+                  <View style={styles.successIconCircle}>
+                    <AppIcon name="check" size={32} color="#10B981" />
+                  </View>
+                  <Text
+                    style={[
+                      styles.successEmailText,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    {email}
+                  </Text>
+                  <Typography
+                    variant="bodySm"
+                    color="textSecondary"
+                    style={styles.successInstructions}
+                  >
+                    Please check your spam or promotion folders if you do not
+                    see the email within a couple of minutes.
+                  </Typography>
+
+                  <AnimatedPressable
+                    onPress={handleBackToLogin}
+                    onPressIn={() =>
+                      (actionButtonScale.value = withSpring(0.97))
+                    }
+                    onPressOut={() => (actionButtonScale.value = withSpring(1))}
+                    style={[
+                      styles.primaryBtnWrap,
+                      {
+                        transform: [{ scale: actionButtonScale }],
+                        marginTop: 16,
+                      },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={['#2563EB', '#1D4ED8']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.primaryBtnGradient}
+                    >
+                      <AppIcon name="log-in" size={18} color="#FFF" />
+                      <Text style={styles.primaryBtnText}>Back to Log In</Text>
+                    </LinearGradient>
+                  </AnimatedPressable>
+                </View>
+              ) : (
+                <View style={styles.formContent}>
+                  {/* Email Field */}
+                  <Animated.View
+                    entering={FadeInDown.delay(100).duration(450).springify()}
+                    style={styles.inputGroup}
+                  >
+                    <Typography
+                      variant="caption"
+                      weight="extrabold"
+                      color="textSecondary"
+                      style={styles.inputLabel}
+                    >
+                      EMAIL ADDRESS
+                    </Typography>
+                    <View
+                      style={[
+                        styles.inputFieldBox,
+                        {
+                          borderColor: isEmailFocused
+                            ? theme.colors.primary
+                            : theme.isDark
+                              ? 'rgba(255,255,255,0.14)'
+                              : '#E2E8F0',
+                          backgroundColor: theme.isDark
+                            ? 'rgba(15, 23, 42, 0.7)'
+                            : '#FFFFFF',
+                        },
+                        isEmailFocused && styles.inputFieldBoxFocused,
+                      ]}
+                    >
+                      <AppIcon
+                        name="mail"
+                        size={18}
+                        color={
+                          isEmailFocused
+                            ? theme.colors.primary
+                            : theme.colors.textTertiary
+                        }
+                        style={styles.fieldIcon}
+                      />
+                      <TextInput
+                        placeholder="name@company.com"
+                        placeholderTextColor={theme.colors.textTertiary}
+                        value={email}
+                        onChangeText={t => {
+                          setEmail(t);
+                          clearError();
+                        }}
+                        onFocus={() => setIsEmailFocused(true)}
+                        onBlur={() => setIsEmailFocused(false)}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        style={[
+                          styles.textInput,
+                          { color: theme.colors.textPrimary },
+                          Platform.OS === 'web'
+                            ? ({ outlineStyle: 'none' } as any)
+                            : null,
+                        ]}
+                      />
+                    </View>
+                  </Animated.View>
+
+                  {/* Submit Button */}
+                  <Animated.View
+                    entering={FadeInDown.delay(200).duration(450).springify()}
+                  >
+                    <AnimatedPressable
+                      onPress={handleReset}
+                      disabled={isSubmitting}
+                      onPressIn={() =>
+                        (actionButtonScale.value = withSpring(0.97))
+                      }
+                      onPressOut={() =>
+                        (actionButtonScale.value = withSpring(1))
+                      }
+                      style={[
+                        styles.primaryBtnWrap,
+                        { transform: [{ scale: actionButtonScale }] },
+                        isSubmitting && { opacity: 0.7 },
+                      ]}
+                    >
+                      <LinearGradient
+                        colors={['#2563EB', '#1D4ED8']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.primaryBtnGradient}
+                      >
+                        {isSubmitting ? (
+                          <GlobalLoader variant="inline" color="#FFF" />
+                        ) : (
+                          <>
+                            <AppIcon name="send" size={18} color="#FFF" />
+                            <Text style={styles.primaryBtnText}>
+                              Send Reset Link
+                            </Text>
+                          </>
+                        )}
+                      </LinearGradient>
+                    </AnimatedPressable>
+                  </Animated.View>
+
+                  {/* Footer Link */}
+                  <Animated.View
+                    entering={FadeInDown.delay(300).duration(450).springify()}
+                    style={styles.footerRow}
+                  >
+                    <Pressable
+                      onPress={handleBackToLogin}
+                      style={({ hovered }: WebPressableState) => [
+                        styles.backBtn,
+                        Platform.OS === 'web' &&
+                          hovered && { opacity: 0.7, cursor: 'pointer' },
+                      ]}
+                    >
+                      <AppIcon
+                        name="arrow-left"
+                        size={16}
+                        color={theme.colors.primary}
+                      />
+                      <Typography
+                        variant="bodySm"
+                        weight="extrabold"
+                        color="primary"
+                      >
+                        Back to Log In
+                      </Typography>
+                    </Pressable>
+                  </Animated.View>
+                </View>
+              )}
+            </GlassCard>
           </View>
-        )}
-      </AuthLayout>
-    </GlobalBackground>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
+// ============================================================
+// Styles
+// ============================================================
 const useStyles = () => {
   const theme = useTheme();
   return useMemo(
     () =>
       StyleSheet.create({
-        errorContainer: {
-          borderRadius: theme.borderRadius.md,
-          padding: theme.spacing['3'],
-          marginBottom: theme.spacing['4'],
+        fullCanvas: {
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          backgroundColor: '#0A0F1D',
+        },
+        keyboardAvoid: {
+          flex: 1,
+          width: '100%',
+          height: '100%',
+        },
+        scrollContainer: {
+          flexGrow: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+        },
+        scrollContainerDesktop: {
+          paddingHorizontal: 40,
+        },
+        scrollContainerMobile: {
+          paddingHorizontal: 16,
+        },
+        layoutWrapper: {
+          width: '100%',
+          maxWidth: 460,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        layoutWrapperDesktop: {
+          maxWidth: 1040,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 60,
+        },
+
+        // --- Desktop Hero Left Section ---
+        heroLeftSection: {
+          flex: 1,
+          maxWidth: 480,
+          gap: 28,
+        },
+        heroBrandRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+        },
+        heroLogoWrap: {
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.2)',
+        },
+        heroBrandTitle: {
+          fontSize: 18,
+          fontWeight: '900',
+          letterSpacing: 2,
+          color: '#FFFFFF',
+        },
+        heroProBadge: {
+          paddingHorizontal: 8,
+          paddingVertical: 2,
+          borderRadius: 6,
+          backgroundColor: '#2563EB30',
+          borderWidth: 1,
+          borderColor: '#3B82F660',
+        },
+        heroProBadgeText: {
+          fontSize: 10,
+          fontWeight: '900',
+          color: '#60A5FA',
+          letterSpacing: 0.8,
+        },
+        heroHeadingBlock: {
+          gap: 8,
+        },
+        heroHeadlineGradient: {
+          fontSize: 40,
+          fontWeight: '900',
+          color: '#60A5FA',
+          letterSpacing: -1,
+          lineHeight: 46,
+        },
+        heroHeadlineWhite: {
+          fontSize: 40,
+          fontWeight: '900',
+          color: '#FFFFFF',
+          letterSpacing: -1,
+          lineHeight: 46,
+        },
+        heroSubheadline: {
+          fontSize: 15,
+          color: '#94A3B8',
+          lineHeight: 24,
+          marginTop: 6,
+        },
+        heroFeatureGrid: {
+          gap: 12,
+        },
+        heroFeatureCard: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 14,
+          padding: 14,
+          borderRadius: 18,
+          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          ...(Platform.OS === 'web'
+            ? ({ backdropFilter: 'blur(16px)' } as any)
+            : {}),
+        },
+        heroFeatureIconWrap: {
+          width: 38,
+          height: 38,
+          borderRadius: 12,
+          backgroundColor: 'rgba(37, 99, 235, 0.2)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(96, 165, 250, 0.3)',
+        },
+        heroFeatureTextWrap: {
+          flex: 1,
+        },
+        heroFeatureTitle: {
+          fontSize: 14,
+          fontWeight: '700',
+          color: '#FFFFFF',
+          marginBottom: 2,
+        },
+        heroFeatureDesc: {
+          fontSize: 12,
+          color: '#94A3B8',
+          lineHeight: 16,
+        },
+
+        // --- Floating Modal ---
+        floatingModal: {
+          width: '100%',
+          maxWidth: 440,
+          borderRadius: 28,
+          borderWidth: 1,
+          borderColor: theme.isDark
+            ? 'rgba(255, 255, 255, 0.18)'
+            : 'rgba(255, 255, 255, 0.85)',
+          backgroundColor: theme.isDark
+            ? 'rgba(15, 23, 42, 0.84)'
+            : 'rgba(255, 255, 255, 0.92)',
+          padding: 32,
+          ...Platform.select({
+            web: {
+              boxShadow:
+                '0 30px 80px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.12)',
+              backdropFilter: 'blur(40px) saturate(1.8)',
+              WebkitBackdropFilter: 'blur(40px) saturate(1.8)',
+            } as any,
+            default: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 14 },
+              shadowOpacity: 0.35,
+              shadowRadius: 32,
+              elevation: 14,
+            },
+          }),
+        },
+
+        // Header
+        modalHeader: {
+          marginBottom: 22,
+        },
+        brandRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 16,
+        },
+        brandIconWrap: {
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        brandTitleRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+        },
+        brandTitleText: {
+          fontSize: 16,
+          fontWeight: '900',
+          letterSpacing: 2,
+        },
+        brandBadge: {
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+          borderRadius: 6,
+          backgroundColor: '#2563EB20',
+          borderWidth: 1,
+          borderColor: '#2563EB40',
+        },
+        brandBadgeText: {
+          fontSize: 9,
+          fontWeight: '900',
+          color: '#3B82F6',
+          letterSpacing: 0.5,
+        },
+        brandTagline: {
+          fontSize: 10,
+          fontWeight: '700',
+          color: '#64748B',
+          letterSpacing: 0.8,
+          marginTop: 2,
+        },
+        welcomeHeading: {
+          letterSpacing: -0.8,
+          marginBottom: 6,
+        },
+        welcomeSubtext: {
+          lineHeight: 20,
+        },
+
+        // Error
+        errorBox: {
+          borderRadius: 16,
+          padding: 14,
+          marginBottom: 20,
           flexDirection: 'row',
           alignItems: 'center',
           gap: 10,
           borderWidth: 1,
         },
-        errorText: {
-          fontSize: theme.typography.fontSize.sm,
+        errorMsg: {
+          fontSize: 13,
           fontWeight: '600',
           flex: 1,
         },
-        errorDismiss: {
-          padding: 4,
+
+        // Form Fields
+        formContent: {
+          gap: 16,
         },
-        successContainer: {
-          alignItems: 'center',
-          paddingVertical: theme.spacing['5'],
+        inputGroup: {
+          gap: 6,
         },
-        successIconWrap: {
-          width: 80,
-          height: 80,
-          borderRadius: 40,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: theme.spacing['4'],
+        inputLabel: {
+          marginLeft: 2,
+          letterSpacing: 0.8,
+          fontSize: 11,
         },
-        successTitle: {
-          fontSize: theme.typography.fontSize.xl,
-          fontWeight: theme.typography.fontWeight.bold,
-          marginBottom: theme.spacing['2'],
-        },
-        successText: {
-          fontSize: theme.typography.fontSize.base,
-          textAlign: 'center',
-          marginBottom: theme.spacing['6'],
-          lineHeight: 24,
-        },
-        highlightText: {
-          fontWeight: '700',
-          color: theme.colors.primary,
-        },
-        form: {
-          gap: theme.spacing['4'],
-        },
-        inputContainer: {
-          gap: theme.spacing['1'],
-        },
-        label: {
-          fontSize: theme.typography.fontSize.xs,
-          fontWeight: theme.typography.fontWeight.medium,
-          textTransform: 'uppercase',
-          letterSpacing: 0.5,
-          marginLeft: 4,
-        },
-        inputBox: {
+        inputFieldBox: {
           flexDirection: 'row',
           alignItems: 'center',
           borderWidth: 1,
-          borderRadius: theme.borderRadius.lg,
+          borderRadius: 14,
           overflow: 'hidden',
-          height: 56,
-          ...(Platform.OS === 'web' && { transition: 'all 0.2s ease' }),
+          height: 50,
+          ...(Platform.OS === 'web'
+            ? ({ transition: 'all 0.2s ease' } as any)
+            : {}),
         },
-        inputBoxFocused: {
+        inputFieldBoxFocused: {
           borderColor: theme.colors.primary,
           ...Platform.select({
             web: { boxShadow: `0 0 0 4px ${theme.colors.primary}25` } as any,
           }),
         },
-        inputIcon: {
+        fieldIcon: {
           paddingLeft: 16,
         },
-        input: {
+        textInput: {
           flex: 1,
           paddingHorizontal: 12,
           height: '100%',
-          fontSize: theme.typography.fontSize.base,
+          fontSize: 15,
           fontWeight: '500',
         },
-        primaryButton: {
-          borderRadius: theme.borderRadius.lg,
+
+        // Action Button
+        primaryBtnWrap: {
+          borderRadius: 14,
           overflow: 'hidden',
-          marginTop: theme.spacing['2'],
-          width: '100%',
           ...Platform.select({
-            ios: {
-              shadowColor: theme.colors.secondary,
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
-              shadowRadius: 16,
+            web: {
+              boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
+            } as any,
+            default: {
+              shadowColor: '#2563EB',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 10,
+              elevation: 5,
             },
-            android: { elevation: 8 },
           }),
         },
-        primaryGradient: {
-          flexDirection: 'row',
+        primaryBtnGradient: {
+          height: 50,
           alignItems: 'center',
           justifyContent: 'center',
+          flexDirection: 'row',
           gap: 8,
-          paddingVertical: theme.spacing['4'],
         },
-        primaryButtonText: {
-          color: theme.colors.white,
-          fontSize: theme.typography.fontSize.base,
-          fontWeight: theme.typography.fontWeight.bold,
+        primaryBtnText: {
+          color: '#FFFFFF',
+          fontSize: 15,
+          fontWeight: '800',
+          letterSpacing: 0.5,
         },
-        footer: {
+
+        // Success State
+        successWrapper: {
           alignItems: 'center',
-          marginTop: theme.spacing['4'],
+          paddingVertical: 10,
         },
-        footerBtn: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          padding: 8,
-        },
-        footerLink: {
-          fontSize: theme.typography.fontSize.sm,
-          fontWeight: theme.typography.fontWeight.medium,
-        },
-        helpTextContainer: {
-          flexDirection: 'row',
+        successIconCircle: {
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: '#10B98118',
+          borderWidth: 1,
+          borderColor: '#10B98135',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 6,
-          marginTop: theme.spacing['2'],
-          paddingHorizontal: 16,
+          marginBottom: 16,
         },
-        helpText: {
-          fontSize: 12,
-          fontWeight: '500',
+        successEmailText: {
+          fontSize: 16,
+          fontWeight: '800',
+          marginBottom: 8,
           textAlign: 'center',
+        },
+        successInstructions: {
+          textAlign: 'center',
+          lineHeight: 20,
+          marginBottom: 8,
+        },
+
+        // Footer
+        footerRow: {
+          flexDirection: 'row',
+          justifyContent: 'center',
+          marginTop: 4,
+        },
+        backBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          padding: 8,
         },
       }),
     [theme],

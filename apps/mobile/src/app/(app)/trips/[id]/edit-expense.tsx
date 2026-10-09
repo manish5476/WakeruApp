@@ -34,6 +34,7 @@ import { useAuthStore } from '../../../../stores/auth.store';
 import { haptics } from '../../../../utils/haptics';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { Badge } from '../../../../components/ui/Badge';
+import { showToast } from '../../../../utils/toast';
 
 // Safe web pressable type
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -559,23 +560,67 @@ export default function AddExpenseScreen() {
     haptics.medium();
     if (currentStep === 0) {
       if (!formData.title.trim()) {
-        Alert.alert('Missing Title', 'Please enter what this expense was for.');
+        showToast.warning(
+          'Missing Title',
+          'Please enter what this expense was for.',
+        );
         return;
       }
       if (!formData.amountLocal || parseFloat(formData.amountLocal) <= 0) {
-        Alert.alert('Invalid Amount', 'Please enter a valid expense amount.');
+        showToast.warning(
+          'Invalid Amount',
+          'Please enter a valid expense amount.',
+        );
         return;
       }
       if (stops.length === 0) {
-        Alert.alert(
+        showToast.warning(
           'No Stops Found',
-          'This trip has no stops. Every expense must belong to a location/stop. Please add a stop from the trip dashboard first.',
+          'This trip has no stops. Every expense must belong to a location/stop.',
         );
         return;
       }
       if (!formData.stopId) {
-        Alert.alert('No Stop', 'Please select a location/stop.');
+        showToast.warning('No Stop Selected', 'Please select a location/stop.');
         return;
+      }
+    } else if (currentStep === 1) {
+      const amount = parseFloat(formData.amountLocal) || 0;
+      if (formData.splitMethod === 'equal') {
+        if (
+          !formData.splitData.memberIds ||
+          formData.splitData.memberIds.length === 0
+        ) {
+          showToast.warning(
+            'Select Members',
+            'Please select at least one member to split this expense with.',
+          );
+          return;
+        }
+      } else if (formData.splitMethod === 'percentage') {
+        const totalPercent = (formData.splitData.members || []).reduce(
+          (acc: number, m: any) => acc + (m.percentage || 0),
+          0,
+        );
+        if (Math.abs(totalPercent - 100) > 0.05) {
+          showToast.warning(
+            'Invalid Percentage',
+            `Percentages must add up to 100%. (Current total: ${totalPercent}%)`,
+          );
+          return;
+        }
+      } else if (formData.splitMethod === 'exact') {
+        const totalExact = (formData.splitData.members || []).reduce(
+          (acc: number, m: any) => acc + (m.amountLocal || 0),
+          0,
+        );
+        if (Math.abs(totalExact - amount) > 0.05) {
+          showToast.warning(
+            'Amount Mismatch',
+            `Split amounts must sum to ${amount}. (Current sum: ${totalExact})`,
+          );
+          return;
+        }
       }
     }
     if (currentStep < 2) setCurrentStep(prev => prev + 1);
@@ -591,7 +636,7 @@ export default function AddExpenseScreen() {
         !formData.splitData.members ||
         formData.splitData.members.length === 0
       ) {
-        Alert.alert(
+        showToast.warning(
           'Invalid Split',
           'Please configure the split details before saving.',
         );
@@ -602,10 +647,11 @@ export default function AddExpenseScreen() {
     setIsSubmitting(true);
 
     let locationData:
-      { latitude: number; longitude: number; name?: string } | undefined;
+      { latitude: number; longitude: number; name?: string } | undefined =
+      undefined;
 
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
@@ -616,21 +662,11 @@ export default function AddExpenseScreen() {
         };
       }
     } catch (error) {
-      console.log('Location fetch skipped/failed', error);
-    }
-
-    // FALLBACK: If user denied location (or it failed), use the Stop's location
-    if (!locationData && formData.stopId && stops) {
-      const stop = stops.find((s: any) => s._id === formData.stopId);
-      if (stop?.location) {
-        locationData = {
-          latitude: stop.location.lat,
-          longitude: stop.location.lng,
-        };
-      }
+      console.log('Location fetch skipped/failed');
     }
 
     const payload = {
+      tripId,
       stopId: formData.stopId,
       title: formData.title.trim(),
       category: formData.category,
@@ -659,7 +695,7 @@ export default function AddExpenseScreen() {
           router.back();
         },
         onError: (error: any) => {
-          Alert.alert('Error', error.message || 'Failed to create expense');
+          showToast.fromError(error, 'Failed to update expense');
           setIsSubmitting(false);
         },
       },

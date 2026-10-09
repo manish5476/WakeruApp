@@ -1,5 +1,6 @@
 import AppIcon from '../../../components/common/AppIcon';
-import React, { useState, useMemo } from 'react';
+import GlobalLoader from '../../../components/common/GlobalLoader';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,20 +16,20 @@ import {
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-// Removed unused @expo/vector-icons
 
-import { useTheme } from '../../../../src/providers/ThemeProvider';
-import { useMyTrips } from '../../../../src/hooks';
-import { ITrip } from '../../../../src/types/trip.types';
-import { mapTripToCardUI } from '../../../../src/mappers/trip.mapper';
-import { TripCardUI } from '../../../../src/mappers/trip.presentation';
-import { haptics } from '../../../../src/utils/haptics';
+import { useTheme } from '../../../providers/ThemeProvider';
+import { useMyTrips } from '../../../hooks';
+import { ITrip } from '../../../types/trip.types';
+import { mapTripToCardUI } from '../../../mappers/trip.mapper';
+import { TripCardUI } from '../../../mappers/trip.presentation';
+import { haptics } from '../../../utils/haptics';
+import { GUARANTEED_FALLBACK_COVER } from '../../../utils/tripImage';
 
-import { GlassCard } from '../../../../src/components/ui/GlassCard';
-import { Typography } from '../../../../src/components/ui/Typography';
-import { GlobalBackground } from '../../../../src/components/ui/GlobalBackground';
-import { TabBar } from '../../../../src/components/ui/TabBar';
-import type { Theme } from '../../../../src/theme';
+import { GlassCard } from '../../../components/ui/GlassCard';
+import { Typography } from '../../../components/ui/Typography';
+import { TripTabs } from '../../../components/ui/TripTabs';
+import { GlobalBackground } from '../../../components/ui/GlobalBackground';
+import type { Theme } from '../../../theme';
 
 // ============================================================
 // PREMIUM TRIP CARD
@@ -44,6 +45,14 @@ function PremiumTripCard({
 }) {
   const theme = useTheme();
   const styles = getStyles(theme);
+  const isLive = trip.status === 'active';
+  const [imgSrc, setImgSrc] = useState(
+    trip.coverImage || GUARANTEED_FALLBACK_COVER,
+  );
+
+  useEffect(() => {
+    setImgSrc(trip.coverImage || GUARANTEED_FALLBACK_COVER);
+  }, [trip.coverImage]);
 
   return (
     <Pressable
@@ -61,12 +70,18 @@ function PremiumTripCard({
         {/* Hero Image Section */}
         <View style={styles.heroWrap}>
           <Image
-            source={{ uri: trip.coverImage }}
+            source={{ uri: imgSrc }}
             style={styles.heroImage}
             resizeMode="cover"
+            onError={() => {
+              if (imgSrc !== GUARANTEED_FALLBACK_COVER) {
+                setImgSrc(GUARANTEED_FALLBACK_COVER);
+              }
+            }}
           />
           <LinearGradient
-            colors={['rgba(0,0,0,0.5)', 'transparent', 'rgba(0,0,0,0.85)']}
+            colors={['transparent', 'rgba(0,0,0,0.45)']}
+            locations={[0.45, 1]}
             style={StyleSheet.absoluteFill}
           />
 
@@ -75,25 +90,26 @@ function PremiumTripCard({
             <View
               style={[
                 styles.statusBadge,
-                {
-                  backgroundColor:
-                    theme.colors[
-                      trip.statusColorKey as keyof typeof theme.colors
-                    ],
-                },
+                isLive
+                  ? {
+                      backgroundColor: theme.colors.success,
+                      borderWidth: 1,
+                      borderColor: '#059669',
+                    }
+                  : {
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.2)',
+                    },
               ]}
             >
-              <Typography variant="caption" weight="bold" color="textSecondary">
+              <Typography variant="caption" weight="bold" color="textInverse">
                 {trip.statusLabel}
               </Typography>
             </View>
             {trip.memberCount > 0 && (
               <View style={styles.memberBadge}>
-                <Typography
-                  variant="caption"
-                  weight="bold"
-                  color="textSecondary"
-                >
+                <Typography variant="caption" weight="bold" color="textInverse">
                   👤 {trip.memberCount}
                 </Typography>
               </View>
@@ -105,8 +121,9 @@ function PremiumTripCard({
             <Typography
               variant="h2"
               weight="bold"
-              color="textSecondary"
+              color="textInverse"
               style={{ marginBottom: 4 }}
+              numberOfLines={1}
             >
               {trip.title}
             </Typography>
@@ -121,29 +138,29 @@ function PremiumTripCard({
               <Typography
                 variant="caption"
                 weight="semibold"
-                color="textSecondary"
+                color="textInverse"
               >
                 {trip.dateRange}
               </Typography>
-              <Typography variant="caption" color="textSecondary">
+              <Typography variant="caption" color="textInverse">
                 •
               </Typography>
               <Typography
                 variant="caption"
                 weight="semibold"
-                color="textSecondary"
+                color="textInverse"
               >
                 {trip.duration}
               </Typography>
               {trip.stopCountLabel !== 'No Stops' && (
                 <>
-                  <Typography variant="caption" color="textSecondary">
+                  <Typography variant="caption" color="textInverse">
                     •
                   </Typography>
                   <Typography
                     variant="caption"
                     weight="semibold"
-                    color="textSecondary"
+                    color="textInverse"
                   >
                     📍 {trip.stopCountLabel}
                   </Typography>
@@ -177,7 +194,7 @@ function PremiumTripCard({
               </Typography>
             </View>
             <AppIcon
-              name="chevron-forward"
+              name="chevron-right"
               size={20}
               color={theme.colors.textTertiary}
             />
@@ -216,6 +233,7 @@ const FILTERS = [
   { id: 'active', label: 'Active' },
   { id: 'planning', label: 'Planning' },
   { id: 'completed', label: 'Completed' },
+  { id: 'archived', label: 'Archived' },
 ];
 
 function FilterChips({
@@ -225,20 +243,20 @@ function FilterChips({
   activeFilter: string;
   setFilter: (f: string) => void;
 }) {
-  const tabs = FILTERS.map(f => ({
-    key: f.id,
-    label: f.label,
-  }));
+  const tabs = React.useMemo(
+    () => FILTERS.map(f => ({ id: f.id, label: f.label })),
+    [],
+  );
 
   return (
-    <View style={{ marginBottom: 12 }}>
-      <TabBar
+    <View style={{ paddingBottom: 8 }}>
+      <TripTabs
         tabs={tabs}
-        activeKey={activeFilter}
-        onTabChange={setFilter}
+        activeTab={activeFilter}
+        onChange={setFilter}
         variant="segmented"
-        scrollable
         size="sm"
+        scrollable
       />
     </View>
   );
@@ -377,20 +395,42 @@ export default function TripsListScreen() {
   const theme = useTheme();
   const styles = getStyles(theme);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(windowWidth);
 
-  const { data: rawData, isLoading, refetch, isFetching } = useMyTrips();
+  useEffect(() => {
+    setContainerWidth(windowWidth);
+  }, [windowWidth]);
+
+  const {
+    data: rawData,
+    isLoading,
+    refetch,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useMyTrips();
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const isDesktop = width >= 1024;
-  const isTablet = width >= 768 && width < 1024;
-  const cardWidth = isDesktop
-    ? 360
-    : isTablet
-      ? (width - theme.spacing[8] * 2 - theme.spacing[4]) / 2
-      : width - theme.spacing[4] * 2;
+  // Dynamic responsive grid calculation
+  const contentWidth = Math.min(containerWidth, 1600);
+  const padding = theme.spacing[4] * 2; // 32px total horizontal padding
+  const gap = theme.spacing[4]; // 16px gap between cards
+
+  const numColumns = useMemo(() => {
+    if (contentWidth >= 1440) return 4;
+    if (contentWidth >= 1024) return 3;
+    if (contentWidth >= 640) return 2;
+    return 1;
+  }, [contentWidth]);
+
+  const cardWidth = useMemo(() => {
+    const availableSpace = contentWidth - padding - (numColumns - 1) * gap;
+    return Math.floor(availableSpace / numColumns);
+  }, [contentWidth, padding, numColumns, gap]);
 
   // Process Data Layer -> Presentation Layer
   const tripsUI: TripCardUI[] = useMemo(() => {
@@ -463,22 +503,43 @@ export default function TripsListScreen() {
 
   return (
     <GlobalBackground>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View
+        style={[styles.container, { paddingTop: insets.top }]}
+        onLayout={e => {
+          const w = Math.floor(e.nativeEvent.layout.width);
+          if (w > 0 && Math.abs(w - containerWidth) > 5) {
+            setContainerWidth(w);
+          }
+        }}
+      >
         <FlatList
           data={
-            isLoading ? ([1, 2, 3] as unknown as TripCardUI[]) : filteredTrips
+            isLoading
+              ? ([1, 2, 3, 4, 5, 6, 7, 8] as unknown as TripCardUI[])
+              : filteredTrips
           }
           keyExtractor={(item, index) =>
             isLoading ? `skeleton-${index}` : (item as TripCardUI).id
           }
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={!isLoading ? <EmptyState /> : null}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <GlobalLoader
+                  variant="inline"
+                  size="small"
+                  color={theme.colors.primary}
+                />
+              </View>
+            ) : null
+          }
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: insets.bottom + 100 },
           ]}
-          numColumns={isDesktop || isTablet ? 2 : 1}
-          key={isDesktop || isTablet ? 'grid' : 'list'}
+          numColumns={numColumns}
+          key={`trips-grid-${numColumns}`}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -487,9 +548,13 @@ export default function TripsListScreen() {
               tintColor={theme.colors.primary}
             />
           }
-          columnWrapperStyle={
-            isDesktop || isTablet ? styles.columnWrapper : undefined
-          }
+          columnWrapperStyle={numColumns > 1 ? styles.columnWrapper : undefined}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.4}
           renderItem={({ item }) => {
             if (isLoading) {
               return <SkeletonLoader width={cardWidth} />;
@@ -519,7 +584,7 @@ function getStyles(theme: Theme) {
       padding: theme.spacing[4],
       alignSelf: 'center',
       width: '100%',
-      maxWidth: 1200,
+      maxWidth: 1600,
     },
     columnWrapper: { gap: theme.spacing[4], justifyContent: 'flex-start' },
 
@@ -561,13 +626,16 @@ function getStyles(theme: Theme) {
     } as any,
     searchClearBtn: { padding: theme.spacing[1] },
 
-    filterScroll: { gap: theme.spacing[2], paddingBottom: theme.spacing[2] },
+    filterScroll: {
+      gap: theme.spacing[2],
+      paddingHorizontal: 2,
+      paddingBottom: theme.spacing[2],
+    },
     filterChip: {
       paddingHorizontal: theme.spacing[4],
       paddingVertical: 8,
       borderRadius: theme.borderRadius.full,
       borderWidth: 1,
-      marginRight: theme.spacing[2],
     },
 
     emptyStateWrap: {
@@ -589,7 +657,12 @@ function getStyles(theme: Theme) {
       borderRadius: theme.borderRadius['2xl'],
       overflow: 'hidden',
     },
-    heroWrap: { width: '100%', height: 200, position: 'relative' },
+    heroWrap: {
+      width: '100%',
+      height: 200,
+      position: 'relative',
+      backgroundColor: theme.isDark ? '#1E293B' : '#CBD5E1',
+    },
     heroImage: { width: '100%', height: '100%' },
     heroTop: {
       position: 'absolute',

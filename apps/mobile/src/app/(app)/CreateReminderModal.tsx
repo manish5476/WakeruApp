@@ -1037,3 +1037,5 @@ function createStyles(theme: Theme) {
     },
   });
 }
+
+export default CreateReminderModal;

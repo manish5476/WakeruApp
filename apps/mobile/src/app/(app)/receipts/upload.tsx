@@ -17,9 +17,10 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useMyTrips, useUploadReceipt } from '../../../hooks';
 import { useAuthStore } from '../../../stores/auth.store';
+import { receiptImageService } from '../../../services/image/receiptImageService';
 import { haptics } from '../../../utils/haptics';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useGlobalStyles } from '../../../hooks/useGlobalStyles';
@@ -61,59 +62,36 @@ export default function UploadReceiptScreen() {
   const trips = tripsData?.pages?.flatMap(page => page?.trips || []) || [];
   const isWebDesktop = Platform.OS === 'web' && width > 768;
 
-  useEffect(() => {
-    if (imageUri) {
-      handleUpload();
-    }
-  }, []);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | undefined>(
+    imageUri,
+  );
 
-  const handleUpload = async () => {
-    if (!imageUri) {
-      Alert.alert('No Image', 'Please select an image first');
+  const activeImageUri = selectedImageUri || imageUri;
+
+  const handleCameraCapture = async () => {
+    const uri = await receiptImageService.captureReceipt();
+    if (uri) {
+      setSelectedImageUri(uri);
+    }
+  };
+
+  const handleGalleryPick = async () => {
+    const uri = await receiptImageService.pickReceiptFromGallery();
+    if (uri) {
+      setSelectedImageUri(uri);
+    }
+  };
+
+  const handleProceedToConfirm = () => {
+    if (!activeImageUri) {
+      Alert.alert('No Image', 'Please capture or select a receipt image first');
       return;
     }
 
-    try {
-      setStatus('uploading');
-      setProgress(10);
-
-      if (Platform.OS !== 'web') {
-        const fileInfo = await FileSystem.getInfoAsync(imageUri as string);
-        if (
-          fileInfo.exists &&
-          fileInfo.size &&
-          fileInfo.size > 10 * 1024 * 1024
-        ) {
-          setErrorMsg('Image too large. Maximum size is 10MB.');
-          setStatus('error');
-          return;
-        }
-      }
-
-      setProgress(40);
-
-      uploadReceipt(
-        {
-          imageUri: imageUri as string,
-          tripId: selectedTripId,
-          onProgress: (p: number) => setProgress(40 + p * 0.5),
-        },
-        {
-          onSuccess: data => {
-            setProgress(100);
-            setStatus('done');
-            haptics.success();
-          },
-          onError: (error: any) => {
-            setErrorMsg(error.message || 'Upload failed');
-            setStatus('error');
-          },
-        },
-      );
-    } catch (error: any) {
-      setErrorMsg(error.message || 'Something went wrong');
-      setStatus('error');
-    }
+    router.push({
+      pathname: '/(app)/receipts/confirm',
+      params: { imageUri: activeImageUri, tripId: selectedTripId || '' },
+    } as any);
   };
 
   const handleDone = () => {
@@ -181,17 +159,134 @@ export default function UploadReceiptScreen() {
             ]}
             showsVerticalScrollIndicator={false}
           >
-            {/* Image Preview */}
-            {imageUri && (
+            {/* Image Preview or Picker Buttons */}
+            {activeImageUri ? (
               <GlassCard
                 style={styles.previewContainer}
                 intensity={theme.isDark ? 12 : 6}
               >
                 <Image
-                  source={{ uri: imageUri as string }}
+                  source={{ uri: activeImageUri }}
                   style={styles.previewImage}
                   resizeMode="contain"
                 />
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                  <Pressable
+                    onPress={handleCameraCapture}
+                    style={[
+                      styles.retryBtn,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderWidth: 1,
+                        borderColor: theme.colors.borderLight,
+                      },
+                    ]}
+                  >
+                    <AppIcon
+                      name="camera"
+                      size={16}
+                      color={theme.colors.textPrimary}
+                    />
+                    <Text
+                      style={[
+                        styles.retryBtnText,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      Retake
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleGalleryPick}
+                    style={[
+                      styles.retryBtn,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderWidth: 1,
+                        borderColor: theme.colors.borderLight,
+                      },
+                    ]}
+                  >
+                    <AppIcon
+                      name="image"
+                      size={16}
+                      color={theme.colors.textPrimary}
+                    />
+                    <Text
+                      style={[
+                        styles.retryBtnText,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      Gallery
+                    </Text>
+                  </Pressable>
+                </View>
+              </GlassCard>
+            ) : (
+              <GlassCard
+                style={[styles.previewContainer, { paddingVertical: 32 }]}
+                intensity={theme.isDark ? 12 : 6}
+              >
+                <AppIcon
+                  name="file-text"
+                  size={48}
+                  color={theme.colors.primary}
+                />
+                <Text
+                  style={[
+                    styles.statusTitle,
+                    { color: theme.colors.textPrimary, marginTop: 12 },
+                  ]}
+                >
+                  Capture or Select Receipt
+                </Text>
+                <Text
+                  style={[
+                    styles.statusSub,
+                    { color: theme.colors.textSecondary, marginBottom: 20 },
+                  ]}
+                >
+                  On-device OCR processes ₹ amounts, GST, and totals without
+                  sending photos to cloud
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <Pressable
+                    onPress={handleCameraCapture}
+                    style={[
+                      styles.retryBtn,
+                      { backgroundColor: theme.colors.primary },
+                    ]}
+                  >
+                    <AppIcon name="camera" size={18} color="#FFF" />
+                    <Text style={styles.retryBtnText}>Take Photo</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleGalleryPick}
+                    style={[
+                      styles.retryBtn,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderWidth: 1,
+                        borderColor: theme.colors.borderLight,
+                      },
+                    ]}
+                  >
+                    <AppIcon
+                      name="image"
+                      size={18}
+                      color={theme.colors.textPrimary}
+                    />
+                    <Text
+                      style={[
+                        styles.retryBtnText,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      Pick Gallery
+                    </Text>
+                  </Pressable>
+                </View>
               </GlassCard>
             )}
 
@@ -262,9 +357,8 @@ export default function UploadReceiptScreen() {
                     {trips.map((trip: any) => {
                       const isActive = selectedTripId === trip._id;
                       return (
-                        <GlobalBackground>
+                        <GlobalBackground key={trip._id}>
                           <Pressable
-                            key={trip._id}
                             style={({ hovered }: WebPressableState) => [
                               styles.tripChip,
                               {
@@ -302,34 +396,28 @@ export default function UploadReceiptScreen() {
                 </View>
 
                 <Pressable
-                  onPress={handleUpload}
-                  disabled={isPending}
+                  onPress={handleProceedToConfirm}
+                  disabled={!activeImageUri}
                   style={({ hovered, pressed }: WebPressableState) => [
                     styles.uploadBtn,
-                    isPending && { opacity: 0.7 },
+                    !activeImageUri && { opacity: 0.5 },
                     Platform.OS === 'web' &&
                       hovered &&
-                      !isPending &&
+                      activeImageUri &&
                       styles.hoverLift,
-                    pressed && !isPending && styles.pressedState,
+                    pressed && activeImageUri && styles.pressedState,
                   ]}
                 >
                   <LinearGradient
-                    colors={theme.gradients.secondary}
+                    colors={theme.gradients.primary || ['#3B82F6', '#1D4ED8']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.uploadGrad}
                   >
-                    {isPending ? (
-                      <GlobalLoader variant="inline" color="#FFF" />
-                    ) : (
-                      <>
-                        <AppIcon name="camera" size={20} color="#FFF" />
-                        <Text style={styles.uploadBtnText}>
-                          Scan & Upload Receipt
-                        </Text>
-                      </>
-                    )}
+                    <AppIcon name="camera" size={20} color="#FFF" />
+                    <Text style={styles.uploadBtnText}>
+                      Scan & Extract Receipt
+                    </Text>
                   </LinearGradient>
                 </Pressable>
 
@@ -342,8 +430,8 @@ export default function UploadReceiptScreen() {
                   <Text
                     style={[styles.hint, { color: theme.colors.textSecondary }]}
                   >
-                    We'll extract items, prices, merchant name, and total
-                    automatically.
+                    On-device Google ML Kit extracts items, prices, merchant
+                    name, and total automatically.
                   </Text>
                 </View>
               </>

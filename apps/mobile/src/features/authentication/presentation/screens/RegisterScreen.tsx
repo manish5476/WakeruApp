@@ -31,7 +31,7 @@ import { showToast } from '@/shared/utils/toast';
 import { GlassCard } from '@/shared/components/GlassCard';
 import GlobalLoader from '@/shared/components/GlobalLoader';
 import AppIcon from '@/shared/components/AppIcon';
-import AppLogo from '@/shared/components/AppIcon';
+import AppLogo from '@/components/common/AppLogo';
 import { Typography } from '@/shared/components/Typography';
 
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -70,7 +70,7 @@ export default function RegisterScreen() {
     setIsGoogleLoading(true);
     try {
       await loginWithGoogle();
-      router.replace('/(app)/(tabs)/dashboard');
+      // Auth state update unmounts GuestNavigator automatically
     } catch (e: any) {
       showToast.fromError(e, 'Google Sign-In Failed');
     } finally {
@@ -109,10 +109,8 @@ export default function RegisterScreen() {
         'Account Created!',
         'A verification link has been sent to your email.',
       );
-      router.replace({
-        pathname: '/(auth)/verify-email',
-        params: { email: trimmedEmail },
-      });
+      // Navigation back to login or automatic auth update
+      navigation.navigate('Login');
     } catch (err: any) {
       showToast.error(
         'Registration Notice',

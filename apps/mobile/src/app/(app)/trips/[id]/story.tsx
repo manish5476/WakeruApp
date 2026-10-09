@@ -7,6 +7,7 @@ import {
   TouchableWithoutFeedback,
   Image,
   DimensionValue,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import Animated, {
@@ -292,7 +293,7 @@ export default function TripStoryScreen() {
         </TouchableWithoutFeedback>
 
         {/* Story Content Overlay */}
-        <View style={styles.contentOverlay} pointerEvents="none">
+        <View style={[styles.contentOverlay, { pointerEvents: 'none' }]}>
           <Text style={styles.title}>{currentStory.title}</Text>
           <Text style={styles.content}>{currentStory.content}</Text>
         </View>
@@ -370,16 +371,30 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    ...Platform.select({
+      web: {
+        textShadow: '0px 1px 4px rgba(0, 0, 0, 0.75)',
+      } as any,
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+      },
+    }),
   },
   content: {
     color: '#eee',
     fontSize: 18,
     lineHeight: 24,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    ...Platform.select({
+      web: {
+        textShadow: '0px 1px 4px rgba(0, 0, 0, 0.75)',
+      } as any,
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.75)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+      },
+    }),
   },
 });

@@ -1,5 +1,5 @@
 // app/(app)/settlements.tsx
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Pressable,
   RefreshControl,
 } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -439,9 +439,18 @@ export default function GlobalSettlementsScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { user, firebaseUser } = useAuthStore();
+  const params = useLocalSearchParams<{ tab?: string }>();
 
-  const [activeTab, setActiveTab] = useState<TabType>('receivable');
+  const [activeTab, setActiveTab] = useState<TabType>(
+    params.tab === 'payable' ? 'payable' : 'receivable',
+  );
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (params.tab === 'payable' || params.tab === 'receivable') {
+      setActiveTab(params.tab as TabType);
+    }
+  }, [params.tab]);
 
   const isDesktop = width >= 860;
   const styles = useMemo(

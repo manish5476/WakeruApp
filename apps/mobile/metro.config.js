@@ -8,10 +8,18 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  * @type {import('@react-native/metro-config').MetroConfig}
  */
 const workspaceRoot = path.resolve(__dirname, '../..');
+const babelRuntimePath = path.dirname(
+  require.resolve('@babel/runtime/package.json', {
+    paths: [__dirname, workspaceRoot],
+  }),
+);
+
 const config = {
   watchFolders: [
-    path.resolve(workspaceRoot, 'packages'),
     path.resolve(workspaceRoot, 'node_modules'),
+    path.resolve(workspaceRoot, 'packages/design-system'),
+    path.resolve(workspaceRoot, 'packages/domain'),
+    path.resolve(workspaceRoot, 'packages/platform'),
   ],
   resolver: {
     blockList: [

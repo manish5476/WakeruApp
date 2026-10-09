@@ -1,5 +1,5 @@
 // app/(app)/requests.tsx
-import React, { useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,8 @@ import Animated, {
 import { useTheme } from '../../providers/ThemeProvider';
 import {
   usePendingInvitations,
+  useSentInvitations,
+  useCancelInvitation,
   useAcceptInvitation,
   useDeclineInvitation,
 } from '../../hooks/useInvitations';
@@ -33,6 +35,7 @@ import {
 import { haptics } from '../../utils/haptics';
 
 import { GlobalBackground } from '../../components/ui/GlobalBackground';
+import { GlassCard } from '../../components/ui/GlassCard';
 import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import AppIcon from '../../components/common/AppIcon';
@@ -59,7 +62,7 @@ interface JoinRequest {
   user?: { displayName: string; photoURL?: string };
 }
 
-const WEB = Platform.OS === 'web';
+const WEB = Platform.OS === 'web' && typeof window !== 'undefined';
 
 // ─── Sub-Components ──────────────────────────────────────────
 
@@ -83,7 +86,7 @@ function InvitationCard({
     invitation.tripTitle || invitation.tripId?.title || 'Untitled Trip';
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+    <GlassCard style={styles.card} intensity={theme.isDark ? 16 : 10}>
       <View style={styles.cardHeader}>
         <View style={[styles.iconAura, { backgroundColor: '#EFF6FF' }]}>
           <AppIcon name="mail" size={18} color="#2563EB" />
@@ -191,7 +194,7 @@ function InvitationCard({
           )}
         </Pressable>
       </View>
-    </View>
+    </GlassCard>
   );
 }
 
@@ -219,7 +222,7 @@ function JoinRequestCard({
     (typeof request.tripId === 'object' ? request.tripId.title : 'Trip');
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface }]}>
+    <GlassCard style={styles.card} intensity={theme.isDark ? 16 : 10}>
       <View style={styles.cardHeader}>
         <View style={[styles.iconAura, { backgroundColor: '#ECFDF5' }]}>
           <AppIcon name="user-plus" size={18} color="#10B981" />
@@ -327,7 +330,120 @@ function JoinRequestCard({
           )}
         </Pressable>
       </View>
-    </View>
+    </GlassCard>
+  );
+}
+
+function SentInvitationCard({
+  invitation,
+  onRevoke,
+  isRevoking,
+}: {
+  invitation: any;
+  onRevoke: (id: string) => void;
+  isRevoking: boolean;
+}) {
+  const theme = useTheme();
+  const recipientName = invitation.toName || 'Invited Traveler';
+  const tripName =
+    invitation.tripTitle || invitation.tripId?.title || 'Expedition';
+
+  return (
+    <GlassCard style={styles.card} intensity={theme.isDark ? 16 : 10}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.iconAura, { backgroundColor: '#EDE9FE' }]}>
+          <AppIcon name="send" size={18} color="#8B5CF6" />
+        </View>
+
+        <View style={styles.cardHeaderInfo}>
+          <View style={styles.badgeRow}>
+            <View
+              style={[
+                styles.typeBadge,
+                { backgroundColor: 'rgba(139,92,246,0.12)' },
+              ]}
+            >
+              <Text style={[styles.typeBadgeText, { color: '#8B5CF6' }]}>
+                OUTGOING INVITE
+              </Text>
+            </View>
+          </View>
+          <Text
+            style={[styles.tripTitle, { color: theme.colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {tripName}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.senderRow}>
+        <Avatar fallback={recipientName.charAt(0).toUpperCase()} size="sm" />
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[styles.senderLabel, { color: theme.colors.textTertiary }]}
+          >
+            Invited
+          </Text>
+          <Text
+            style={[styles.senderName, { color: theme.colors.textPrimary }]}
+          >
+            {recipientName}
+          </Text>
+        </View>
+        <View
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 6,
+            backgroundColor: 'rgba(245,158,11,0.12)',
+          }}
+        >
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#D97706' }}>
+            Pending
+          </Text>
+        </View>
+      </View>
+
+      {invitation.message ? (
+        <View
+          style={[
+            styles.messageBox,
+            { backgroundColor: theme.colors.background },
+          ]}
+        >
+          <Text
+            style={[styles.messageText, { color: theme.colors.textSecondary }]}
+          >
+            "{invitation.message}"
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={[styles.actionRow, { justifyContent: 'flex-end' }]}>
+        <Pressable
+          onPress={() => onRevoke(invitation._id)}
+          disabled={isRevoking}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            styles.declineBtn,
+            { borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.06)' },
+            pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+          ]}
+        >
+          {isRevoking ? (
+            <GlobalLoader variant="inline" size="small" color="#EF4444" />
+          ) : (
+            <>
+              <AppIcon name="trash-2" size={14} color="#EF4444" />
+              <Text style={[styles.declineBtnText, { color: '#EF4444' }]}>
+                Revoke Invite
+              </Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    </GlassCard>
   );
 }
 
@@ -339,7 +455,10 @@ export default function RequestsScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 860;
 
-  // Invitations
+  const [activeTab, setActiveTab] = useState<'incoming' | 'sent'>('incoming');
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  // Incoming Invitations
   const {
     data: invitationsData,
     isLoading: loadingInv,
@@ -359,6 +478,17 @@ export default function RequestsScreen() {
     refetch: refetchReq,
   } = useAdminJoinRequests();
 
+  // Outgoing / Sent Invitations (only fetched when viewing sent tab)
+  const {
+    data: sentData,
+    isLoading: loadingSent,
+    isRefetching: refetchingSent,
+    refetch: refetchSent,
+  } = useSentInvitations({
+    enabled: activeTab === 'sent',
+  });
+  const { mutate: cancelInv } = useCancelInvitation();
+
   const invitations: Invitation[] = useMemo(() => {
     if (!invitationsData) return [];
     return Array.isArray(invitationsData)
@@ -373,15 +503,28 @@ export default function RequestsScreen() {
       : (requestsData as any)?.requests || [];
   }, [requestsData]);
 
-  const isLoading = loadingInv || loadingReq;
-  const isRefreshing = refetchingInv || refetchingReq;
+  const sentInvitations: any[] = useMemo(() => {
+    if (!sentData) return [];
+    return Array.isArray(sentData)
+      ? sentData
+      : (sentData as any)?.invitations || [];
+  }, [sentData]);
+
+  const isLoading =
+    activeTab === 'sent' ? loadingSent : loadingInv || loadingReq;
+  const isRefreshing =
+    activeTab === 'sent' ? refetchingSent : refetchingInv || refetchingReq;
   const totalCount = invitations.length + requests.length;
 
   const handleRefresh = useCallback(() => {
     haptics.light();
-    refetchInv();
-    refetchReq();
-  }, [refetchInv, refetchReq]);
+    if (activeTab === 'sent') {
+      refetchSent();
+    } else {
+      refetchInv();
+      refetchReq();
+    }
+  }, [activeTab, refetchInv, refetchReq, refetchSent]);
 
   // Actions
   const handleAcceptInvite = useCallback(
@@ -411,6 +554,32 @@ export default function RequestsScreen() {
     [declineInv],
   );
 
+  const handleRevokeInvite = useCallback(
+    (id: string) => {
+      haptics.warning();
+      const execute = () => {
+        setRevokingId(id);
+        cancelInv(id, {
+          onSettled: () => setRevokingId(null),
+        });
+      };
+      if (WEB) {
+        if (window.confirm('Revoke and cancel this sent invitation?'))
+          execute();
+      } else {
+        Alert.alert(
+          'Revoke Invitation',
+          'Are you sure you want to cancel this pending invitation?',
+          [
+            { text: 'Keep', style: 'cancel' },
+            { text: 'Revoke', style: 'destructive', onPress: execute },
+          ],
+        );
+      }
+    },
+    [cancelInv],
+  );
+
   if (isLoading && !isRefreshing) {
     return (
       <GlobalBackground>
@@ -434,7 +603,7 @@ export default function RequestsScreen() {
     <View style={styles.root}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <GlobalBackground />
       </View>
 
@@ -442,7 +611,10 @@ export default function RequestsScreen() {
       <View
         style={[
           styles.headerBar,
-          { paddingTop: Platform.OS === 'web' ? 20 : insets.top + 10 },
+          {
+            paddingTop:
+              Platform.OS === 'web' ? 20 : Math.max(insets.top, 24) + 10,
+          },
         ]}
       >
         <View
@@ -455,7 +627,7 @@ export default function RequestsScreen() {
                 router.back();
               }}
               style={({ pressed }) => [
-                styles.backBtn,
+                styles.headerIconBtn,
                 { backgroundColor: theme.colors.surface },
                 pressed && { opacity: 0.7 },
               ]}
@@ -490,7 +662,7 @@ export default function RequestsScreen() {
               onPress={handleRefresh}
               disabled={isRefreshing}
               style={({ pressed }) => [
-                styles.actionBtn,
+                styles.headerIconBtn,
                 { backgroundColor: theme.colors.surface },
                 pressed && { opacity: 0.7 },
               ]}
@@ -531,20 +703,27 @@ export default function RequestsScreen() {
         <View style={styles.mainWrapper}>
           {/* ── BENTO METRICS HEADER ── */}
           <View style={styles.bentoMetricsRow}>
-            <View
+            <GlassCard
               style={[
                 styles.bentoTile,
-                { backgroundColor: theme.colors.surface },
+                { borderColor: theme.colors.borderLight },
               ]}
+              intensity={theme.isDark ? 16 : 10}
             >
               <View style={styles.bentoTileTop}>
                 <View
-                  style={[styles.tileIconWrap, { backgroundColor: '#EFF6FF' }]}
+                  style={[
+                    styles.tileIconWrap,
+                    { backgroundColor: `${theme.colors.info}18` },
+                  ]}
                 >
-                  <AppIcon name="inbox" size={15} color="#2563EB" />
+                  <AppIcon name="inbox" size={13} color={theme.colors.info} />
                 </View>
-                <Text style={[styles.tileLabel, { color: '#2563EB' }]}>
-                  TOTAL PENDING
+                <Text
+                  style={[styles.tileLabel, { color: theme.colors.info }]}
+                  numberOfLines={1}
+                >
+                  INCOMING
                 </Text>
               </View>
               <Text
@@ -554,184 +733,373 @@ export default function RequestsScreen() {
               </Text>
               <Text
                 style={[styles.tileSub, { color: theme.colors.textTertiary }]}
+                numberOfLines={1}
               >
-                Actions required
+                Invites & joins
               </Text>
-            </View>
+            </GlassCard>
 
-            <View
+            <GlassCard
               style={[
                 styles.bentoTile,
-                { backgroundColor: theme.colors.surface },
+                { borderColor: theme.colors.borderLight },
               ]}
+              intensity={theme.isDark ? 16 : 10}
             >
               <View style={styles.bentoTileTop}>
                 <View
-                  style={[styles.tileIconWrap, { backgroundColor: '#EDE9FE' }]}
+                  style={[
+                    styles.tileIconWrap,
+                    { backgroundColor: `${theme.colors.success}18` },
+                  ]}
                 >
-                  <AppIcon name="mail" size={15} color="#8B5CF6" />
+                  <AppIcon
+                    name="user-check"
+                    size={13}
+                    color={theme.colors.success}
+                  />
                 </View>
-                <Text style={[styles.tileLabel, { color: '#8B5CF6' }]}>
-                  INVITATIONS
+                <Text
+                  style={[styles.tileLabel, { color: theme.colors.success }]}
+                  numberOfLines={1}
+                >
+                  APPROVALS
                 </Text>
               </View>
-              <Text style={[styles.tileValue, { color: '#8B5CF6' }]}>
-                {invitations.length}
-              </Text>
-              <Text
-                style={[styles.tileSub, { color: theme.colors.textTertiary }]}
-              >
-                Incoming trip invites
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.bentoTile,
-                { backgroundColor: theme.colors.surface },
-              ]}
-            >
-              <View style={styles.bentoTileTop}>
-                <View
-                  style={[styles.tileIconWrap, { backgroundColor: '#ECFDF5' }]}
-                >
-                  <AppIcon name="user-check" size={15} color="#10B981" />
-                </View>
-                <Text style={[styles.tileLabel, { color: '#10B981' }]}>
-                  JOIN REQUESTS
-                </Text>
-              </View>
-              <Text style={[styles.tileValue, { color: '#10B981' }]}>
+              <Text style={[styles.tileValue, { color: theme.colors.success }]}>
                 {requests.length}
               </Text>
               <Text
                 style={[styles.tileSub, { color: theme.colors.textTertiary }]}
+                numberOfLines={1}
               >
-                Admin approvals
+                Admin requests
               </Text>
-            </View>
+            </GlassCard>
+
+            <GlassCard
+              style={[
+                styles.bentoTile,
+                { borderColor: theme.colors.borderLight },
+              ]}
+              intensity={theme.isDark ? 16 : 10}
+            >
+              <View style={styles.bentoTileTop}>
+                <View
+                  style={[
+                    styles.tileIconWrap,
+                    {
+                      backgroundColor: `${theme.colors.purple || theme.colors.accent}18`,
+                    },
+                  ]}
+                >
+                  <AppIcon
+                    name="send"
+                    size={13}
+                    color={theme.colors.purple || theme.colors.accent}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.tileLabel,
+                    { color: theme.colors.purple || theme.colors.accent },
+                  ]}
+                  numberOfLines={1}
+                >
+                  SENT
+                </Text>
+              </View>
+              <Text
+                style={[
+                  styles.tileValue,
+                  { color: theme.colors.purple || theme.colors.accent },
+                ]}
+              >
+                {sentInvitations.length}
+              </Text>
+              <Text
+                style={[styles.tileSub, { color: theme.colors.textTertiary }]}
+                numberOfLines={1}
+              >
+                Pending invites
+              </Text>
+            </GlassCard>
           </View>
 
-          {/* ── EMPTY STATE ── */}
-          {totalCount === 0 ? (
+          {/* ── SEGMENTED TAB SELECTOR ── */}
+          <View
+            style={[
+              styles.segmentedContainer,
+              {
+                backgroundColor: theme.isDark
+                  ? 'rgba(255,255,255,0.05)'
+                  : 'rgba(0,0,0,0.04)',
+                borderColor: theme.colors.borderLight,
+              },
+            ]}
+          >
+            <Pressable
+              onPress={() => {
+                haptics.selection();
+                setActiveTab('incoming');
+              }}
+              style={[
+                styles.segmentedTab,
+                activeTab === 'incoming' && [
+                  styles.segmentedTabActive,
+                  { backgroundColor: theme.colors.surface },
+                ],
+              ]}
+            >
+              <AppIcon
+                name="inbox"
+                size={14}
+                color={
+                  activeTab === 'incoming'
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.segmentedTabText,
+                  {
+                    color:
+                      activeTab === 'incoming'
+                        ? theme.colors.textPrimary
+                        : theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                Incoming ({totalCount})
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                haptics.selection();
+                setActiveTab('sent');
+              }}
+              style={[
+                styles.segmentedTab,
+                activeTab === 'sent' && [
+                  styles.segmentedTabActive,
+                  { backgroundColor: theme.colors.surface },
+                ],
+              ]}
+            >
+              <AppIcon
+                name="send"
+                size={14}
+                color={
+                  activeTab === 'sent'
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.segmentedTabText,
+                  {
+                    color:
+                      activeTab === 'sent'
+                        ? theme.colors.textPrimary
+                        : theme.colors.textSecondary,
+                  },
+                ]}
+              >
+                Sent by You ({sentInvitations.length})
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* ── TAB CONTENT ── */}
+          {activeTab === 'incoming' ? (
+            totalCount === 0 ? (
+              <Animated.View
+                entering={FadeInUp.delay(100).springify().damping(18)}
+              >
+                <EmptyState
+                  icon="inbox"
+                  title="All Caught Up"
+                  description="You don't have any pending trip invitations or member join requests right now."
+                  actionLabel="Explore Dashboard"
+                  onAction={() => router.replace('/(app)/(tabs)/home')}
+                />
+              </Animated.View>
+            ) : (
+              <View style={styles.sectionsContainer}>
+                {/* INVITATIONS SECTION */}
+                {invitations.length > 0 && (
+                  <View style={styles.sectionBlock}>
+                    <View style={styles.sectionHeaderRow}>
+                      <View style={styles.sectionTitleGroup}>
+                        <View
+                          style={[
+                            styles.sectionIndicatorDot,
+                            { backgroundColor: '#2563EB' },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.sectionHeading,
+                            { color: theme.colors.textPrimary },
+                          ]}
+                        >
+                          Trip Invitations
+                        </Text>
+                      </View>
+                      <View style={styles.countBadge}>
+                        <Text
+                          style={[
+                            styles.countBadgeText,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          {invitations.length}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.cardsGrid}>
+                      {invitations.map((inv, idx) => (
+                        <Animated.View
+                          key={inv._id}
+                          entering={FadeInDown.delay(idx * 40)
+                            .springify()
+                            .damping(18)}
+                          layout={Layout.springify()}
+                          style={styles.cardCol}
+                        >
+                          <InvitationCard
+                            invitation={inv}
+                            onAccept={handleAcceptInvite}
+                            onDecline={handleDeclineInvite}
+                            isAccepting={isAcceptingInv}
+                            isDeclining={isDecliningInv}
+                          />
+                        </Animated.View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* JOIN REQUESTS SECTION */}
+                {requests.length > 0 && (
+                  <View style={styles.sectionBlock}>
+                    <View style={styles.sectionHeaderRow}>
+                      <View style={styles.sectionTitleGroup}>
+                        <View
+                          style={[
+                            styles.sectionIndicatorDot,
+                            { backgroundColor: '#10B981' },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.sectionHeading,
+                            { color: theme.colors.textPrimary },
+                          ]}
+                        >
+                          Member Join Requests
+                        </Text>
+                      </View>
+                      <View style={styles.countBadge}>
+                        <Text
+                          style={[
+                            styles.countBadgeText,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          {requests.length}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.cardsGrid}>
+                      {requests.map((req, idx) => {
+                        const tripIdStr =
+                          typeof req.tripId === 'string'
+                            ? req.tripId
+                            : req.tripId?._id || '';
+                        return (
+                          <JoinRequestItemContainer
+                            key={req._id}
+                            request={req}
+                            tripId={tripIdStr}
+                            index={idx}
+                          />
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )
+          ) : /* OUTGOING / SENT INVITATIONS TAB */
+          sentInvitations.length === 0 ? (
             <Animated.View
               entering={FadeInUp.delay(100).springify().damping(18)}
             >
               <EmptyState
-                icon="🎉"
-                title="All Caught Up"
-                description="You don't have any pending trip invitations or member join requests right now."
-                actionLabel="Explore Dashboard"
-                onAction={() => router.replace('/(app)/(tabs)/home')}
+                icon="send"
+                title="No Outgoing Invitations"
+                description="You have not sent any pending invitations to co-travelers yet."
+                actionLabel="Plan a Trip"
+                onAction={() => router.push('/(app)/create-trip')}
               />
             </Animated.View>
           ) : (
             <View style={styles.sectionsContainer}>
-              {/* ── INVITATIONS SECTION ── */}
-              {invitations.length > 0 && (
-                <View style={styles.sectionBlock}>
-                  <View style={styles.sectionHeaderRow}>
-                    <View style={styles.sectionTitleGroup}>
-                      <View
-                        style={[
-                          styles.sectionIndicatorDot,
-                          { backgroundColor: '#2563EB' },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.sectionHeading,
-                          { color: theme.colors.textPrimary },
-                        ]}
-                      >
-                        Trip Invitations
-                      </Text>
-                    </View>
-                    <View style={styles.countBadge}>
-                      <Text
-                        style={[
-                          styles.countBadgeText,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        {invitations.length}
-                      </Text>
-                    </View>
+              <View style={styles.sectionBlock}>
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionTitleGroup}>
+                    <View
+                      style={[
+                        styles.sectionIndicatorDot,
+                        { backgroundColor: '#8B5CF6' },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.sectionHeading,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      Pending Sent Invitations
+                    </Text>
                   </View>
-
-                  <View style={styles.cardsGrid}>
-                    {invitations.map((inv, idx) => (
-                      <Animated.View
-                        key={inv._id}
-                        entering={FadeInDown.delay(idx * 40)
-                          .springify()
-                          .damping(18)}
-                        layout={Layout.springify()}
-                        style={styles.cardCol}
-                      >
-                        <InvitationCard
-                          invitation={inv}
-                          onAccept={handleAcceptInvite}
-                          onDecline={handleDeclineInvite}
-                          isAccepting={isAcceptingInv}
-                          isDeclining={isDecliningInv}
-                        />
-                      </Animated.View>
-                    ))}
+                  <View style={styles.countBadge}>
+                    <Text
+                      style={[
+                        styles.countBadgeText,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      {sentInvitations.length}
+                    </Text>
                   </View>
                 </View>
-              )}
 
-              {/* ── JOIN REQUESTS SECTION ── */}
-              {requests.length > 0 && (
-                <View style={styles.sectionBlock}>
-                  <View style={styles.sectionHeaderRow}>
-                    <View style={styles.sectionTitleGroup}>
-                      <View
-                        style={[
-                          styles.sectionIndicatorDot,
-                          { backgroundColor: '#10B981' },
-                        ]}
+                <View style={styles.cardsGrid}>
+                  {sentInvitations.map((inv, idx) => (
+                    <Animated.View
+                      key={inv._id}
+                      entering={FadeInDown.delay(idx * 40)
+                        .springify()
+                        .damping(18)}
+                      layout={Layout.springify()}
+                      style={styles.cardCol}
+                    >
+                      <SentInvitationCard
+                        invitation={inv}
+                        onRevoke={handleRevokeInvite}
+                        isRevoking={revokingId === inv._id}
                       />
-                      <Text
-                        style={[
-                          styles.sectionHeading,
-                          { color: theme.colors.textPrimary },
-                        ]}
-                      >
-                        Member Join Requests
-                      </Text>
-                    </View>
-                    <View style={styles.countBadge}>
-                      <Text
-                        style={[
-                          styles.countBadgeText,
-                          { color: theme.colors.textSecondary },
-                        ]}
-                      >
-                        {requests.length}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.cardsGrid}>
-                    {requests.map((req, idx) => {
-                      const tripIdStr =
-                        typeof req.tripId === 'string'
-                          ? req.tripId
-                          : req.tripId?._id || '';
-                      return (
-                        <JoinRequestItemContainer
-                          key={req._id}
-                          request={req}
-                          tripId={tripIdStr}
-                          index={idx}
-                        />
-                      );
-                    })}
-                  </View>
+                    </Animated.View>
+                  ))}
                 </View>
-              )}
+              </View>
             </View>
           )}
         </View>
@@ -855,6 +1223,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(15,23,42,0.06)',
   },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.06)',
+  },
+  tabSelectorBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 11,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '900',
@@ -889,55 +1276,44 @@ const styles = StyleSheet.create({
   // Bento Metrics Row
   bentoMetricsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   bentoTile: {
     flex: 1,
-    minWidth: 150,
-    padding: 14,
-    borderRadius: 18,
+    minWidth: 0,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.05)',
-
+    justifyContent: 'space-between',
     ...Platform.select({
-      web: {
-        boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
-      } as any,
-
+      web: { boxShadow: '0 2px 10px rgba(0,0,0,0.02)' } as any,
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        elevation: 2,
       },
     }),
-
-    justifyContent: 'space-between',
   },
   bentoTileTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
+    marginBottom: 6,
   },
   tileIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tileLabel: {
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
   },
   tileValue: {
     fontSize: 18,
@@ -945,9 +1321,43 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   tileSub: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '500',
     marginTop: 2,
+  },
+
+  // Segmented Tab Selector
+  segmentedContainer: {
+    flexDirection: 'row',
+    borderRadius: 999,
+    padding: 3,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  segmentedTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  segmentedTabActive: {
+    ...Platform.select({
+      web: { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' } as any,
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+      },
+    }),
+  },
+  segmentedTabText: {
+    fontSize: 12.5,
+    fontWeight: '700',
   },
 
   // Sections
@@ -1097,17 +1507,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   actionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.06)',
     flex: 1,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
+    borderRadius: 12,
   },
   acceptBtn: {
     backgroundColor: '#2563EB',
@@ -1135,525 +1541,3 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-// // app/(app)/requests.tsx
-// import React, { useMemo, useCallback, useState } from 'react';
-// import { View, ScrollView, RefreshControl, StyleSheet, Platform } from 'react-native';
-// import { router, Stack } from 'expo-router';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import Animated, {
-//   useSharedValue,
-//   useAnimatedStyle,
-//   withSpring,
-//   withTiming,
-//   FadeInDown,
-//   FadeInUp,
-//   Layout,
-// } from 'react-native-reanimated';
-
-// import { useTheme } from '../../providers/ThemeProvider';
-// import { useResponsive } from '../../hooks/useResponsive';
-// import { usePendingInvitations, useAcceptInvitation, useDeclineInvitation } from '../../hooks/useInvitations';
-// import { useAdminJoinRequests, useApproveJoinRequest, useRejectJoinRequest } from '../../hooks/useJoinRequests';
-// import { haptics } from '../../utils/haptics';
-
-// import { GlobalBackground } from '../../components/ui/GlobalBackground';
-// import { GlassCard } from '../../components/ui/GlassCard';
-// import { Typography } from '../../components/ui/Typography';
-// import { Badge, BadgeVariant } from '../../components/ui/Badge';
-// import { Button } from '../../components/ui/Button';
-// import { InteractiveWrapper } from '../../components/ui/InteractiveWrapper';
-// import { Container } from '../../components/ui/Container';
-// import { Section } from '../../components/ui/Section';
-// import { EmptyState } from '../../components/ui/EmptyState';
-// import AppIcon from '../../components/common/AppIcon';
-
-// // ─── Types ───────────────────────────────────────────────────
-// interface Invitation {
-//   _id: string;
-//   tripTitle?: string;
-//   fromName?: string;
-//   message?: string;
-//   tripId?: { _id: string; title: string };
-//   fromUser?: { displayName: string; photoURL?: string };
-// }
-
-// interface JoinRequest {
-//   _id: string;
-//   tripId: string | { _id: string; title?: string };
-//   tripTitle?: string;
-//   userName?: string;
-//   fromName?: string;
-//   message?: string;
-//   user?: { displayName: string; photoURL?: string };
-// }
-
-// // ─── Constants ───────────────────────────────────────────────
-// const WEB = Platform.OS === 'web';
-
-// // ─── Sub-Components ──────────────────────────────────────────
-
-// function PendingInvitations() {
-//   const theme = useTheme();
-//   const { data: invitationsData, isLoading } = usePendingInvitations();
-//   const { mutate: accept, isPending: isAccepting } = useAcceptInvitation();
-//   const { mutate: decline, isPending: isDeclining } = useDeclineInvitation();
-
-//   const invitations: Invitation[] = useMemo(() => {
-//     if (!invitationsData) return [];
-//     return Array.isArray(invitationsData)
-//       ? invitationsData
-//       : (invitationsData as any)?.invitations || [];
-//   }, [invitationsData]);
-
-//   const handleAccept = useCallback(
-//     (id: string) => {
-//       haptics.medium();
-//       if (WEB && window.confirm('Accept this invitation?')) {
-//         accept(id);
-//       } else if (!WEB) {
-//         accept(id);
-//       }
-//     },
-//     [accept]
-//   );
-
-//   const handleDecline = useCallback(
-//     (id: string) => {
-//       haptics.light();
-//       if (WEB && window.confirm('Decline this invitation?')) {
-//         decline(id);
-//       } else if (!WEB) {
-//         decline(id);
-//       }
-//     },
-//     [decline]
-//   );
-
-//   if (isLoading) {
-//     return (
-//       <View style={{ paddingVertical: theme.spacing.xl }}>
-//         <Typography variant="body" color="textTertiary" align="center">
-//           Loading invitations…
-//         </Typography>
-//       </View>
-//     );
-//   }
-
-//   if (invitations.length === 0) return null;
-
-//   return (
-//     <Section
-//       title="Trip Invitations"
-//       subtitle={`${invitations.length} pending`}
-//     >
-//       <View style={{ gap: theme.spacing.md }}>
-//         {invitations.map((inv, index) => (
-//           <Animated.View
-//             key={inv._id}
-//             entering={FadeInDown.delay(index * 80).springify().damping(18)}
-//             layout={Layout.springify()}
-//           >
-//             <GlassCard variant="medium" padding="lg">
-//               <View style={{ gap: theme.spacing.md }}>
-//                 {/* Header */}
-//                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.md }}>
-//                   <View
-//                     style={{
-//                       width: 44,
-//                       height: 44,
-//                       borderRadius: 22,
-//                       backgroundColor: theme.colors.primaryBg,
-//                       alignItems: 'center',
-//                       justifyContent: 'center',
-//                     }}
-//                   >
-//                     <AppIcon name="mail" size={20} color={theme.colors.primary} />
-//                   </View>
-//                   <View style={{ flex: 1, gap: 2 }}>
-//                     <Typography variant="body" weight="semibold" color="textPrimary" numberOfLines={1}>
-//                       {inv.tripTitle || 'Untitled Trip'}
-//                     </Typography>
-//                     <Typography variant="caption" color="textSecondary">
-//                       Invited by {inv.fromName || 'Unknown'}
-//                     </Typography>
-//                     {inv.message ? (
-//                       <Typography variant="caption" color="textTertiary" style={{ fontStyle: 'italic', marginTop: 2 }}>
-//                         "{inv.message}"
-//                       </Typography>
-//                     ) : null}
-//                   </View>
-//                 </View>
-
-//                 {/* Actions */}
-//                 <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-//                   <Button
-//                     title={isAccepting ? 'Accepting…' : 'Accept'}
-//                     variant="primary"
-//                     size="md"
-//                     fullWidth
-//                     onPress={() => handleAccept(inv._id)}
-//                     loading={isAccepting}
-//                     disabled={isDeclining}
-//                     leftIcon={<AppIcon name="check" size={16} color={theme.colors.textInverse} />}
-//                   />
-//                   <Button
-//                     title={isDeclining ? 'Declining…' : 'Decline'}
-//                     variant="outline"
-//                     size="md"
-//                     fullWidth
-//                     onPress={() => handleDecline(inv._id)}
-//                     loading={isDeclining}
-//                     disabled={isAccepting}
-//                   />
-//                 </View>
-//               </View>
-//             </GlassCard>
-//           </Animated.View>
-//         ))}
-//       </View>
-//     </Section>
-//   );
-// }
-
-// // ─────────────────────────────────────────────────────────────
-
-// function JoinRequestItem({ request, tripId }: { request: JoinRequest; tripId: string }) {
-//   const theme = useTheme();
-//   const { mutate: approve, isPending: isApproving } = useApproveJoinRequest(tripId);
-//   const { mutate: reject, isPending: isRejecting } = useRejectJoinRequest(tripId);
-
-//   const handleApprove = useCallback(() => {
-//     haptics.medium();
-//     if (WEB && window.confirm(`Approve ${request.userName || request.fromName || 'user'}?`)) {
-//       approve(request._id);
-//     } else if (!WEB) {
-//       approve(request._id);
-//     }
-//   }, [approve, request]);
-
-//   const handleReject = useCallback(() => {
-//     haptics.light();
-//     if (WEB && window.confirm(`Reject ${request.userName || request.fromName || 'user'}?`)) {
-//       reject(request._id);
-//     } else if (!WEB) {
-//       reject(request._id);
-//     }
-//   }, [reject, request]);
-
-//   return (
-//     <GlassCard variant="subtle" padding="lg">
-//       <View style={{ gap: theme.spacing.md }}>
-//         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.md }}>
-//           <View
-//             style={{
-//               width: 44,
-//               height: 44,
-//               borderRadius: 22,
-//               backgroundColor: theme.colors.infoBg,
-//               alignItems: 'center',
-//               justifyContent: 'center',
-//             }}
-//           >
-//             <AppIcon name="user" size={20} color={theme.colors.info} />
-//           </View>
-//           <View style={{ flex: 1, gap: 2 }}>
-//             <Typography variant="body" weight="semibold" color="textPrimary" numberOfLines={1}>
-//               {request.userName || request.fromName || 'Unknown User'}
-//             </Typography>
-//             <Typography variant="caption" color="textSecondary">
-//               Wants to join {request.tripTitle || 'this trip'}
-//             </Typography>
-//             {request.message ? (
-//               <Typography variant="caption" color="textTertiary" style={{ fontStyle: 'italic', marginTop: 2 }}>
-//                 "{request.message}"
-//               </Typography>
-//             ) : null}
-//           </View>
-//         </View>
-
-//         <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
-//           <Button
-//             title={isApproving ? 'Approving…' : 'Approve'}
-//             variant="primary"
-//             size="sm"
-//             fullWidth
-//             color="success"
-//             onPress={handleApprove}
-//             loading={isApproving}
-//             disabled={isRejecting}
-//             leftIcon={<AppIcon name="check" size={14} color={theme.colors.textInverse} />}
-//           />
-//           <Button
-//             title={isRejecting ? 'Rejecting…' : 'Reject'}
-//             variant="outline"
-//             size="sm"
-//             fullWidth
-//             onPress={handleReject}
-//             loading={isRejecting}
-//             disabled={isApproving}
-//           />
-//         </View>
-//       </View>
-//     </GlassCard>
-//   );
-// }
-
-// // ─────────────────────────────────────────────────────────────
-
-// function AdminJoinRequests() {
-//   const theme = useTheme();
-//   const { data: requestsData, isLoading, error } = useAdminJoinRequests();
-
-//   const requests: JoinRequest[] = useMemo(() => {
-//     if (!requestsData) return [];
-//     return Array.isArray(requestsData)
-//       ? requestsData
-//       : (requestsData as any)?.requests || [];
-//   }, [requestsData]);
-
-//   const grouped = useMemo(() => {
-//     const map: Record<string, JoinRequest[]> = {};
-//     requests.forEach((req) => {
-//       const id = typeof req.tripId === 'string' ? req.tripId : req.tripId?._id || 'unknown';
-//       if (!map[id]) map[id] = [];
-//       map[id].push(req);
-//     });
-//     return map;
-//   }, [requests]);
-
-//   if (isLoading) {
-//     return (
-//       <View style={{ paddingVertical: theme.spacing.xl }}>
-//         <Typography variant="body" color="textTertiary" align="center">
-//           Loading join requests…
-//         </Typography>
-//       </View>
-//     );
-//   }
-
-//   if (error) {
-//     return (
-//       <View style={{ paddingVertical: theme.spacing.xl }}>
-//         <Typography variant="body" color="danger" align="center">
-//           Could not load join requests.
-//         </Typography>
-//       </View>
-//     );
-//   }
-
-//   if (requests.length === 0) return null;
-
-//   const tripIds = Object.keys(grouped);
-
-//   return (
-//     <Section
-//       title="Join Requests"
-//       subtitle={`${requests.length} across ${tripIds.length} trip${tripIds.length > 1 ? 's' : ''}`}
-//     >
-//       <View style={{ gap: theme.spacing.xl }}>
-//         {tripIds.map((tripId) => {
-//           const tripRequests = grouped[tripId];
-//           const tripTitle = tripRequests[0]?.tripTitle || 'Untitled Trip';
-
-//           return (
-//             <View key={tripId} style={{ gap: theme.spacing.sm }}>
-//               <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
-//                 <View
-//                   style={{
-//                     width: 8,
-//                     height: 8,
-//                     borderRadius: 4,
-//                     backgroundColor: theme.colors.info,
-//                   }}
-//                 />
-//                 <Typography variant="caption" weight="semibold" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-//                   {tripTitle}
-//                 </Typography>
-//                 <Badge label={`${tripRequests.length}`} variant="info" />
-//               </View>
-//               <View style={{ gap: theme.spacing.sm }}>
-//                 {tripRequests.map((req, index) => (
-//                   <Animated.View
-//                     key={req._id}
-//                     entering={FadeInDown.delay(index * 60).springify().damping(20)}
-//                     layout={Layout.springify()}
-//                   >
-//                     <JoinRequestItem request={req} tripId={tripId} />
-//                   </Animated.View>
-//                 ))}
-//               </View>
-//             </View>
-//           );
-//         })}
-//       </View>
-//     </Section>
-//   );
-// }
-
-// // ─── Main Screen ─────────────────────────────────────────────
-
-// export default function RequestsScreen() {
-//   const theme = useTheme();
-//   const { isDesktop } = useResponsive();
-//   const insets = useSafeAreaInsets();
-
-//   const { data: invitationsData, isRefetching: refetchingInv, refetch: refetchInv } = usePendingInvitations();
-//   const { data: requestsData, isRefetching: refetchingReq, refetch: refetchReq } = useAdminJoinRequests();
-
-//   const invitations: Invitation[] = useMemo(() => {
-//     if (!invitationsData) return [];
-//     return Array.isArray(invitationsData)
-//       ? invitationsData
-//       : (invitationsData as any)?.invitations || [];
-//   }, [invitationsData]);
-
-//   const requests: JoinRequest[] = useMemo(() => {
-//     if (!requestsData) return [];
-//     return Array.isArray(requestsData)
-//       ? requestsData
-//       : (requestsData as any)?.requests || [];
-//   }, [requestsData]);
-
-//   const isRefreshing = refetchingInv || refetchingReq;
-//   const totalCount = invitations.length + requests.length;
-//   const hasContent = totalCount > 0;
-
-//   const handleRefresh = useCallback(() => {
-//     haptics.light();
-//     refetchInv();
-//     refetchReq();
-//   }, [refetchInv, refetchReq]);
-
-//   // Animated header badge
-//   const badgeScale = useSharedValue(1);
-//   React.useEffect(() => {
-//     badgeScale.value = withSpring(1.15, { damping: 10, stiffness: 200 }, () => {
-//       badgeScale.value = withSpring(1, { damping: 15, stiffness: 250 });
-//     });
-//   }, [totalCount]);
-
-//   const badgeAnimatedStyle = useAnimatedStyle(() => ({
-//     transform: [{ scale: badgeScale.value }],
-//   }));
-
-//   return (
-//     <View style={styles.root}>
-//       <Stack.Screen options={{ headerShown: false }} />
-
-//       {/* Background */}
-//       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-//         <GlobalBackground />
-//       </View>
-
-//       {/* Header */}
-//       <GlassCard
-//         variant="medium"
-//         padding="none"
-//         style={[
-//           styles.header,
-//           { paddingTop: insets.top + theme.spacing.sm },
-//         ]}
-//         intensity={theme.isDark ? 20 : 15}
-//       >
-//         <View style={[styles.headerInner, { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg }]}>
-//           {/* Back Button */}
-//           <InteractiveWrapper onPress={() => { haptics.light(); router.back(); }}>
-//             <View style={[styles.headerIconBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight }]}>
-//               <AppIcon name="arrow-left" size={20} color={theme.colors.textPrimary} />
-//             </View>
-//           </InteractiveWrapper>
-
-//           {/* Title */}
-//           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
-//             <Typography variant="h3" weight="bold" color="textPrimary">
-//               Requests
-//             </Typography>
-//             {totalCount > 0 && (
-//               <Animated.View style={badgeAnimatedStyle}>
-//                 <Badge label={`${totalCount}`} variant="danger" />
-//               </Animated.View>
-//             )}
-//           </View>
-
-//           {/* Refresh Button */}
-//           <InteractiveWrapper onPress={handleRefresh}>
-//             <View style={[styles.headerIconBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight }]}>
-//               <AppIcon name="refresh-cw" size={18} color={theme.colors.textSecondary} />
-//             </View>
-//           </InteractiveWrapper>
-//         </View>
-//       </GlassCard>
-
-//       {/* Content */}
-//       <Container
-//         maxWidth={800}
-//         style={{ flex: 1, paddingTop: theme.spacing.lg }}
-//       >
-//         <ScrollView
-//           showsVerticalScrollIndicator={false}
-//           contentContainerStyle={{
-//             paddingBottom: insets.bottom + theme.spacing['5xl'],
-//             paddingHorizontal: isDesktop ? 0 : theme.spacing.lg,
-//           }}
-//           refreshControl={
-//             <RefreshControl
-//               refreshing={isRefreshing}
-//               onRefresh={handleRefresh}
-//               tintColor={theme.colors.primary}
-//               colors={[theme.colors.primary]}
-//             />
-//           }
-//         >
-//           {!hasContent ? (
-//             <Animated.View entering={FadeInUp.delay(150).springify()}>
-//               <EmptyState
-//                 icon="📥"
-//                 title="All Caught Up"
-//                 description="You don't have any pending trip invitations or join requests right now."
-//                 actionLabel="Go to Dashboard"
-//                 onAction={() => router.replace('/(app)/(tabs)/home')}
-//               />
-//             </Animated.View>
-//           ) : (
-//             <Animated.View
-//               entering={FadeInUp.springify().damping(18)}
-//               style={{ gap: theme.spacing['3xl'] }}
-//             >
-//               <PendingInvitations />
-//               <AdminJoinRequests />
-//             </Animated.View>
-//           )}
-//         </ScrollView>
-//       </Container>
-//     </View>
-//   );
-// }
-
-// // ─── Styles ──────────────────────────────────────────────────
-
-// const styles = StyleSheet.create({
-//   root: {
-//     flex: 1,
-//   },
-//   header: {
-//     borderBottomWidth: 1,
-//     borderBottomColor: 'rgba(255,255,255,0.06)',
-//     borderLeftWidth: 0,
-//     borderRightWidth: 0,
-//     borderRadius: 0,
-//   },
-//   headerInner: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'space-between',
-//   },
-//   headerIconBtn: {
-//     width: 40,
-//     height: 40,
-//     borderRadius: 20,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     borderWidth: 1,
-//     ...(WEB ? { cursor: 'pointer' } : {}),
-//   },
-// });

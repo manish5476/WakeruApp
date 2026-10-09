@@ -83,6 +83,7 @@ export {
   useSettleSelected,
   useSettleSingle,
   useRejectPayment,
+  useRevertPayment,
   useRemindPayer,
   useRetryPayment,
   useMySettlements,

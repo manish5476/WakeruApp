@@ -205,7 +205,7 @@ export default function QuickActionsScreen() {
     });
     if (!result.canceled && result.assets?.[0]) {
       router.push({
-        pathname: '/(app)/receipts/upload',
+        pathname: '/(app)/receipts/confirm',
         params: { imageUri: result.assets[0].uri },
       } as any);
     }
@@ -497,10 +497,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    alignItems: 'stretch',
   },
   toolGridCol: {
     flex: 1,
-    minWidth: '30%',
+    minWidth: '29%',
+    maxWidth: '33%',
   },
 });
 

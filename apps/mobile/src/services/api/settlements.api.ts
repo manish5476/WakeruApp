@@ -1,4 +1,4 @@
-﻿import apiClient, { ApiResponse } from './client';
+import apiClient, { ApiResponse } from './client';
 import { ISettlement } from '../../types/settlement.types';
 
 export const settlementsApi = {
@@ -85,6 +85,18 @@ export const settlementsApi = {
   ): Promise<ApiResponse<{ message: string }>> => {
     return apiClient.post(
       `/settlements/trip/${tripId}/transactions/${transactionId}/remind`,
+    );
+  },
+
+  /** Payer, Receiver, or Admin reverts payment back to pending (resets initiated/confirmed state and restores splits) */
+  revertPayment: async (
+    tripId: string,
+    transactionId: string,
+    reason?: string,
+  ): Promise<ApiResponse<{ transaction: any; settlement: ISettlement }>> => {
+    return apiClient.post(
+      `/settlements/trip/${tripId}/transactions/${transactionId}/revert`,
+      { reason },
     );
   },
 

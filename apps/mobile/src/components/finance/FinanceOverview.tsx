@@ -30,6 +30,8 @@ import AppIcon from '../common/AppIcon';
 
 interface FinanceOverviewProps {
   month: string;
+  includeTripExpenses?: boolean;
+  onToggleIncludeTripExpenses?: (val: boolean) => void;
   onMonthChange?: (month: string) => void;
   onNavigateTab?: (tab: string) => void;
 }

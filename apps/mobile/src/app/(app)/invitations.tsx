@@ -21,12 +21,15 @@ import { GlobalBackground } from '../../components/ui/GlobalBackground';
 import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import {
-  useMyTripInvites,
-  useRespondToTripInvite,
-} from '../../hooks/useFriends';
+  usePendingInvitations,
+  useAcceptInvitation,
+  useDeclineInvitation,
+} from '../../hooks/useInvitations';
 import { useTheme } from '../../providers/ThemeProvider';
 import { useResponsive } from '../../hooks/useResponsive';
+import { showToast } from '../../utils/toast';
 import { haptics } from '../../utils/haptics';
+import { format } from 'date-fns';
 import type { Theme } from '../../theme';
 
 interface Invitation {
@@ -35,9 +38,16 @@ interface Invitation {
   fromName?: string;
   message?: string;
   status: string;
-  isSentToMe: boolean;
-  tripId?: { _id: string; title: string; coverImage?: string };
-  fromUser?: { displayName: string; photoURL?: string; email?: string };
+  tripId?: {
+    _id: string;
+    title: string;
+    coverImage?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+  };
+  fromUserId?: { displayName?: string; photoURL?: string; email?: string };
+  fromUser?: { displayName?: string; photoURL?: string; email?: string };
   createdAt?: string;
 }
 
@@ -55,46 +65,72 @@ export default function InvitationsScreen() {
     isLoading,
     isRefetching,
     refetch,
-  } = useMyTripInvites();
-  const { mutate: respondToInvite, isPending: isResponding } =
-    useRespondToTripInvite();
+  } = usePendingInvitations();
+  const { mutate: acceptInv, isPending: isAccepting } = useAcceptInvitation();
+  const { mutate: declineInv, isPending: isDeclining } = useDeclineInvitation();
+  const isResponding = isAccepting || isDeclining;
 
-  // Filter to only show invites sent TO the current user that are pending
+  // Pending invites from canonical system
   const pendingInvites: Invitation[] = useMemo(() => {
-    return (invitations || []).filter(
-      (i: any) => i.isSentToMe && i.status === 'pending',
-    );
+    if (!invitations) return [];
+    const list = Array.isArray(invitations)
+      ? invitations
+      : (invitations as any)?.invitations || [];
+    return list.filter((i: any) => i.status === 'pending');
   }, [invitations]);
 
   const handleAction = useCallback(
-    (invitationId: string, action: 'accept' | 'decline') => {
-      const status = action === 'accept' ? 'going' : 'declined';
+    (invitationId: string, action: 'accept' | 'decline', tripId?: string) => {
       haptics.medium();
 
       const confirmAction = () => {
-        respondToInvite(
-          { inviteId: invitationId, status },
-          {
+        if (action === 'accept') {
+          acceptInv(invitationId, {
+            onSuccess: (data: any) => {
+              haptics.success();
+              const destTripId =
+                tripId || data?.data?.tripId || data?.data?.trip?._id;
+              showToast.success(
+                'Trip Joined Successfully',
+                "You're now part of this expedition",
+                destTripId
+                  ? {
+                      action: {
+                        label: 'Open Trip',
+                        onPress: () =>
+                          router.push(`/(app)/trips/${destTripId}` as any),
+                      },
+                    }
+                  : undefined,
+              );
+              if (destTripId) {
+                router.push(`/(app)/trips/${destTripId}` as any);
+              }
+            },
+            onError: (error: any) => {
+              showToast.fromError(error, 'Failed to accept invitation');
+            },
+          });
+        } else {
+          declineInv(invitationId, {
             onSuccess: () => {
               haptics.success();
-              Alert.alert(
-                `Invitation ${action === 'accept' ? 'Accepted' : 'Declined'}`,
-                `You have successfully ${action === 'accept' ? 'joined' : 'declined'} the expedition.`,
+              showToast.info(
+                'Invitation Declined',
+                'The trip invitation was declined.',
               );
             },
             onError: (error: any) => {
-              Alert.alert(
-                'Notice',
-                error.message || `Failed to ${action} invitation`,
-              );
+              showToast.fromError(error, 'Failed to decline invitation');
             },
-          },
-        );
+          });
+        }
       };
 
       if (action === 'decline') {
         if (Platform.OS === 'web') {
           if (
+            typeof window !== 'undefined' &&
             window.confirm(
               'Are you sure you want to decline this trip invitation?',
             )
@@ -115,14 +151,18 @@ export default function InvitationsScreen() {
         confirmAction();
       }
     },
-    [respondToInvite],
+    [acceptInv, declineInv, router],
   );
 
   const renderItem = ({ item, index }: { item: Invitation; index: number }) => {
     const inviterName =
-      item.fromUser?.displayName || item.fromName || 'Trip Organizer';
+      item.fromUserId?.displayName ||
+      item.fromUser?.displayName ||
+      item.fromName ||
+      'Trip Organizer';
+    const inviterPhoto = item.fromUserId?.photoURL || item.fromUser?.photoURL;
     const tripTitle =
-      item.tripTitle || item.tripId?.title || 'Untitled Expedition';
+      item.tripId?.title || item.tripTitle || 'Untitled Expedition';
 
     return (
       <Animated.View
@@ -164,6 +204,32 @@ export default function InvitationsScreen() {
               >
                 {tripTitle}
               </Text>
+              {item.tripId?.startDate && item.tripId?.endDate && (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    marginTop: 4,
+                  }}
+                >
+                  <AppIcon
+                    name="calendar"
+                    size={12}
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: '500',
+                      color: theme.colors.textSecondary,
+                    }}
+                  >
+                    {format(new Date(item.tripId.startDate), 'MMM d')} –{' '}
+                    {format(new Date(item.tripId.endDate), 'MMM d, yyyy')}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
 
@@ -175,7 +241,7 @@ export default function InvitationsScreen() {
             ]}
           >
             <Avatar
-              url={item.fromUser?.photoURL}
+              url={inviterPhoto}
               fallback={inviterName.charAt(0).toUpperCase()}
               size="md"
             />
@@ -228,7 +294,7 @@ export default function InvitationsScreen() {
           {/* Actions */}
           <View style={styles.actionRow}>
             <Pressable
-              onPress={() => handleAction(item._id, 'accept')}
+              onPress={() => handleAction(item._id, 'accept', item.tripId?._id)}
               disabled={isResponding}
               style={({ pressed }) => [
                 styles.actionBtn,
@@ -737,248 +803,3 @@ function createStyles(theme: Theme) {
     },
   });
 }
-// import GlobalLoader from '../../components/common/GlobalLoader';
-// import React, { useMemo } from 'react';
-// import { View, Text, StyleSheet, FlatList, Platform, useWindowDimensions, Pressable, PressableStateCallbackType, Alert } from 'react-native';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { useRouter } from 'expo-router';
-// import { GlobalBackground } from '../../components/ui/GlobalBackground';
-// import { GlassCard } from '../../components/ui/GlassCard';
-// import { useGlobalStyles } from '../../hooks/useGlobalStyles';
-// import { useMyTripInvites, useRespondToTripInvite } from '../../hooks/useFriends';
-// import { useTheme } from '../../providers/ThemeProvider';
-
-// // Safe web pressable type
-// type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
-
-// export default function InvitationsScreen() {
-//     const theme = useTheme();
-//     const globalStyles = useGlobalStyles();
-//     const styles = useStyles();
-//     const insets = useSafeAreaInsets();
-//     const { width } = useWindowDimensions();
-//     const router = useRouter();
-
-//     // Check for widescreen desktop browser
-//     const isWebDesktop = Platform.OS === 'web' && width > 768;
-
-//     const { data: invitations, isLoading } = useMyTripInvites();
-//     const { mutate: respondToInvite } = useRespondToTripInvite();
-
-//     // Filter to only show invites sent TO the current user that are pending
-//     const pendingInvites = useMemo(() => {
-//         return (invitations || []).filter((i: any) => i.isSentToMe && i.status === 'pending');
-//     }, [invitations]);
-
-//     const handleAction = (invitationId: string, action: 'accept' | 'decline') => {
-//         const status = action === 'accept' ? 'going' : 'declined';
-//         respondToInvite({ inviteId: invitationId, status }, {
-//             onSuccess: () => {
-//                 Alert.alert(
-//                     `Invitation ${action === 'accept' ? 'Accepted' : 'Declined'}`,
-//                     `You have successfully ${action === 'accept' ? 'accepted' : 'declined'} the invitation.`
-//                 );
-//             },
-//             onError: (error: any) => {
-//                 Alert.alert('Error', error.message || `Failed to ${action} invitation`);
-//             }
-//         });
-//     };
-
-//     const renderItem = ({ item }: { item: any }) => (
-//         <GlassCard style={styles.notifCard} intensity={theme.isDark ? 10 : 5}>
-//             <View style={styles.notifHeader}>
-//                 <Text style={styles.notifTitle}>Trip Invitation from {item.fromName}</Text>
-//             </View>
-//             <Text style={styles.notifMessage}>
-//                 {item.fromName} invited you to join their trip "{item.tripTitle}".
-//                 {item.message ? `\n\n"${item.message}"` : ''}
-//             </Text>
-//             <View style={styles.actionButtonsContainer}>
-//                 <Pressable
-//                     style={({ hovered, pressed }: WebPressableState) => [
-//                         styles.actionButton,
-//                         styles.actionButton_primary,
-//                         Platform.OS === 'web' && hovered && styles.hoverLift,
-//                         pressed && styles.pressedState
-//                     ]}
-//                     onPress={() => handleAction(item._id, 'accept')}
-//                 >
-//                     <Text style={[styles.actionButtonText, styles.actionButtonText_primary]}>✅ Accept</Text>
-//                 </Pressable>
-//                 <Pressable
-//                     style={({ hovered, pressed }: WebPressableState) => [
-//                         styles.actionButton,
-//                         styles.actionButton_danger,
-//                         Platform.OS === 'web' && hovered && styles.hoverLift,
-//                         pressed && styles.pressedState
-//                     ]}
-//                     onPress={() => handleAction(item._id, 'decline')}
-//                 >
-//                     <Text style={[styles.actionButtonText, styles.actionButtonText_danger]}>❌ Decline</Text>
-//                 </Pressable>
-//             </View>
-//         </GlassCard>
-//     );
-
-//     return (
-//         <GlobalBackground>
-//             <View style={[styles.webDesktopContent, isWebDesktop && styles.webDesktopContentCentered]}>
-//                 <View style={[styles.header, { paddingTop: Platform.OS === 'web' ? theme.spacing['4'] : insets.top + 12 }]}>
-//                     <Text style={styles.title}>Pending Invitations</Text>
-//                 </View>
-
-//                 {isLoading ? (
-//                     <View style={globalStyles.loadingContainer}>
-//                         <GlobalLoader variant="inline" size="large" color={theme.colors.primary}  />
-//                     </View>
-//                 ) : (
-//                     <FlatList
-//                         data={pendingInvites}
-//                         keyExtractor={(item) => item._id}
-//                         renderItem={renderItem}
-//                         contentContainerStyle={[styles.listContent, { paddingBottom: Platform.OS === 'web' ? 120 : insets.bottom + 100 }]}
-//                         showsVerticalScrollIndicator={false}
-//                         ListEmptyComponent={
-//                             <View style={styles.emptyContainer}>
-//                                 <GlassCard style={styles.emptyIconCircle} intensity={theme.isDark ? 12 : 6}>
-//                                     <Text style={styles.emptyEmoji}>📨</Text>
-//                                 </GlassCard>
-//                                 <Text style={styles.emptyTitle}>No Pending Invitations</Text>
-//                                 <Text style={styles.emptyText}>You don't have any pending trip invitations.</Text>
-//                             </View>
-//                         }
-//                     />
-//                 )}
-//             </View>
-//         </GlobalBackground>
-//     );
-// }
-
-// const useStyles = () => {
-//     const theme = useTheme();
-//     return useMemo(() => StyleSheet.create({
-//         webDesktopContent: {
-//             flex: 1,
-//             width: '100%',
-//         },
-//         webDesktopContentCentered: {
-//             maxWidth: 1024,
-//             alignSelf: 'center',
-//             backgroundColor: 'transparent',
-//         },
-//         hoverLift: {
-//             transform: [{ translateY: -2 }],
-//             ...theme.shadows.md,
-//             ...(Platform.OS === 'web' ? { transition: 'all 0.2s ease', cursor: 'pointer' } : {}),
-//         } as any,
-//         pressedState: {
-//             transform: [{ translateY: 0 }],
-//             opacity: 0.8,
-//         },
-//         header: {
-//             flexDirection: 'row',
-//             justifyContent: 'space-between',
-//             alignItems: 'center',
-//             paddingHorizontal: theme.spacing['5'],
-//             paddingBottom: theme.spacing['4'],
-//         },
-//         title: {
-//             fontSize: theme.typography.fontSize['3xl'],
-//             fontWeight: theme.typography.fontWeight.extrabold,
-//             color: theme.colors.textPrimary,
-//             letterSpacing: theme.typography.letterSpacing.tight,
-//         },
-//         listContent: {
-//             paddingHorizontal: theme.spacing['5'],
-//             paddingTop: theme.spacing['2'],
-//             gap: theme.spacing['3'],
-//         },
-//         notifCard: {
-//             borderRadius: theme.borderRadius.xl,
-//             padding: theme.spacing['4'],
-//             borderWidth: 1,
-//             borderColor: theme.colors.borderLight,
-//             overflow: 'hidden',
-//             ...theme.shadows.xs,
-//         },
-//         notifHeader: {
-//             flexDirection: 'row',
-//             justifyContent: 'space-between',
-//             alignItems: 'center',
-//             marginBottom: theme.spacing['2'],
-//         },
-//         notifTitle: {
-//             fontSize: theme.typography.fontSize.base,
-//             fontWeight: theme.typography.fontWeight.bold,
-//             color: theme.colors.textPrimary,
-//             flex: 1,
-//         },
-//         notifMessage: {
-//             fontSize: theme.typography.fontSize.sm,
-//             color: theme.colors.textSecondary,
-//             lineHeight: 20,
-//             marginBottom: theme.spacing['3'],
-//         },
-//         actionButtonsContainer: {
-//             flexDirection: 'row',
-//             justifyContent: 'flex-end',
-//             marginTop: theme.spacing['3'],
-//             gap: theme.spacing['2'],
-//         },
-//         actionButton: {
-//             paddingHorizontal: theme.spacing['3'],
-//             paddingVertical: theme.spacing['2'],
-//             borderRadius: theme.borderRadius.md,
-//             borderWidth: 1,
-//         },
-//         actionButton_primary: {
-//             backgroundColor: theme.colors.primary,
-//             borderColor: theme.colors.primary,
-//         },
-//         actionButton_danger: {
-//             backgroundColor: 'transparent',
-//             borderColor: theme.colors.danger,
-//         },
-//         actionButtonText: {
-//             fontSize: theme.typography.fontSize.sm,
-//             fontWeight: theme.typography.fontWeight.semibold,
-//         },
-//         actionButtonText_primary: {
-//             color: theme.colors.textInverse,
-//         },
-//         actionButtonText_danger: {
-//             color: theme.colors.danger,
-//         },
-//         emptyContainer: {
-//             flex: 1,
-//             justifyContent: 'center',
-//             alignItems: 'center',
-//             paddingTop: theme.spacing['5xl'],
-//             paddingHorizontal: theme.spacing['8'],
-//         },
-//         emptyIconCircle: {
-//             width: 80,
-//             height: 80,
-//             borderRadius: theme.borderRadius.full,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//             marginBottom: theme.spacing['5'],
-//         },
-//         emptyEmoji: {
-//             fontSize: 36,
-//         },
-//         emptyTitle: {
-//             fontSize: theme.typography.fontSize.xl,
-//             fontWeight: theme.typography.fontWeight.bold,
-//             color: theme.colors.textPrimary,
-//             marginBottom: theme.spacing['2']
-//         },
-//         emptyText: {
-//             fontSize: theme.typography.fontSize.sm,
-//             color: theme.colors.textSecondary,
-//             textAlign: 'center',
-//             lineHeight: 22,
-//         },
-//     }), [theme]);
-// };

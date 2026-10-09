@@ -12,7 +12,7 @@ export const config = {
   API_URL:
     Config.API_URL ||
     Config.EXPO_PUBLIC_API_URL ||
-    'http://localhost:8000/api/v1',
+    'https://wakeru.onrender.com/api/v1',
   API_TIMEOUT: parseInt(Config.API_TIMEOUT || '15000', 10),
 
   // Firebase

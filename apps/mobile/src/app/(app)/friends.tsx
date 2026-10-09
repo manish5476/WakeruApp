@@ -1,6 +1,12 @@
 // app/(app)/friends.tsx
 import React, { useState } from 'react';
-import { View, StyleSheet, useWindowDimensions, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  useWindowDimensions,
+  Platform,
+  Modal,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   SlideInRight,
@@ -67,33 +73,43 @@ export default function FriendsScreen() {
             { paddingTop: Platform.OS === 'web' ? 16 : insets.top + 10 },
           ]}
         >
-          {/* ── LEFT BENTO COLUMN: Friends List & Discovery Sidebar ── */}
+          {/* ── LEFT BENTO COLUMN: Friends List & Discovery Sidebar (≈30% Rail) ── */}
           <View
-            style={[
-              styles.sidebarCol,
-              isSplitView && {
-                width: isWideDesktop ? 400 : 340,
-                flex: undefined,
-              },
-            ]}
+            style={[styles.sidebarCol, isSplitView && styles.sidebarColSplit]}
           >
-            <FriendSidebar
-              selectedUserId={selectedUserId}
-              onSelectFriend={handleSelectFriend}
-              onRequestModal={setRequestModalUser}
-            />
+            <View
+              style={[
+                styles.sidebarSurface,
+                {
+                  backgroundColor: theme.isDark
+                    ? 'rgba(15, 23, 42, 0.88)'
+                    : 'rgba(255, 255, 255, 0.92)',
+                  borderColor: theme.isDark
+                    ? 'rgba(255,255,255,0.08)'
+                    : 'rgba(15,23,42,0.06)',
+                },
+              ]}
+            >
+              <FriendSidebar
+                selectedUserId={selectedUserId}
+                onSelectFriend={handleSelectFriend}
+                onRequestModal={setRequestModalUser}
+              />
+            </View>
           </View>
 
-          {/* ── RIGHT BENTO COLUMN: Detailed Profile & Shared Ledger (Tablet/Desktop) ── */}
+          {/* ── RIGHT BENTO COLUMN: Detailed Profile & Shared Ledger (≈70% Workspace) ── */}
           {isSplitView && (
             <View style={styles.detailsCol}>
               <View
                 style={[
                   styles.detailsSurface,
                   {
-                    backgroundColor: theme.colors.surface,
+                    backgroundColor: theme.isDark
+                      ? 'rgba(15, 23, 42, 0.88)'
+                      : 'rgba(255, 255, 255, 0.92)',
                     borderColor: theme.isDark
-                      ? 'rgba(255,255,255,0.06)'
+                      ? 'rgba(255,255,255,0.08)'
                       : 'rgba(15,23,42,0.06)',
                   },
                 ]}
@@ -105,12 +121,12 @@ export default function FriendsScreen() {
                     <View
                       style={[
                         styles.placeholderIconAura,
-                        { backgroundColor: `${theme.colors.primary}12` },
+                        { backgroundColor: `${theme.colors.primary}15` },
                       ]}
                     >
                       <AppIcon
                         name="users"
-                        size={32}
+                        size={36}
                         color={theme.colors.primary}
                       />
                     </View>
@@ -127,40 +143,43 @@ export default function FriendsScreen() {
                       entering={FadeIn.duration(200).delay(50)}
                       style={[
                         styles.placeholderSub,
-                        { color: theme.colors.textTertiary },
+                        { color: theme.colors.textSecondary },
                       ]}
                     >
-                      View mutual trips, pending settlement balances, and
-                      collaborative logs.
+                      Choose a friend on the left to view shared expeditions,
+                      collaborative balances, and travel synergy.
                     </Animated.Text>
                   </View>
                 )}
               </View>
             </View>
           )}
-
-          {/* ── MOBILE SLIDE-OVER OVERLAY ── */}
-          {!isSplitView && isMobileDetailsOpen && (
-            <Animated.View
-              entering={SlideInRight.duration(250)}
-              exiting={SlideOutRight.duration(200)}
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: theme.colors.background,
-                  zIndex: 100,
-                  paddingTop: insets.top,
-                },
-              ]}
-            >
-              <FriendDetailsPanel
-                userId={selectedUserId}
-                onClose={() => setIsMobileDetailsOpen(false)}
-              />
-            </Animated.View>
-          )}
         </View>
       </View>
+
+      {/* ── MOBILE DETAILS MODAL ── */}
+      {!isSplitView && (
+        <Modal
+          visible={isMobileDetailsOpen}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setIsMobileDetailsOpen(false)}
+          statusBarTranslucent
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: theme.colors.background,
+              paddingTop: insets.top,
+            }}
+          >
+            <FriendDetailsPanel
+              userId={selectedUserId}
+              onClose={() => setIsMobileDetailsOpen(false)}
+            />
+          </View>
+        </Modal>
+      )}
 
       {/* ── SEND REQUEST MODAL ── */}
       <SendRequestModal
@@ -187,23 +206,52 @@ function createStyles(theme: Theme) {
       width: '100%',
     },
     splitWrapper: {
-      maxWidth: 1500,
+      maxWidth: 1560,
       alignSelf: 'center',
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
     },
     contentLayout: {
       flex: 1,
       flexDirection: 'row',
-      gap: 16,
-      paddingBottom: 16,
+      gap: 18,
+      paddingBottom: 20,
     },
     sidebarCol: {
       flex: 1,
       height: '100%',
     },
+    sidebarColSplit: {
+      flex: 0,
+      width: '32%',
+      minWidth: 320,
+      maxWidth: 420,
+    },
+    sidebarSurface: {
+      flex: 1,
+      borderRadius: 24,
+      overflow: 'hidden',
+      borderWidth: 1,
+      padding: 16,
+
+      ...Platform.select({
+        web: {
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.08)',
+        } as any,
+
+        default: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.12,
+          shadowRadius: 16,
+          elevation: 6,
+        },
+      }),
+    },
     detailsCol: {
       flex: 1,
       height: '100%',
+      minWidth: 0,
     },
     detailsSurface: {
       flex: 1,
@@ -213,20 +261,16 @@ function createStyles(theme: Theme) {
 
       ...Platform.select({
         web: {
-          boxShadow: '0 8px 30px rgba(0,0,0,0.03)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.08)',
         } as any,
 
         default: {
           shadowColor: '#000',
-
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 4,
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.12,
+          shadowRadius: 16,
+          elevation: 6,
         },
       }),
     },
@@ -236,171 +280,28 @@ function createStyles(theme: Theme) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 32,
-      gap: 10,
+      padding: 40,
+      gap: 12,
     },
     placeholderIconAura: {
-      width: 64,
-      height: 64,
-      borderRadius: 20,
+      width: 76,
+      height: 76,
+      borderRadius: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 6,
+      marginBottom: 8,
     },
     placeholderTitle: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: '800',
       letterSpacing: -0.3,
     },
     placeholderSub: {
-      fontSize: 13,
+      fontSize: 14,
       textAlign: 'center',
-      maxWidth: 320,
-      lineHeight: 18,
+      maxWidth: 360,
+      lineHeight: 20,
       fontWeight: '500',
     },
   });
 }
-// // app/(app)/friends.tsx
-// import React, { useState } from 'react';
-// import { View, StyleSheet, useWindowDimensions, Platform } from 'react-native';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import Animated, { SlideInRight, SlideOutRight } from 'react-native-reanimated';
-
-// import { useTheme } from '../../providers/ThemeProvider';
-// import { GlobalBackground } from '../../components/ui/GlobalBackground';
-
-// import { FriendSidebar } from '../../components/friends/FriendSidebar';
-// import { FriendDetailsPanel } from '../../components/friends/FriendDetailsPanel';
-// import { SendRequestModal } from '../../components/friends/SendRequestModal';
-// import { useSendFriendRequest } from '../../hooks/useFriends';
-
-// export default function FriendsScreen() {
-//     const theme = useTheme();
-//     const insets = useSafeAreaInsets();
-//     const { width } = useWindowDimensions();
-
-//     // Layout logic: Use split view on desktop/tablet (width > 768)
-//     const isSplitView = width > 768;
-
-//     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-//     const [requestModalUser, setRequestModalUser] = useState<any>(null);
-//     const [isMobileDetailsOpen, setIsMobileDetailsOpen] = useState(false);
-
-//     const { mutate: sendRequest, isPending: sending } = useSendFriendRequest();
-
-//     const handleSelectFriend = (userId: string) => {
-//         setSelectedUserId(userId);
-//         if (!isSplitView) {
-//             setIsMobileDetailsOpen(true);
-//         }
-//     };
-
-//     const handleSendRequest = (message: string) => {
-//         if (requestModalUser) {
-//             sendRequest(
-//                 { toUserId: requestModalUser.userId, message },
-//                 {
-//                     onSuccess: () => {
-//                         setRequestModalUser(null);
-//                     }
-//                 }
-//             );
-//         }
-//     };
-
-//     return (
-//         <View style={styles.container}>
-//             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-//                 <GlobalBackground />
-//             </View>
-
-//             <View style={[styles.mainWrapper, isSplitView && styles.splitWrapper]}>
-//                 {/* Content Layout */}
-//                 <View style={[styles.contentLayout, { paddingTop: Platform.OS === 'web' ? 16 : insets.top + 12 }]}>
-
-//                     {/* Left Sidebar */}
-//                     <View style={[styles.sidebarCol, isSplitView && { width: '38%', maxWidth: 420 }]}>
-//                         <FriendSidebar
-//                             selectedUserId={selectedUserId}
-//                             onSelectFriend={handleSelectFriend}
-//                             onRequestModal={setRequestModalUser}
-//                         />
-//                     </View>
-
-//                     {/* Right Details Panel (Desktop/Tablet Split View) */}
-//                     {isSplitView && (
-//                         <View style={[styles.detailsCol, { width: '62%' }]}>
-//                             <View style={[
-//                                 styles.detailsSurface,
-//                                 {
-//                                     backgroundColor: theme.colors.surface,
-//                                     borderColor: theme.colors.borderLight,
-//                                     borderRadius: theme.borderRadius['3xl']
-//                                 }
-//                             ]}>
-//                                 <FriendDetailsPanel userId={selectedUserId} />
-//                             </View>
-//                         </View>
-//                     )}
-
-//                     {/* Mobile Details Overlay Slide-in */}
-//                     {!isSplitView && isMobileDetailsOpen && (
-//                         <Animated.View
-//                             entering={SlideInRight}
-//                             exiting={SlideOutRight}
-//                             style={[StyleSheet.absoluteFill, { backgroundColor: theme.colors.background, zIndex: 100 }]}
-//                         >
-//                             <FriendDetailsPanel
-//                                 userId={selectedUserId}
-//                                 onClose={() => setIsMobileDetailsOpen(false)}
-//                             />
-//                         </Animated.View>
-//                     )}
-//                 </View>
-//             </View>
-
-//             <SendRequestModal
-//                 visible={!!requestModalUser}
-//                 onClose={() => setRequestModalUser(null)}
-//                 onSend={handleSendRequest}
-//                 user={requestModalUser}
-//                 isPending={sending}
-//             />
-//         </View>
-//     );
-// }
-
-// const styles = StyleSheet.create({
-//     container: {
-//         flex: 1,
-//         backgroundColor: 'transparent',
-//     },
-//     mainWrapper: {
-//         flex: 1,
-//         width: '100%',
-//     },
-//     splitWrapper: {
-//         maxWidth: 1500,
-//         alignSelf: 'center',
-//         paddingHorizontal: 16,
-//     },
-//     contentLayout: {
-//         flex: 1,
-//         flexDirection: 'row',
-//         gap: 16,
-//     },
-//     sidebarCol: {
-//         flex: 1,
-//         height: '100%',
-//     },
-//     detailsCol: {
-//         height: '100%',
-//         paddingBottom: 24,
-//     },
-//     detailsSurface: {
-//         flex: 1,
-//         overflow: 'hidden',
-//         borderWidth: 1,
-//     },
-// });

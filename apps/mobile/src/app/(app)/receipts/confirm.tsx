@@ -95,9 +95,8 @@ export default function ReceiptConfirmScreen() {
         if (isMounted) {
           setTrips(localTrips);
           const active = initialTripId
-            ? localTrips.find((t: any) => t.id === initialTripId)
-            : localTrips.find((t: any) => t.status === 'active') ||
-              localTrips[0];
+            ? localTrips.find(t => t.id === initialTripId)
+            : localTrips.find(t => t.status === 'active') || localTrips[0];
           if (active) {
             setSelectedTripId(active.id);
             const tripMembers = await db.getTripMembers(active.id);
@@ -155,9 +154,9 @@ export default function ReceiptConfirmScreen() {
     if (!selectedTripId) return;
     getLocalDatabase()
       .getTripMembers(selectedTripId)
-      .then((m: any[]) => {
+      .then(m => {
         setMembers(m);
-        if (m.length > 0 && !m.some((x: any) => x.userId === selectedPayerId)) {
+        if (m.length > 0 && !m.some(x => x.userId === selectedPayerId)) {
           setSelectedPayerId(m[0].userId);
         }
       })
@@ -173,7 +172,7 @@ export default function ReceiptConfirmScreen() {
 
     expenseRepository
       .findExpenseByReceiptHash(selectedTripId, draft.receiptHash)
-      .then((existing: any) => {
+      .then(existing => {
         if (existing) {
           setDuplicateWarning(
             `A matching receipt was already added on ${new Date(existing.date).toLocaleDateString()} (₹${(existing.amountMinor / 100).toFixed(2)} - ${existing.title}).`,

@@ -158,17 +158,19 @@ export default function EditProfileScreen() {
               <AppIcon name="x" size={18} color={theme.colors.textPrimary} />
             </Pressable>
 
-            <View>
+            <View style={styles.headerTitleWrap}>
               <Text
                 style={[
                   styles.headerTitle,
                   { color: theme.colors.textPrimary },
                 ]}
+                numberOfLines={1}
               >
                 Edit Profile
               </Text>
               <Text
                 style={[styles.headerSub, { color: theme.colors.textTertiary }]}
+                numberOfLines={1}
               >
                 Update personal identity & preferences
               </Text>
@@ -189,7 +191,9 @@ export default function EditProfileScreen() {
             ) : (
               <>
                 <AppIcon name="check" size={14} color="#FFFFFF" />
-                <Text style={styles.saveActionText}>Save Changes</Text>
+                <Text style={styles.saveActionText}>
+                  {isDesktop ? 'Save Changes' : 'Save'}
+                </Text>
               </>
             )}
           </Pressable>
@@ -204,6 +208,8 @@ export default function EditProfileScreen() {
           { paddingBottom: insets.bottom + 80 },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <View style={styles.mainWrapper}>
           {/* ── PROFILE INFO CARD ── */}
@@ -429,6 +435,7 @@ export default function EditProfileScreen() {
                   multiline
                   numberOfLines={3}
                   maxLength={500}
+                  scrollEnabled={false}
                   onFocus={() => setIsBioFocused(true)}
                   onBlur={() => setIsBioFocused(false)}
                 />
@@ -587,11 +594,18 @@ function createStyles(theme: Theme, isDesktop: boolean) {
       maxWidth: 820,
       alignSelf: 'center',
       width: '100%',
+      gap: 12,
     },
     headerLeft: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 10,
+      minWidth: 0,
+    },
+    headerTitleWrap: {
+      flex: 1,
+      minWidth: 0,
     },
     iconBtn: {
       width: 36,
@@ -599,22 +613,24 @@ function createStyles(theme: Theme, isDesktop: boolean) {
       borderRadius: 12,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
       borderWidth: 1,
       borderColor: theme.isDark
         ? 'rgba(255,255,255,0.06)'
         : 'rgba(15,23,42,0.05)',
     },
     headerTitle: {
-      fontSize: 18,
+      fontSize: 17,
       fontWeight: '900',
       letterSpacing: -0.4,
     },
     headerSub: {
-      fontSize: 12,
+      fontSize: 11.5,
       fontWeight: '500',
       marginTop: 1,
     },
     saveActionPill: {
+      flexShrink: 0,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
@@ -769,25 +785,11 @@ function createStyles(theme: Theme, isDesktop: boolean) {
       borderWidth: 1,
     },
     inputFocused: {
-      borderWidth: 1.5,
-
+      borderColor: theme.colors.primary,
       ...Platform.select({
         web: {
-          boxShadow: '0 0 0 3px rgba(37,99,235,0.12)',
+          boxShadow: `0 0 0 3px ${theme.colors.primary}25`,
         } as any,
-
-        default: {
-          shadowColor: '#000',
-
-          shadowOffset: {
-            width: 0,
-            height: 4,
-          },
-
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 4,
-        },
       }),
     },
     textInput: {
@@ -795,6 +797,12 @@ function createStyles(theme: Theme, isDesktop: boolean) {
       fontSize: 13.5,
       fontWeight: '600',
       padding: 0,
+      ...Platform.select({
+        web: {
+          outlineStyle: 'none',
+          outlineWidth: 0,
+        } as any,
+      }),
     },
     textAreaBox: {
       borderRadius: 14,
@@ -809,6 +817,12 @@ function createStyles(theme: Theme, isDesktop: boolean) {
       textAlignVertical: 'top',
       padding: 0,
       minHeight: 64,
+      ...Platform.select({
+        web: {
+          outlineStyle: 'none',
+          outlineWidth: 0,
+        } as any,
+      }),
     },
 
     // Email Card
@@ -898,607 +912,3 @@ function createStyles(theme: Theme, isDesktop: boolean) {
     },
   });
 }
-// import GlobalLoader from '../../../components/common/GlobalLoader';
-// import AppIcon  from '../../../components/common/AppIcon';
-// // app/(app)/profile/edit.tsx
-// import React, { useState, useMemo } from 'react';
-// import { View, Text, StyleSheet, TextInput, ScrollView, Alert, Switch, Platform, useWindowDimensions, Pressable, PressableStateCallbackType, Image } from 'react-native';
-// import { router } from 'expo-router';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { useTheme } from '../../../providers/ThemeProvider';
-// import { useGlobalStyles } from '../../../hooks/useGlobalStyles';
-// import { useAuthStore } from '../../../stores/auth.store';
-// import { useThemeStore } from '../../../stores/theme.store';
-// import { useUpdateProfile } from '../../../hooks';
-// import { haptics } from '../../../utils/haptics';
-// import { GlobalBackground } from '../../../components/ui/GlobalBackground';
-// import { GlassCard } from '../../../components/ui/GlassCard';
-// import { LinearGradient } from 'expo-linear-gradient';
-// import * as ImagePicker from 'expo-image-picker';
-// import { usersApi } from '../../../services/api/users.api';
-// import { Badge } from '../../../components/ui/Badge';
-
-// type ThemeOption = 'light' | 'dark' | 'system';
-// type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
-
-// export default function EditProfileScreen() {
-//     const theme = useTheme();
-//     const globalStyles = useGlobalStyles();
-//     const styles = useStyles();
-//     const insets = useSafeAreaInsets();
-//     const { width } = useWindowDimensions();
-
-//     const { user } = useAuthStore();
-//     const { mode, setMode, isDark } = useThemeStore();
-//     const { mutate: updateProfile, isPending } = useUpdateProfile();
-//     const [displayName, setDisplayName] = useState(user?.displayName || '');
-//     const [avatar, setAvatar] = useState(user?.avatar || '');
-//     const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
-//     const [bio, setBio] = useState(user?.bio || '');
-
-//     const [isNameFocused, setIsNameFocused] = useState(false);
-//     const [isPhoneFocused, setIsPhoneFocused] = useState(false);
-//     const [isBioFocused, setIsBioFocused] = useState(false);
-//     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-
-//     const isWebDesktop = Platform.OS === 'web' && width > 768;
-
-//     const handlePickAvatar = async () => {
-//         try {
-//             const result = await ImagePicker.launchImageLibraryAsync({
-//                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-//                 allowsEditing: true,
-//                 aspect: [1, 1],
-//                 quality: 0.8,
-//             });
-
-//             if (!result.canceled && result.assets?.[0]) {
-//                 setIsUploadingAvatar(true);
-//                 const response = await usersApi.uploadProfilePicture(result.assets[0].uri);
-//                 if (response.data?.photoURL) {
-//                     setAvatar(response.data.photoURL);
-//                 }
-//             }
-//         } catch (error: any) {
-//             Alert.alert('Upload Failed', error.message || 'Could not upload avatar');
-//         } finally {
-//             setIsUploadingAvatar(false);
-//         }
-//     };
-
-//     const handleSave = () => {
-//         const normalizedName = displayName.trim();
-//         const normalizedPhone = phoneNumber.trim();
-//         const normalizedBio = bio.trim();
-
-//         if (normalizedName.length < 2 || normalizedName.length > 80) {
-//             Alert.alert('Check your name', 'Your display name must be between 2 and 80 characters.');
-//             return;
-//         }
-//         if (normalizedPhone && !/^\+?[0-9][0-9\s-]{6,19}$/.test(normalizedPhone)) {
-//             Alert.alert('Check your phone number', 'Use a valid phone number, including an optional country code.');
-//             return;
-//         }
-//         if (normalizedBio.length > 500) {
-//             Alert.alert('Bio is too long', 'Your bio can contain up to 500 characters.');
-//             return;
-//         }
-
-//         const updates: any = {};
-//         if (normalizedName !== (user?.displayName || '')) updates.displayName = normalizedName;
-//         if (avatar.trim() !== (user?.avatar || '')) updates.avatar = avatar.trim();
-//         if (normalizedPhone !== (user?.phoneNumber || '')) updates.phoneNumber = normalizedPhone;
-//         if (normalizedBio !== (user?.bio || '')) updates.bio = normalizedBio;
-
-//         if (Object.keys(updates).length === 0) {
-//             router.back();
-//             return;
-//         }
-
-//         updateProfile(updates, {
-//             onSuccess: () => {
-//                 haptics.success();
-//                 Alert.alert('Profile updated', 'Your changes have been saved.', [{ text: 'OK', onPress: () => router.back() }]);
-//             },
-//             onError: (error: any) => Alert.alert('Error', error.message),
-//         });
-//     };
-
-//     return (
-//         <View style={[styles.container, { backgroundColor: 'transparent' }]}>
-//             {/* Global Gradient Background */}
-//             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-//                 <GlobalBackground />
-//             </View>
-
-//             <View style={[styles.webDesktopContent, isWebDesktop && styles.webDesktopContentCentered]}>
-
-//                 {/* Premium Header */}
-//                 <View style={[styles.header, {
-//                     paddingTop: Platform.OS === 'web' ? theme.spacing['4'] : insets.top + 16,
-//                     borderBottomColor: theme.colors.borderLight,
-//                     backgroundColor: theme.colors.surface
-//                 }]}>
-//                     <Pressable
-//                         onPress={() => router.back()}
-//                         style={({ hovered }: WebPressableState) => [
-//                             styles.headerBtn,
-//                             { backgroundColor: theme.colors.surface, borderColor: theme.colors.borderLight },
-//                             Platform.OS === 'web' && hovered && { opacity: 0.7, cursor: 'pointer' } as any
-//                         ]}
-//                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-//                     >
-//                         <AppIcon name="x" size={22} color={theme.colors.textSecondary} />
-//                     </Pressable>
-
-//                     <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Edit Profile</Text>
-
-//                     <Pressable
-//                         onPress={handleSave}
-//                         disabled={isPending}
-//                         style={({ hovered, pressed }: WebPressableState) => [
-//                             styles.saveBtnWrap,
-//                             Platform.OS === 'web' && hovered && !isPending && { opacity: 0.7, cursor: 'pointer' } as any,
-//                             pressed && !isPending && styles.pressedState
-//                         ]}
-//                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-//                     >
-//                         {isPending ? (
-//                             <GlobalLoader variant="inline" size="small" color={theme.colors.primary}  />
-//                         ) : (
-//                             <Text style={[styles.saveBtn, { color: theme.colors.primary }]}>Save</Text>
-//                         )}
-//                     </Pressable>
-//                 </View>
-
-//                 <ScrollView
-//                     contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'web' ? 60 : insets.bottom + 40 }]}
-//                     showsVerticalScrollIndicator={false}
-//                 >
-//                     {/* Profile Fields Section */}
-//                     <View style={styles.section}>
-//                         <View style={styles.sectionHeader}>
-//                             <AppIcon name="user" size={14} color={theme.colors.primary} />
-//                             <Text style={[styles.sectionLabel, { color: theme.colors.textSecondary }]}>Profile Info</Text>
-//                         </View>
-
-//                         <GlassCard style={styles.cardGlass} intensity={theme.isDark ? 12 : 6}>
-//                             {/* Avatar */}
-//                             <View style={styles.fieldGroup}>
-//                                 <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>Profile Picture</Text>
-//                                 <View style={styles.avatarRow}>
-//                                     <View style={[styles.avatarContainer, {
-//                                         backgroundColor: theme.colors.primaryBg,
-//                                         borderColor: theme.colors.borderLight
-//                                     }]}>
-//                                         {isUploadingAvatar ? (
-//                                             <GlobalLoader variant="inline" color={theme.colors.primary}  />
-//                                         ) : avatar ? (
-//                                             <Image source={{ uri: avatar }} style={styles.avatarImage} />
-//                                         ) : (
-//                                             <Text style={[styles.avatarPlaceholder, { color: theme.colors.primary }]}>
-//                                                 {displayName?.charAt(0)?.toUpperCase() || '?'}
-//                                             </Text>
-//                                         )}
-//                                     </View>
-//                                     <Pressable
-//                                         style={[styles.avatarBtn, {
-//                                             backgroundColor: theme.colors.primaryBg,
-//                                             borderColor: theme.colors.borderLight
-//                                         }]}
-//                                         onPress={handlePickAvatar}
-//                                     >
-//                                         <AppIcon name="camera" size={16} color={theme.colors.primary} />
-//                                         <Text style={[styles.avatarBtnText, { color: theme.colors.primary }]}>Change Photo</Text>
-//                                     </Pressable>
-//                                 </View>
-//                             </View>
-
-//                             {/* Display Name */}
-//                             <View style={styles.fieldGroup}>
-//                                 <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                                     Display Name
-//                                 </Text>
-//                                 <View style={[styles.inputContainer, {
-//                                     borderColor: isNameFocused ? theme.colors.primary : theme.colors.borderLight,
-//                                     backgroundColor: theme.colors.surface
-//                                 }, isNameFocused && styles.inputFocused]}>
-//                                     <AppIcon name="user" size={16} color={theme.colors.textTertiary} style={styles.inputIcon} />
-//                                     <TextInput
-//                                         style={[styles.input, { color: theme.colors.textPrimary }]}
-//                                         value={displayName}
-//                                         onChangeText={setDisplayName}
-//                                         placeholder="e.g. John Doe"
-//                                         placeholderTextColor={theme.colors.textTertiary}
-//                                         onFocus={() => setIsNameFocused(true)}
-//                                         onBlur={() => setIsNameFocused(false)}
-//                                     />
-//                                 </View>
-//                             </View>
-
-//                             {/* Phone Number */}
-//                             <View style={styles.fieldGroup}>
-//                                 <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                                     Phone Number
-//                                 </Text>
-//                                 <View style={[styles.inputContainer, {
-//                                     borderColor: isPhoneFocused ? theme.colors.primary : theme.colors.borderLight,
-//                                     backgroundColor: theme.colors.surface
-//                                 }, isPhoneFocused && styles.inputFocused]}>
-//                                     <AppIcon name="phone" size={16} color={theme.colors.textTertiary} style={styles.inputIcon} />
-//                                     <TextInput
-//                                         style={[styles.input, { color: theme.colors.textPrimary }]}
-//                                         value={phoneNumber}
-//                                         onChangeText={setPhoneNumber}
-//                                         placeholder="+91 99999 99999"
-//                                         placeholderTextColor={theme.colors.textTertiary}
-//                                         keyboardType="phone-pad"
-//                                         onFocus={() => setIsPhoneFocused(true)}
-//                                         onBlur={() => setIsPhoneFocused(false)}
-//                                     />
-//                                 </View>
-//                             </View>
-
-//                             {/* Bio */}
-//                             <View style={[styles.fieldGroup, { marginBottom: 0 }]}>
-//                                 <Text style={[styles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                                     Bio <Text style={[styles.optionalText, { color: theme.colors.textTertiary }]}>(optional)</Text>
-//                                 </Text>
-//                                 <View style={[styles.inputContainer, styles.bioInputContainer, {
-//                                     borderColor: isBioFocused ? theme.colors.primary : theme.colors.borderLight,
-//                                     backgroundColor: theme.colors.surface
-//                                 }, isBioFocused && styles.inputFocused]}>
-//                                     <TextInput
-//                                         style={[styles.input, styles.textArea, { color: theme.colors.textPrimary }]}
-//                                         value={bio}
-//                                         onChangeText={setBio}
-//                                         placeholder="Tell us a little about your travel style..."
-//                                         placeholderTextColor={theme.colors.textTertiary}
-//                                         multiline
-//                                         maxLength={500}
-//                                         onFocus={() => setIsBioFocused(true)}
-//                                         onBlur={() => setIsBioFocused(false)}
-//                                     />
-//                                     <Text style={[styles.charCount, { color: theme.colors.textTertiary }]}>
-//                                         {bio.length}/500
-//                                     </Text>
-//                                 </View>
-//                             </View>
-//                         </GlassCard>
-//                     </View>
-
-//                     {/* Payments Section */}
-//                     <View style={styles.section}>
-//                         <View style={styles.sectionHeader}>
-//                             <AppIcon name="credit-card" size={14} color={theme.colors.secondary} />
-//                             <Text style={[styles.sectionLabel, { color: theme.colors.textSecondary }]}>Payments</Text>
-//                         </View>
-
-//                         <Pressable
-//                             style={({ hovered, pressed }: WebPressableState) => [
-//                                 Platform.OS === 'web' && hovered && styles.cardHovered,
-//                                 pressed && styles.pressedState
-//                             ]}
-//                             onPress={() => router.push('/profile/banking')}
-//                         >
-//                             <GlassCard style={styles.cardGlass} intensity={theme.isDark ? 12 : 6}>
-//                                 <View style={styles.menuRow}>
-//                                     <View style={[styles.menuIconWrap, { backgroundColor: theme.colors.secondaryBg }]}>
-//                                         <AppIcon name="credit-card" size={20} color={theme.colors.secondary} />
-//                                     </View>
-//                                     <View style={styles.menuTextContainer}>
-//                                         <Text style={[styles.menuTitle, { color: theme.colors.textPrimary }]}>
-//                                             Banking & Payouts
-//                                         </Text>
-//                                         <Text style={[styles.menuSub, { color: theme.colors.textSecondary }]}>
-//                                             Manage UPI and bank details
-//                                         </Text>
-//                                     </View>
-//                                     <AppIcon name="chevron-right" size={18} color={theme.colors.textTertiary} />
-//                                 </View>
-//                             </GlassCard>
-//                         </Pressable>
-//                     </View>
-
-//                     {/* Email Info */}
-//                     <GlassCard style={styles.emailCard} intensity={theme.isDark ? 8 : 4}>
-//                         <View style={styles.emailRow}>
-//                             <AppIcon name="mail" size={16} color={theme.colors.textTertiary} />
-//                             <Text style={[styles.emailText, { color: theme.colors.textSecondary }]}>
-//                                 Email: {user?.email}
-//                             </Text>
-//                             <Badge label="Verified" variant="success" style={styles.emailBadge} />
-//                         </View>
-//                         <Text style={[styles.emailNote, { color: theme.colors.textTertiary }]}>
-//                             Email cannot be changed
-//                         </Text>
-//                     </GlassCard>
-
-//                     {/* Danger Zone Section */}
-//                     <View style={[styles.section, { marginTop: 32 }]}>
-//                         <View style={styles.sectionHeader}>
-//                             <AppIcon name="alert-triangle" size={14} color={theme.colors.danger} />
-//                             <Text style={[styles.sectionLabel, { color: theme.colors.danger }]}>Danger Zone</Text>
-//                         </View>
-
-//                         <Pressable
-//                             style={({ hovered, pressed }: WebPressableState) => [
-//                                 Platform.OS === 'web' && hovered && styles.cardHovered,
-//                                 pressed && styles.pressedState
-//                             ]}
-//                             onPress={() => router.push('/profile/danger-zone')}
-//                         >
-//                             <GlassCard style={[styles.cardGlass, { borderColor: theme.colors.danger + '30' }]} intensity={theme.isDark ? 12 : 6}>
-//                                 <View style={styles.menuRow}>
-//                                     <View style={[styles.menuIconWrap, { backgroundColor: theme.colors.dangerBg }]}>
-//                                         <AppIcon name="trash-2" size={20} color={theme.colors.danger} />
-//                                     </View>
-//                                     <View style={styles.menuTextContainer}>
-//                                         <Text style={[styles.menuTitle, { color: theme.colors.danger }]}>
-//                                             Delete Account
-//                                         </Text>
-//                                         <Text style={[styles.menuSub, { color: theme.colors.textSecondary }]}>
-//                                             Permanently delete your data
-//                                         </Text>
-//                                     </View>
-//                                     <AppIcon name="chevron-right" size={18} color={theme.colors.textTertiary} />
-//                                 </View>
-//                             </GlassCard>
-//                         </Pressable>
-//                     </View>
-
-//                 </ScrollView>
-//             </View>
-//         </View>
-//     );
-// }
-
-// // ============================================================
-// // Premium Styles - Updated for Full Width on Web
-// // ============================================================
-
-// const useStyles = () => {
-//     const theme = useTheme();
-//     const { width } = useWindowDimensions();
-//     const isWebDesktop = Platform.OS === 'web' && width > 768;
-
-//     return useMemo(() => StyleSheet.create({
-//         container: {
-//             flex: 1,
-//             backgroundColor: 'transparent',
-//         },
-
-//         // Widescreen wrapper - FULL WIDTH on web
-//         webDesktopContent: {
-//             flex: 1,
-//             width: '100%',
-//             maxWidth: isWebDesktop ? 800 : '100%', // Wider on web
-//             alignSelf: 'center',
-//             paddingHorizontal: isWebDesktop ? 24 : 0,
-//         },
-//         webDesktopContentCentered: {
-//             // Remove maxWidth constraint to use full width
-//             width: '100%',
-//         },
-
-//         // Web Interaction Helpers
-//         pressedState: {
-//             opacity: 0.8,
-//             transform: [{ scale: 0.98 }]
-//         },
-
-//         header: {
-//             flexDirection: 'row',
-//             justifyContent: 'space-between',
-//             alignItems: 'center',
-//             paddingHorizontal: 20,
-//             paddingVertical: 16,
-//             borderBottomWidth: 1,
-//             borderBottomColor: theme.colors.borderLight,
-//             borderTopLeftRadius: isWebDesktop ? theme.borderRadius['2xl'] : 0,
-//             borderTopRightRadius: isWebDesktop ? theme.borderRadius['2xl'] : 0,
-//             backgroundColor: theme.colors.surface,
-//         },
-//         headerBtn: {
-//             width: 40,
-//             height: 40,
-//             borderRadius: 20,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//             borderWidth: 1,
-//             borderColor: theme.colors.borderLight,
-//         },
-//         headerTitle: {
-//             fontSize: 17,
-//             fontWeight: '700'
-//         },
-//         saveBtnWrap: {
-//             padding: 4,
-//         },
-//         saveBtn: {
-//             fontSize: 16,
-//             fontWeight: '700'
-//         },
-
-//         content: {
-//             padding: isWebDesktop ? 24 : 20,
-//             paddingBottom: Platform.OS === 'web' ? 60 : 40,
-//         },
-
-//         // Sections
-//         section: {
-//             marginBottom: 24
-//         },
-//         sectionHeader: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 8,
-//             marginBottom: 10,
-//             marginLeft: 4,
-//         },
-//         sectionLabel: {
-//             fontSize: 12,
-//             fontWeight: '700',
-//             textTransform: 'uppercase',
-//             letterSpacing: 0.8,
-//         },
-
-//         cardGlass: {
-//             padding: isWebDesktop ? 24 : 20,
-//             borderRadius: 20,
-//             borderWidth: 1,
-//             borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.2)',
-//             ...theme.shadows.sm,
-//         },
-//         cardHovered: {
-//             borderColor: theme.colors.borderDefault,
-//         },
-
-//         // Avatar
-//         avatarRow: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 16,
-//         },
-//         avatarContainer: {
-//             width: 64,
-//             height: 64,
-//             borderRadius: 32,
-//             borderWidth: 2,
-//             overflow: 'hidden',
-//             justifyContent: 'center',
-//             alignItems: 'center',
-//         },
-//         avatarImage: {
-//             width: '100%',
-//             height: '100%',
-//         },
-//         avatarPlaceholder: {
-//             fontSize: 24,
-//             fontWeight: '700',
-//         },
-//         avatarBtn: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 6,
-//             paddingHorizontal: 14,
-//             paddingVertical: 8,
-//             borderRadius: 12,
-//             borderWidth: 1,
-//             borderColor: theme.colors.borderLight,
-//         },
-//         avatarBtnText: {
-//             fontSize: 13,
-//             fontWeight: '600',
-//         },
-
-//         // Menu Rows
-//         menuRow: {
-//             flexDirection: 'row',
-//             alignItems: 'center'
-//         },
-//         menuIconWrap: {
-//             width: 40,
-//             height: 40,
-//             borderRadius: 12,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//             marginRight: 14,
-//         },
-//         menuTextContainer: {
-//             flex: 1
-//         },
-//         menuTitle: {
-//             fontSize: 15,
-//             fontWeight: '600',
-//             marginBottom: 2
-//         },
-//         menuSub: {
-//             fontSize: 12,
-//             fontWeight: '500'
-//         },
-
-//         fieldGroup: {
-//             marginBottom: 18
-//         },
-//         fieldLabel: {
-//             fontSize: 12,
-//             fontWeight: '700',
-//             marginBottom: 6,
-//             letterSpacing: 0.3,
-//         },
-//         optionalText: {
-//             fontWeight: '400'
-//         },
-
-//         inputContainer: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             borderWidth: 1,
-//             borderRadius: 14,
-//             overflow: 'hidden',
-//             ...(Platform.OS === 'web' ? { transition: 'all 0.2s ease' } : {}),
-//         },
-//         inputIcon: {
-//             paddingLeft: 14,
-//         },
-//         input: {
-//             flex: 1,
-//             paddingHorizontal: 12,
-//             paddingVertical: 14,
-//             fontSize: 15,
-//             fontWeight: '500',
-//             height: '100%',
-//         },
-//         inputFocused: {
-//             borderColor: theme.colors.primary,
-//             ...Platform.select({ web: { boxShadow: `0 0 0 4px ${theme.colors.primary}25` } as any })
-//         },
-//         bioInputContainer: {
-//             flexDirection: 'column',
-//             alignItems: 'stretch',
-//             paddingVertical: 0,
-//         },
-//         textArea: {
-//             height: 80,
-//             textAlignVertical: 'top',
-//             paddingTop: 14
-//         },
-//         charCount: {
-//             fontSize: 11,
-//             fontWeight: '500',
-//             paddingHorizontal: 14,
-//             paddingBottom: 10,
-//             textAlign: 'right',
-//         },
-
-//         // Email Card
-//         emailCard: {
-//             padding: 16,
-//             borderRadius: 16,
-//             marginBottom: 24,
-//             borderWidth: 1,
-//             borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.2)',
-//         },
-//         emailRow: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 10,
-//         },
-//         emailText: {
-//             fontSize: 14,
-//             fontWeight: '500',
-//             flex: 1,
-//         },
-//         emailBadge: {
-//             paddingHorizontal: 8,
-//             paddingVertical: 2,
-//         },
-//         emailNote: {
-//             fontSize: 12,
-//             fontWeight: '500',
-//             marginTop: 6,
-//             paddingLeft: 26,
-//         },
-//     }), [theme, isWebDesktop]);
-// };

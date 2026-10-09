@@ -19,6 +19,7 @@ import { useTheme } from '../../providers/ThemeProvider';
 import { useAuthStore } from '../../stores/auth.store';
 import { biometricAuth } from '../../services/biometrics/biometricAuth';
 import { GlobalBackground } from '../../components/ui/GlobalBackground';
+import { GlassCard } from '../../components/ui/GlassCard';
 import { Avatar } from '../../components/ui/Avatar';
 import AppIcon from '../../components/common/AppIcon';
 import GlobalLoader from '../../components/common/GlobalLoader';
@@ -302,12 +303,28 @@ export default function PrivacyScreen() {
       >
         <View style={styles.mainWrapper}>
           {/* Top Account Identity Hero Card */}
-          <LinearGradient
-            colors={['#0F172A', '#1E1B4B', '#1E293B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <GlassCard
+            intensity={theme.isDark ? 24 : 36}
             style={styles.heroAccountCard}
           >
+            <LinearGradient
+              colors={
+                theme.isDark
+                  ? [
+                      'rgba(15, 23, 42, 0.40)',
+                      'rgba(30, 27, 75, 0.35)',
+                      'rgba(30, 41, 59, 0.40)',
+                    ]
+                  : [
+                      'rgba(255, 255, 255, 0.75)',
+                      'rgba(241, 245, 249, 0.65)',
+                      'rgba(255, 255, 255, 0.80)',
+                    ]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={styles.heroTopRow}>
               <Avatar
                 url={user?.photoURL}
@@ -318,7 +335,17 @@ export default function PrivacyScreen() {
 
               <View style={styles.heroInfo}>
                 <View style={styles.heroNameRow}>
-                  <Text style={styles.heroNameText} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.heroNameText,
+                      {
+                        color: theme.isDark
+                          ? '#FFFFFF'
+                          : theme.colors.textPrimary,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
                     {user?.displayName || 'Traveler'}
                   </Text>
                   <View style={styles.activeBadge}>
@@ -326,12 +353,22 @@ export default function PrivacyScreen() {
                     <Text style={styles.activeBadgeText}>ACTIVE SESSION</Text>
                   </View>
                 </View>
-                <Text style={styles.heroEmailText} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.heroEmailText,
+                    {
+                      color: theme.isDark
+                        ? 'rgba(255,255,255,0.7)'
+                        : theme.colors.textSecondary,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
                   {user?.email || 'No email registered'}
                 </Text>
               </View>
             </View>
-          </LinearGradient>
+          </GlassCard>
 
           {/* ── 2-COLUMN BENTO SETTINGS GRID ── */}
           <View style={[styles.bentoGrid, !isDesktop && styles.stackLayout]}>
@@ -346,11 +383,9 @@ export default function PrivacyScreen() {
                 AUTHENTICATION & ACCESS
               </Text>
 
-              <View
-                style={[
-                  styles.bentoCardPanel,
-                  { backgroundColor: theme.colors.surface },
-                ]}
+              <GlassCard
+                style={styles.bentoCardPanel}
+                intensity={theme.isDark ? 18 : 30}
               >
                 {biometricAvailable && (
                   <SettingToggle
@@ -388,7 +423,7 @@ export default function PrivacyScreen() {
                   onPress={() => {}}
                   disabled
                 />
-              </View>
+              </GlassCard>
             </View>
 
             {/* ── RIGHT COLUMN: DATA, CACHE & DANGER ZONE ── */}
@@ -402,11 +437,9 @@ export default function PrivacyScreen() {
                 DATA & SYSTEM CONTROLS
               </Text>
 
-              <View
-                style={[
-                  styles.bentoCardPanel,
-                  { backgroundColor: theme.colors.surface },
-                ]}
+              <GlassCard
+                style={styles.bentoCardPanel}
+                intensity={theme.isDark ? 18 : 30}
               >
                 <SettingButton
                   icon="trash-2"
@@ -415,7 +448,7 @@ export default function PrivacyScreen() {
                   danger
                   onPress={handleClearCache}
                 />
-              </View>
+              </GlassCard>
 
               <Text
                 style={[
@@ -426,14 +459,12 @@ export default function PrivacyScreen() {
                 DANGER ZONE
               </Text>
 
-              <View
+              <GlassCard
                 style={[
                   styles.bentoCardPanel,
-                  {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: 'rgba(239,68,68,0.2)',
-                  },
+                  { borderColor: 'rgba(239,68,68,0.3)' },
                 ]}
+                intensity={theme.isDark ? 18 : 30}
               >
                 <SettingButton
                   icon="alert-triangle"
@@ -444,7 +475,7 @@ export default function PrivacyScreen() {
                   onPress={() => {}}
                   disabled
                 />
-              </View>
+              </GlassCard>
             </View>
           </View>
 
@@ -531,6 +562,7 @@ function createStyles(theme: Theme) {
     // Hero Account Card
     heroAccountCard: {
       borderRadius: 22,
+      overflow: 'hidden',
       padding: 18,
 
       ...Platform.select({
@@ -708,444 +740,3 @@ function createStyles(theme: Theme) {
     },
   });
 }
-
-// // app/(app)/settings/privacy.tsx
-// import React, { useState, useEffect, useMemo } from 'react';
-// import { View, Text, StyleSheet, ScrollView, Alert, Platform, useWindowDimensions, Pressable, PressableStateCallbackType, Switch } from 'react-native';
-// import { router } from 'expo-router';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { useTheme } from '../../providers/ThemeProvider';
-// import { useAuthStore } from '../../stores/auth.store';
-// import { biometricAuth } from '../../services/biometrics/biometricAuth';
-// import { GlassCard } from '../../components/ui/GlassCard';
-// import { Badge } from '../../components/ui/Badge';
-// import { GlobalBackground } from "../../components/ui/GlobalBackground";
-// import AppIcon from '../../components/common/AppIcon';
-// import { LinearGradient } from 'expo-linear-gradient';
-
-// type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
-
-// function SettingToggle({
-//     icon, title, description, value, onToggle, disabled
-// }: {
-//     icon: string;
-//     title: string;
-//     description: string;
-//     value: boolean;
-//     onToggle: (value: boolean) => void;
-//     disabled?: boolean;
-// }) {
-//     const theme = useTheme();
-//     const styles = useStyles();
-
-//     return (
-//         <View style={[styles.settingRow, disabled && { opacity: 0.5 }]}>
-//             <View style={styles.settingLeft}>
-//                 <View style={[styles.settingIconWrap, { backgroundColor: theme.colors.primaryBg }]}>
-//                     <AppIcon name={icon} size={18} color={theme.colors.primary} />
-//                 </View>
-//                 <View style={styles.settingInfo}>
-//                     <Text style={[styles.settingTitle, { color: theme.colors.textPrimary }]}>{title}</Text>
-//                     <Text style={[styles.settingDesc, { color: theme.colors.textSecondary }]}>{description}</Text>
-//                 </View>
-//             </View>
-//             <Switch
-//                 value={value}
-//                 onValueChange={onToggle}
-//                 disabled={disabled}
-//                 trackColor={{ false: theme.colors.borderLight, true: theme.colors.primary }}
-//                 thumbColor={theme.colors.surface}
-//                 ios_backgroundColor={theme.colors.borderLight}
-//             />
-//         </View>
-//     );
-// }
-
-// function SettingButton({
-//     icon, title, description, onPress, rightText, danger, badge, disabled
-// }: {
-//     icon: string;
-//     title: string;
-//     description?: string;
-//     onPress: () => void;
-//     rightText?: string;
-//     danger?: boolean;
-//     badge?: string;
-//     disabled?: boolean;
-// }) {
-//     const theme = useTheme();
-//     const styles = useStyles();
-
-//     return (
-//         <Pressable
-//             onPress={onPress}
-//             disabled={disabled}
-//             style={({ hovered, pressed }: WebPressableState) => [
-//                 styles.settingRow,
-//                 disabled && { opacity: 0.6 },
-//                 Platform.OS === 'web' && hovered && !disabled && { backgroundColor: theme.colors.primaryBg, cursor: 'pointer' } as any,
-//                 pressed && { opacity: 0.7 }
-//             ]}
-//         >
-//             <View style={styles.settingLeft}>
-//                 <View style={[styles.settingIconWrap, { backgroundColor: danger ? theme.colors.dangerBg : theme.colors.primaryBg }]}>
-//                     <AppIcon name={icon} size={18} color={danger ? theme.colors.danger : theme.colors.primary} />
-//                 </View>
-//                 <View style={styles.settingInfo}>
-//                     <Text style={[styles.settingTitle, { color: danger ? theme.colors.danger : theme.colors.textPrimary }]}>{title}</Text>
-//                     {description && <Text style={[styles.settingDesc, { color: theme.colors.textSecondary }]}>{description}</Text>}
-//                 </View>
-//             </View>
-//             <View style={styles.settingRight}>
-//                 {badge && <Badge label={badge} variant="primary" style={styles.settingBadge} />}
-//                 {rightText && <Text style={[styles.rightText, { color: theme.colors.textTertiary }]}>{rightText}</Text>}
-//                 {!disabled && <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />}
-//             </View>
-//         </Pressable>
-//     );
-// }
-
-// export default function PrivacyScreen() {
-//     const theme = useTheme();
-//     const styles = useStyles();
-//     const insets = useSafeAreaInsets();
-//     const { width } = useWindowDimensions();
-//     const { user, firebaseUser } = useAuthStore();
-//     const hasPassword = firebaseUser?.providerData?.some((p: any) => p.providerId === 'password');
-
-//     const isDesktop = Platform.OS === 'web' && width > 768;
-//     const isMobile = width < 768;
-
-//     const [biometricEnabled, setBiometricEnabled] = useState(biometricAuth.isEnabled());
-//     const [biometricAvailable, setBiometricAvailable] = useState(false);
-//     const [isLoading, setIsLoading] = useState(false);
-
-//     useEffect(() => {
-//         biometricAuth.isAvailable().then(setBiometricAvailable);
-//     }, []);
-
-//     const handleBiometricToggle = async (value: boolean) => {
-//         if (value) {
-//             setIsLoading(true);
-//             const success = await biometricAuth.authenticate();
-//             setIsLoading(false);
-//             if (success) {
-//                 biometricAuth.enable();
-//                 setBiometricEnabled(true);
-//             }
-//         } else {
-//             biometricAuth.disable();
-//             setBiometricEnabled(false);
-//         }
-//     };
-
-//     return (
-//         <GlobalBackground>
-//             <View style={styles.container}>
-//                 <View style={styles.webDesktopContent}>
-
-//                     {/* Fixed Professional Header */}
-//                     <LinearGradient
-//                         colors={theme.gradients.glassWipe}
-//                         start={{ x: 0, y: 0.5 }}
-//                         end={{ x: 1, y: 0.5 }}
-//                         style={[
-//                             styles.header,
-//                             { paddingTop: Platform.OS === 'web' ? 16 : insets.top + 12, borderBottomColor: theme.colors.borderLight }
-//                         ]}
-//                     >
-//                         <Pressable
-//                             onPress={() => router.back()}
-//                             style={({ hovered }: WebPressableState) => [
-//                                 styles.backBtnWrap,
-//                                 Platform.OS === 'web' && hovered && { opacity: 0.7, cursor: 'pointer' } as any
-//                             ]}
-//                         >
-//                             <View style={[styles.headerIconBtn, { backgroundColor: theme.colors.primaryBg, borderColor: theme.colors.borderLight }]}>
-//                                 <AppIcon name="arrow-left" size={18} color={theme.colors.textPrimary} />
-//                             </View>
-//                         </Pressable>
-//                         <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-//                             Privacy & Security
-//                         </Text>
-//                         <View style={{ width: 42 }} />
-//                     </LinearGradient>
-
-//                     <ScrollView
-//                         contentContainerStyle={[
-//                             styles.content, {
-//                                 paddingBottom: insets.bottom + 60,
-//                                 paddingTop: isMobile ? 16 : 24
-//                             }
-//                         ]}
-//                         showsVerticalScrollIndicator={false}
-//                     >
-//                         {/* Account Summary Card */}
-//                         <LinearGradient
-//                             colors={theme.gradients.glassWipe}
-//                             start={{ x: 0, y: 0.5 }}
-//                             end={{ x: 1, y: 0.5 }}
-//                             style={[styles.accountCard, theme.shadows.sm, { borderColor: theme.colors.borderLight }]}
-//                         >
-//                             <View style={styles.accountHeader}>
-//                                 <View style={[styles.accountAvatar, { backgroundColor: theme.colors.primaryBg }]}>
-//                                     <Text style={[styles.accountAvatarText, { color: theme.colors.primary }]}>
-//                                         {user?.displayName?.charAt(0)?.toUpperCase() || '?'}
-//                                     </Text>
-//                                 </View>
-//                                 <View style={styles.accountInfo}>
-//                                     <Text style={[styles.accountName, { color: theme.colors.textPrimary }]}>
-//                                         {user?.displayName || 'User'}
-//                                     </Text>
-//                                     <Text style={[styles.accountEmail, { color: theme.colors.textSecondary }]}>
-//                                         {user?.email || 'No email'}
-//                                     </Text>
-//                                 </View>
-//                                 <Badge label="Logged In" variant="success" />
-//                             </View>
-//                         </LinearGradient>
-
-//                         {/* Security Section */}
-//                         <Text style={[styles.sectionHeader, { color: theme.colors.textTertiary }]}>Security & Authentication</Text>
-//                         <LinearGradient
-//                             colors={theme.gradients.glassWipe}
-//                             start={{ x: 0, y: 0.5 }}
-//                             end={{ x: 1, y: 0.5 }}
-//                             style={[styles.sectionCard, theme.shadows.sm, { borderColor: theme.colors.borderLight }]}
-//                         >
-//                             {biometricAvailable && (
-//                                 <SettingToggle
-//                                     icon="lock"
-//                                     title="Biometric Lock"
-//                                     description="Secure your app with FaceID or Fingerprint"
-//                                     value={biometricEnabled}
-//                                     onToggle={handleBiometricToggle}
-//                                     disabled={isLoading}
-//                                 />
-//                             )}
-//                             <SettingButton
-//                                 icon="key"
-//                                 title={hasPassword ? "Change Password" : "Set Password"}
-//                                 description={hasPassword ? "Update your account password" : "Add a password to your account"}
-//                                 onPress={() => router.push(hasPassword ? '/(app)/profile/change-password' : '/(auth)/set-password')}
-//                             />
-//                             <SettingButton
-//                                 icon="shield"
-//                                 title="Two-Factor Authentication"
-//                                 description="Not available until a verified server-side flow is integrated"
-//                                 rightText="Unavailable"
-//                                 onPress={() => {}}
-//                                 disabled
-//                             />
-//                         </LinearGradient>
-
-//                         {/* Data Section */}
-//                         <Text style={[styles.sectionHeader, { color: theme.colors.textTertiary }]}>Data & Management</Text>
-//                         <LinearGradient
-//                             colors={theme.gradients.glassWipe}
-//                             start={{ x: 0, y: 0.5 }}
-//                             end={{ x: 1, y: 0.5 }}
-//                             style={[styles.sectionCard, theme.shadows.sm, { borderColor: theme.colors.borderLight }]}
-//                         >
-//                             <SettingButton
-//                                 icon="trash-2"
-//                                 title="Clear Local Cache"
-//                                 description="Remove cached local data without signing out"
-//                                 danger
-//                                 onPress={async () => {
-//                                     try {
-//                                         const { storage } = await import('../../utils/storage');
-//                                         const { queryClient } = await import('../../providers/QueryProvider');
-//                                         await storage.clearCachedData();
-//                                         queryClient.clear();
-//                                         Alert.alert('Local cache cleared', 'You remain signed in. Fresh data will load as you continue using the app.');
-//                                     } catch {
-//                                         Alert.alert('Could not clear local cache', 'Please try again.');
-//                                     }
-//                                 }}
-//                             />
-//                         </LinearGradient>
-
-//                         {/* Danger Zone */}
-//                         <Text style={[styles.sectionHeader, { color: theme.colors.danger }]}>Danger Zone</Text>
-//                         <LinearGradient
-//                             colors={theme.gradients.glassWipe}
-//                             start={{ x: 0, y: 0.5 }}
-//                             end={{ x: 1, y: 0.5 }}
-//                             style={[styles.sectionCard, theme.shadows.sm, { borderColor: `${theme.colors.danger}40`, borderWidth: 1.5 }]}
-//                         >
-//                             <SettingButton
-//                                 icon="alert-circle"
-//                                 title="Delete Account"
-//                                 description="Not available until server-side deletion can be verified"
-//                                 rightText="Unavailable"
-//                                 danger
-//                                 onPress={() => {}}
-//                                 disabled
-//                             />
-//                         </LinearGradient>
-
-//                         <Text style={styles.footerText}>
-//                             App Version 3.0.0 • Secured with APEX Design System
-//                         </Text>
-//                     </ScrollView>
-//                 </View>
-//             </View>
-
-//         </GlobalBackground>
-//     );
-// }
-
-// function useStyles() {
-//     const theme = useTheme();
-//     const { width } = useWindowDimensions();
-//     const isDesktop = Platform.OS === 'web' && width > 768;
-
-//     return useMemo(() => StyleSheet.create({
-//         container: {
-//             flex: 1,
-//             width: '100%',
-//         },
-//         webDesktopContent: {
-//             flex: 1,
-//             width: '100%',
-//             maxWidth: isDesktop ? 960 : '100%',
-//             alignSelf: 'center',
-//         },
-//         header: {
-//             flexDirection: 'row',
-//             justifyContent: 'space-between',
-//             alignItems: 'center',
-//             paddingHorizontal: isDesktop ? 32 : 20,
-//             paddingBottom: 16,
-//             borderBottomWidth: 1,
-//         },
-//         backBtnWrap: {
-//             width: 42,
-//         },
-//         headerIconBtn: {
-//             width: 42,
-//             height: 42,
-//             borderRadius: 21,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//             borderWidth: 1,
-//         },
-//         headerTitle: {
-//             fontSize: isDesktop ? 20 : 18,
-//             fontWeight: '700',
-//             letterSpacing: -0.3,
-//         },
-//         content: {
-//             paddingHorizontal: isDesktop ? 32 : 20,
-//         },
-//         sectionHeader: {
-//             fontSize: 12,
-//             fontWeight: '700',
-//             textTransform: 'uppercase',
-//             letterSpacing: 0.8,
-//             marginBottom: 10,
-//             marginTop: 24,
-//             marginLeft: 4,
-//         },
-//         sectionCard: {
-//             borderRadius: 20,
-//             overflow: 'hidden',
-//             marginBottom: 8,
-//             borderWidth: 1,
-//         },
-//         settingRow: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             paddingVertical: 14,
-//             paddingHorizontal: 16,
-//             borderBottomWidth: 1,
-//             borderBottomColor: theme.isDark ? 'rgba(255, 255, 255, 0.04)' : theme.colors.borderLight,
-//             ...(Platform.OS === 'web' ? {
-//                 transition: 'background-color 0.2s ease',
-//                 cursor: 'pointer'
-//             } : {}),
-//         } as any,
-//         settingLeft: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 16,
-//             flex: 1,
-//         },
-//         settingIconWrap: {
-//             width: 40,
-//             height: 40,
-//             borderRadius: 12,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//         },
-//         settingInfo: {
-//             flex: 1,
-//         },
-//         settingTitle: {
-//             fontSize: 15,
-//             fontWeight: '700',
-//         },
-//         settingDesc: {
-//             fontSize: 12,
-//             marginTop: 2,
-//             fontWeight: '500',
-//         },
-//         settingRight: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 10,
-//         },
-//         settingBadge: {
-//             paddingHorizontal: 8,
-//             paddingVertical: 2,
-//         },
-//         rightText: {
-//             fontSize: 13,
-//             fontWeight: '500',
-//         },
-//         accountCard: {
-//             padding: 20,
-//             borderRadius: 20,
-//             marginTop: 8,
-//             marginBottom: 12,
-//             borderWidth: 1,
-//         },
-//         accountHeader: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 16,
-//         },
-//         accountAvatar: {
-//             width: 50,
-//             height: 50,
-//             borderRadius: 25,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//         },
-//         accountAvatarText: {
-//             fontSize: 20,
-//             fontWeight: '800',
-//         },
-//         accountInfo: {
-//             flex: 1,
-//         },
-//         accountName: {
-//             fontSize: 16,
-//             fontWeight: '700',
-//         },
-//         accountEmail: {
-//             fontSize: 13,
-//             fontWeight: '500',
-//             marginTop: 2,
-//         },
-//         footerText: {
-//             textAlign: 'center',
-//             fontSize: 12,
-//             fontWeight: '500',
-//             color: theme.colors.textTertiary,
-//             marginTop: 36,
-//             marginBottom: 24,
-//         },
-//     }), [theme, isDesktop]);
-// }

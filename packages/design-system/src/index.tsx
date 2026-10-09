@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import {
   useColorScheme,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,7 +16,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { lightTheme, darkTheme, type Theme } from './theme';
+import { lightTheme, darkTheme, fontFamilies, type FontPreset, type Theme } from './theme';
 import { themePresets } from './theme/presets';
 
 export { lightTheme, darkTheme, Theme, themePresets };
@@ -29,7 +30,13 @@ export function ThemeProvider({
   mode = 'system',
   preset = 'light',
   fontColor,
-}: PropsWithChildren<{ mode?: ThemeMode; preset?: string; fontColor?: string }>) {
+  fontPreset = 'system',
+}: PropsWithChildren<{
+  mode?: ThemeMode;
+  preset?: string;
+  fontColor?: string;
+  fontPreset?: FontPreset;
+}>) {
   const systemScheme = useColorScheme();
 
   const theme = useMemo(() => {
@@ -47,18 +54,46 @@ export function ThemeProvider({
         systemScheme === 'dark' ? themePresets.dark || darkTheme : themePresets.light || lightTheme;
     }
 
-    if (fontColor) {
-      return {
-        ...base,
-        colors: {
-          ...base.colors,
-          fontColor,
-          textPrimary: fontColor,
+    const selectedFont = fontFamilies[fontPreset] ?? fontFamilies.system;
+    // CSS font stacks are not valid React Native family names. Resolve a
+    // concrete native family whenever a preset has no bundled native font.
+    const nativeSans =
+      selectedFont.nativeSans ??
+      Platform.select({
+        ios: 'System',
+        android: 'sans-serif',
+        default: selectedFont.sans,
+      })!;
+    const nativeMono =
+      selectedFont.nativeMono ??
+      Platform.select({
+        ios: 'Menlo',
+        android: 'monospace',
+        default: selectedFont.mono,
+      })!;
+
+    return {
+      ...base,
+      typography: {
+        ...base.typography,
+        fontFamily: {
+          ...base.typography.fontFamily,
+          sans: nativeSans,
+          mono: nativeMono,
+          display: nativeSans,
         },
-      };
-    }
-    return base;
-  }, [mode, preset, systemScheme, fontColor]);
+      },
+      ...(fontColor
+        ? {
+            colors: {
+              ...base.colors,
+              fontColor,
+              textPrimary: fontColor,
+            },
+          }
+        : {}),
+    };
+  }, [mode, preset, systemScheme, fontColor, fontPreset]);
 
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }

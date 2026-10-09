@@ -23,13 +23,11 @@ import { useDashboard } from '../../../hooks/useDashboard';
 import { queryKeys } from '../../../hooks/queryKeys';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { useAuthStore } from '../../../stores/auth.store';
-import { TripCard } from '../../../components/ui/TripCard';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { haptics } from '../../../utils/haptics';
 import { safeFormatCurrency } from '../../../utils/formatters';
 
 import { GlobalBackground } from '../../../components/ui/GlobalBackground';
-
 import { GlassCard } from '../../../components/ui/GlassCard';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -831,7 +829,9 @@ export default function DashboardScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 860;
+  // The native shell retains mobile navigation in landscape. Only use the
+  // desktop composition when the desktop web shell is actually present.
+  const isDesktop = Platform.OS === 'web' && width >= 860;
 
   const [refreshing, setRefreshing] = useState(false);
   const [showBreakdownModal, setShowBreakdownModal] = useState(false);
@@ -906,6 +906,17 @@ export default function DashboardScreen() {
     recentlyCompleted.length === 0 &&
     totalOwed === 0 &&
     totalLent === 0;
+
+  const QuickActionsContainer: any = isDesktop ? View : ScrollView;
+  const quickActionsContainerProps = isDesktop
+    ? { style: mainStyles(theme).quickGrid }
+    : {
+        horizontal: true,
+        showsHorizontalScrollIndicator: false,
+        directionalLockEnabled: true,
+        nestedScrollEnabled: true,
+        contentContainerStyle: mainStyles(theme).quickCarousel,
+      };
 
   return (
     <View style={mainStyles(theme).root}>
@@ -1087,7 +1098,7 @@ export default function DashboardScreen() {
                     isDesktop && { flex: 1 },
                   ]}
                 >
-                  <View style={mainStyles(theme).quickGrid}>
+                  <QuickActionsContainer {...quickActionsContainerProps}>
                     {ACTION_CONFIG.map(action => (
                       <GlassCard
                         key={action.id}
@@ -1096,7 +1107,11 @@ export default function DashboardScreen() {
                           haptics.light();
                           router.push(action.route as any);
                         }}
-                        style={mainStyles(theme).quickTile}
+                        style={
+                          isDesktop
+                            ? mainStyles(theme).quickTile
+                            : mainStyles(theme).quickCarouselTile
+                        }
                         intensity={theme.isDark ? 20 : 15}
                       >
                         <LinearGradient
@@ -1133,7 +1148,7 @@ export default function DashboardScreen() {
                         </View>
                       </GlassCard>
                     ))}
-                  </View>
+                  </QuickActionsContainer>
                 </View>
               </View>
 
@@ -1181,8 +1196,7 @@ export default function DashboardScreen() {
                         key={trip.tripId}
                         style={mainStyles(theme).tripSlide}
                       >
-                        <TripCard
-                          variant="horizontal"
+                        <TripCardHorizontal
                           trip={trip}
                           onPress={() =>
                             router.push(`/(app)/trips/${trip.tripId}` as any)
@@ -1534,6 +1548,10 @@ function mainStyles(theme: Theme) {
       flexWrap: 'wrap',
       gap: 10,
     },
+    quickCarousel: {
+      gap: 12,
+      paddingRight: 20,
+    },
     quickTile: {
       flexGrow: 1,
       flexShrink: 1,
@@ -1558,6 +1576,17 @@ function mainStyles(theme: Theme) {
           shadowRadius: 6,
         },
       }),
+    },
+    quickCarouselTile: {
+      width: 176,
+      minHeight: 86,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.05)',
     },
     quickIconWrap: {
       width: 36,

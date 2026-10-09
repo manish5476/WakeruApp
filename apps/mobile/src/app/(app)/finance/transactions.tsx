@@ -1,13 +1,13 @@
 // app/(app)/transactions.tsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   Platform,
+  StatusBar,
   TextInput,
-  Modal,
   Pressable,
   useWindowDimensions,
   RefreshControl,
@@ -15,33 +15,38 @@ import {
 import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
-  FadeInDown,
-  FadeInUp,
-  Layout,
+  Easing,
+  FadeIn,
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
 } from 'react-native-reanimated';
-import { format } from 'date-fns';
+import { format, isThisYear, isToday, isYesterday, parseISO } from 'date-fns';
 
 import { useTheme } from '../../../providers/ThemeProvider';
-import { useResponsive } from '../../../hooks/useResponsive';
 import { useInfiniteTransactions } from '../../../hooks/useFinance';
 import { haptics } from '../../../utils/haptics';
-import { safeFormatCurrency } from '../../../utils/formatters';
 
 import { GlobalBackground } from '../../../components/ui/GlobalBackground';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { Avatar } from '../../../components/ui/Avatar';
 import AppIcon from '../../../components/common/AppIcon';
-import GlobalLoader from '../../../components/common/GlobalLoader';
 import { CustomDatePickerModal } from '../../../components/common/CustomDatePickerModal';
+import { GlassCard } from '../../../components/ui/GlassCard';
+import { TripTabs } from '../../../components/ui/TripTabs';
+import { TransactionCard } from '../../../components/ui/TransactionCard';
 import type { Theme } from '../../../theme';
 
 // ─── Types ───────────────────────────────────────────────────
-type TransactionType = 'all' | 'expense' | 'income' | 'trip_expense';
+type TransactionType =
+  'all' | 'regular' | 'trip_expense' | 'income' | 'lent' | 'borrowed';
 type DateFilterPreset =
   'all' | 'today' | 'this_week' | 'this_month' | 'this_year' | 'custom';
 
 interface Transaction {
   localCurrency?: string;
+  currency?: string;
   _id: string;
   id?: string;
   title: string;
@@ -57,86 +62,56 @@ interface Transaction {
   splitWith?: string[];
   notes?: string;
   paidByName?: string;
+  relationshipId?: string;
+  personName?: string;
+  personPhone?: string;
+  personUserId?: string;
 }
 
-const WEB = Platform.OS === 'web';
-
-const FILTER_OPTIONS: { id: TransactionType; label: string; icon: string }[] = [
+const TYPE_TABS: { id: TransactionType; label: string; icon: string }[] = [
   { id: 'all', label: 'All', icon: 'layers' },
-  { id: 'expense', label: 'Expenses', icon: 'arrow-down-right' },
+  { id: 'regular', label: 'Regular', icon: 'wallet' },
+  { id: 'trip_expense', label: 'Trips', icon: 'map' },
   { id: 'income', label: 'Income', icon: 'arrow-up-right' },
-  { id: 'trip_expense', label: 'Trip Expenses', icon: 'map' },
+  { id: 'lent', label: 'Lent', icon: 'arrow-up-right' },
+  { id: 'borrowed', label: 'Borrowed', icon: 'arrow-down-left' },
 ];
 
-const CATEGORY_CONFIG: Record<
-  string,
-  { icon: string; color: string; bg: string; label: string }
-> = {
-  food: {
-    icon: 'utensils',
-    color: '#F43F5E',
-    bg: '#FFE4E6',
-    label: 'Food & Dining',
-  },
-  transport: {
-    icon: 'car',
-    color: '#06B6D4',
-    bg: '#CFFAFE',
-    label: 'Transportation',
-  },
-  stay: {
-    icon: 'hotel',
-    color: '#8B5CF6',
-    bg: '#EDE9FE',
-    label: 'Accommodation',
-  },
-  accommodation: {
-    icon: 'hotel',
-    color: '#8B5CF6',
-    bg: '#EDE9FE',
-    label: 'Accommodation',
-  },
-  health: {
-    icon: 'heart-pulse',
-    color: '#EF4444',
-    bg: '#FEE2E2',
-    label: 'Healthcare',
-  },
-  shopping: {
-    icon: 'shopping-bag',
-    color: '#F59E0B',
-    bg: '#FEF3C7',
-    label: 'Shopping',
-  },
-  entertainment: {
-    icon: 'film',
-    color: '#8B5CF6',
-    bg: '#EDE9FE',
-    label: 'Entertainment',
-  },
-  activity: {
-    icon: 'zap',
-    color: '#10B981',
-    bg: '#ECFDF5',
-    label: 'Activities',
-  },
-  bills: {
-    icon: 'file-text',
-    color: '#6366F1',
-    bg: '#EEF2FF',
-    label: 'Bills & Utilities',
-  },
-  income: {
-    icon: 'dollar-sign',
-    color: '#10B981',
-    bg: '#ECFDF5',
-    label: 'Income',
-  },
-  other: { icon: 'tag', color: '#71717A', bg: '#F4F4F5', label: 'General' },
+const DATE_TABS: { id: DateFilterPreset; label: string }[] = [
+  { id: 'all', label: 'All time' },
+  { id: 'today', label: 'Today' },
+  { id: 'this_week', label: 'This week' },
+  { id: 'this_month', label: 'This month' },
+  { id: 'this_year', label: 'This year' },
+  { id: 'custom', label: 'Custom' },
+];
+
+const DATE_LABELS: Record<DateFilterPreset, string> = {
+  all: 'all time',
+  today: 'today',
+  this_week: 'this week',
+  this_month: 'this month',
+  this_year: 'this year',
+  custom: 'custom range',
+};
+
+// Same shared content width as the Finance screen so both pages line up.
+const CONTENT_MAX = 1200;
+const GRID_GAP = 12;
+
+const TONE = {
+  red: '#EF4444',
+  green: '#10B981',
+  blue: '#3B82F6',
+  amber: '#F59E0B',
+  pink: '#EC4899',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────
-const toISODate = (d: Date) => d.toISOString().split('T')[0];
+const toISODate = (d: Date) => format(d, 'yyyy-MM-dd');
+const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+const hairlineFor = (theme: Theme) =>
+  theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)';
 
 function getPresetRange(
   preset: DateFilterPreset,
@@ -155,11 +130,13 @@ function getPresetRange(
     }
     case 'this_month': {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { startDate: toISODate(start), endDate: toISODate(now) };
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { startDate: toISODate(start), endDate: toISODate(end) };
     }
     case 'this_year': {
       const start = new Date(now.getFullYear(), 0, 1);
-      return { startDate: toISODate(start), endDate: toISODate(now) };
+      const end = new Date(now.getFullYear(), 11, 31);
+      return { startDate: toISODate(start), endDate: toISODate(end) };
     }
     case 'custom':
       return {
@@ -171,283 +148,397 @@ function getPresetRange(
   }
 }
 
-const getCurrencySymbol = (currencyCode?: string) => {
-  switch (currencyCode?.toUpperCase()) {
-    case 'USD':
-      return '$';
-    case 'EUR':
-      return '€';
-    case 'GBP':
-      return '£';
-    case 'INR':
-    default:
-      return '₹';
+function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+    if (hex.length === 3)
+      hex = hex
+        .split('')
+        .map(c => c + c)
+        .join('');
+    if (hex.length >= 6) {
+      const a = Math.round(alpha * 255)
+        .toString(16)
+        .padStart(2, '0');
+      return `#${hex.slice(0, 6)}${a}`;
+    }
   }
-};
+  return color;
+}
 
-// ─── Sub-Components ──────────────────────────────────────────
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? 'unknown' : format(d, 'yyyy-MM-dd');
+}
 
-function BentoSummaryStrip({ summary, theme }: { summary: any; theme: Theme }) {
-  if (!summary) return null;
+function dayLabel(key: string): string {
+  if (key === 'unknown') return 'Undated';
+  const d = parseISO(key);
+  if (isToday(d)) return 'Today';
+  if (isYesterday(d)) return 'Yesterday';
+  return format(d, isThisYear(d) ? 'EEEE, MMM d' : 'MMM d, yyyy');
+}
 
-  const totalExpense = Number(summary.totalExpense || 0);
-  const totalIncome = Number(summary.totalIncome || 0);
-  const netAmount = Number(summary.netAmount || totalIncome - totalExpense);
-  const isNetPositive = netAmount >= 0;
+const NON_SPENDING = new Set([
+  'income',
+  'settlement_received',
+  'lent',
+  'borrowed',
+  'repayment',
+]);
+
+// ─── Summary tiles ───────────────────────────────────────────
+interface TileSpec {
+  key: string;
+  icon: string;
+  tone: string;
+  label: string;
+  value: string;
+  sub: string;
+}
+
+function buildTiles(filterType: TransactionType, s: any): TileSpec[] {
+  const expense = Number(s.totalExpense || 0);
+  const income = Number(s.totalIncome || 0);
+  const net = Number(s.netAmount ?? income - expense);
+  const lent = Number(s.totalLent || 0);
+  const borrowed = Number(s.totalBorrowed || 0);
+  const repaid = Number(s.totalRepaid || 0);
+
+  if (filterType === 'lent') {
+    return [
+      {
+        key: 'lent',
+        icon: 'arrow-up-right',
+        tone: TONE.amber,
+        label: 'Total lent',
+        value: inr(lent),
+        sub: 'Given to contacts',
+      },
+      {
+        key: 'repaid',
+        icon: 'check-circle',
+        tone: TONE.green,
+        label: 'Repaid',
+        value: inr(repaid),
+        sub: 'Collected back',
+      },
+      {
+        key: 'out',
+        icon: 'clock',
+        tone: TONE.blue,
+        label: 'Outstanding',
+        value: inr(Math.max(0, lent - repaid)),
+        sub: 'Still owed to you',
+      },
+    ];
+  }
+  if (filterType === 'borrowed') {
+    return [
+      {
+        key: 'borrowed',
+        icon: 'arrow-down-left',
+        tone: TONE.pink,
+        label: 'Total borrowed',
+        value: inr(borrowed),
+        sub: 'Money you took',
+      },
+      {
+        key: 'repaid',
+        icon: 'check-circle',
+        tone: TONE.green,
+        label: 'You repaid',
+        value: inr(repaid),
+        sub: 'Paid back by you',
+      },
+      {
+        key: 'out',
+        icon: 'alert-circle',
+        tone: TONE.red,
+        label: 'Outstanding',
+        value: inr(Math.max(0, borrowed - repaid)),
+        sub: 'Still to pay back',
+      },
+    ];
+  }
+  const positive = net >= 0;
+  return [
+    {
+      key: 'exp',
+      icon: 'arrow-down-right',
+      tone: TONE.red,
+      label: 'Expenses',
+      value: inr(expense),
+      sub: 'Money out',
+    },
+    {
+      key: 'inc',
+      icon: 'arrow-up-right',
+      tone: TONE.green,
+      label: 'Income',
+      value: inr(income),
+      sub: 'Money in',
+    },
+    {
+      key: 'net',
+      icon: 'activity',
+      tone: positive ? TONE.green : TONE.red,
+      label: 'Net cashflow',
+      value: `${positive ? '+' : '−'}${inr(Math.abs(net))}`,
+      sub: positive ? 'Surplus for this period' : 'Deficit for this period',
+    },
+  ];
+}
+
+function SummaryTile({ spec, fluid }: { spec: TileSpec; fluid: boolean }) {
+  const theme = useTheme();
+  const s = useMemo(() => createTileStyles(theme), [theme]);
 
   return (
-    <View style={styles.bentoSummaryRow}>
-      {/* Total Expenses */}
-      <View
-        style={[
-          styles.bentoSummaryTile,
-          { backgroundColor: theme.colors.surface },
-        ]}
-      >
-        <View style={styles.summaryTopRow}>
-          <View
-            style={[styles.summaryIconWrap, { backgroundColor: '#FEE2E2' }]}
-          >
-            <AppIcon name="arrow-down-right" size={15} color="#EF4444" />
-          </View>
-          <Text style={[styles.summaryCategoryText, { color: '#EF4444' }]}>
-            EXPENSES
-          </Text>
-        </View>
-        <Text style={[styles.summaryAmountText, { color: '#EF4444' }]}>
-          ₹{totalExpense.toLocaleString('en-IN')}
-        </Text>
-        <Text
-          style={[styles.summarySubText, { color: theme.colors.textTertiary }]}
+    <GlassCard
+      style={[s.tile, fluid && s.tileFluid]}
+      intensity={theme.isDark ? 15 : 10}
+      padding="none"
+    >
+      <View style={s.head}>
+        <View
+          style={[s.iconWrap, { backgroundColor: withAlpha(spec.tone, 0.14) }]}
         >
-          Total money out
+          <AppIcon name={spec.icon as any} size={13} color={spec.tone} />
+        </View>
+        <Text
+          style={[s.label, { color: theme.colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {spec.label}
         </Text>
       </View>
+      <Text style={[s.value, { color: spec.tone }]} numberOfLines={1}>
+        {spec.value}
+      </Text>
+      <Text
+        style={[s.sub, { color: theme.colors.textTertiary }]}
+        numberOfLines={1}
+      >
+        {spec.sub}
+      </Text>
+    </GlassCard>
+  );
+}
 
-      {/* Total Income */}
-      <View
-        style={[
-          styles.bentoSummaryTile,
-          { backgroundColor: theme.colors.surface },
-        ]}
-      >
-        <View style={styles.summaryTopRow}>
-          <View
-            style={[styles.summaryIconWrap, { backgroundColor: '#ECFDF5' }]}
-          >
-            <AppIcon name="arrow-up-right" size={15} color="#10B981" />
-          </View>
-          <Text style={[styles.summaryCategoryText, { color: '#10B981' }]}>
-            INCOME
-          </Text>
-        </View>
-        <Text style={[styles.summaryAmountText, { color: '#10B981' }]}>
-          ₹{totalIncome.toLocaleString('en-IN')}
-        </Text>
-        <Text
-          style={[styles.summarySubText, { color: theme.colors.textTertiary }]}
-        >
-          Total money in
-        </Text>
-      </View>
+function SummaryStrip({
+  summary,
+  filterType,
+  isDesktop,
+}: {
+  summary: any;
+  filterType: TransactionType;
+  isDesktop: boolean;
+}) {
+  const theme = useTheme();
+  const s = useMemo(() => createTileStyles(theme), [theme]);
+  if (!summary) return null;
 
-      {/* Net Balance */}
-      <View
-        style={[
-          styles.bentoSummaryTile,
-          { backgroundColor: theme.colors.surface },
-        ]}
-      >
-        <View style={styles.summaryTopRow}>
-          <View
-            style={[
-              styles.summaryIconWrap,
-              { backgroundColor: isNetPositive ? '#ECFDF5' : '#FEF2F2' },
-            ]}
-          >
-            <AppIcon
-              name="activity"
-              size={15}
-              color={isNetPositive ? '#10B981' : '#EF4444'}
-            />
-          </View>
-          <Text
-            style={[
-              styles.summaryCategoryText,
-              { color: isNetPositive ? '#10B981' : '#EF4444' },
-            ]}
-          >
-            NET CASHFLOW
-          </Text>
-        </View>
-        <Text
-          style={[
-            styles.summaryAmountText,
-            { color: isNetPositive ? '#10B981' : '#EF4444' },
-          ]}
-        >
-          {isNetPositive ? '+' : '−'}₹
-          {Math.abs(netAmount).toLocaleString('en-IN')}
-        </Text>
-        <Text
-          style={[styles.summarySubText, { color: theme.colors.textTertiary }]}
-        >
-          {isNetPositive ? 'Positive surplus' : 'Deficit this period'}
-        </Text>
+  const tiles = buildTiles(filterType, summary);
+
+  // Desktop: the three tiles share the full content width. Mobile: scrollable strip.
+  if (isDesktop) {
+    return (
+      <View style={s.fluidRow}>
+        {tiles.map(t => (
+          <SummaryTile key={t.key} spec={t} fluid />
+        ))}
       </View>
+    );
+  }
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginHorizontal: -16 }}
+      contentContainerStyle={s.row}
+    >
+      {tiles.map(t => (
+        <SummaryTile key={t.key} spec={t} fluid={false} />
+      ))}
+    </ScrollView>
+  );
+}
+
+// ─── Search field ────────────────────────────────────────────
+function SearchField({
+  value,
+  onChangeText,
+}: {
+  value: string;
+  onChangeText: (t: string) => void;
+}) {
+  const theme = useTheme();
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <View
+      style={[
+        fieldStyles.box,
+        {
+          backgroundColor: theme.isDark
+            ? 'rgba(30, 41, 59, 0.6)'
+            : 'rgba(241, 245, 249, 0.9)',
+          borderColor: focused ? theme.colors.primary : hairlineFor(theme),
+        },
+      ]}
+    >
+      <AppIcon
+        name="search"
+        size={16}
+        color={focused ? theme.colors.primary : theme.colors.textTertiary}
+      />
+      <TextInput
+        style={[
+          fieldStyles.input,
+          { color: theme.colors.textPrimary },
+          Platform.select({ web: { outlineStyle: 'none' } as any }),
+        ]}
+        placeholder="Search by title, trip or category"
+        placeholderTextColor={theme.colors.textTertiary}
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        autoCorrect={false}
+        autoCapitalize="none"
+        returnKeyType="search"
+        accessibilityLabel="Search transactions"
+      />
+      {value.length > 0 && (
+        <Pressable
+          onPress={() => onChangeText('')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+        >
+          <AppIcon name="x" size={14} color={theme.colors.textTertiary} />
+        </Pressable>
+      )}
     </View>
   );
 }
 
-function TransactionCardItem({ tx }: { tx: Transaction }) {
+const fieldStyles = StyleSheet.create({
+  box: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  input: { flex: 1, fontSize: 14, fontWeight: '500', padding: 0 },
+});
+
+// ─── Loading skeleton (matches the card grid) ────────────────
+function SkeletonGrid({ cols }: { cols: number }) {
   const theme = useTheme();
+  const pulse = useSharedValue(0.55);
 
-  const isIncome = tx.type === 'income';
-  const isTripExpense = tx.type === 'trip_expense';
-  const shareAmount = tx.myShare ?? tx.amount;
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 850, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+    return () => cancelAnimation(pulse);
+  }, [pulse]);
 
-  const categoryKey =
-    tx.type === 'income' ? 'income' : tx.category?.toLowerCase() || 'other';
-  const cat = CATEGORY_CONFIG[categoryKey] || CATEGORY_CONFIG.other;
-
-  const tripLabel = tx.tripName || tx.tripId?.title || 'General Activity';
-  const currencySymbol = getCurrencySymbol(tx.localCurrency);
-
-  let formattedDateStr = '';
-  try {
-    formattedDateStr = format(new Date(tx.date), 'MMM d, yyyy');
-  } catch {
-    formattedDateStr = tx.date;
-  }
+  const animated = useAnimatedStyle(() => ({ opacity: pulse.value }));
+  const bone = theme.isDark ? 'rgba(255,255,255,0.09)' : 'rgba(15,23,42,0.07)';
+  const count = cols * 2;
 
   return (
-    <Pressable
-      onPress={() => {
-        haptics.light();
-        router.push(`/finance/transaction/${tx._id || tx.id}` as any);
-      }}
-      style={({ pressed }) => [
-        styles.txCard,
-        { backgroundColor: theme.colors.surface },
-        isTripExpense && {
-          borderColor: theme.isDark
-            ? 'rgba(37,99,235,0.3)'
-            : 'rgba(37,99,235,0.2)',
+    <Animated.View
+      style={[
+        {
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          marginHorizontal: -GRID_GAP / 2,
         },
-        pressed && { opacity: 0.88, transform: [{ scale: 0.985 }] },
+        animated,
       ]}
+      accessibilityLabel="Loading transactions"
     >
-      {/* Category Aura */}
-      <View
-        style={[
-          styles.iconAura,
-          {
-            backgroundColor: theme.isDark ? `${cat.color}18` : cat.bg,
-          },
-        ]}
-      >
-        <AppIcon name={cat.icon as any} size={20} color={cat.color} />
-      </View>
-
-      {/* Middle Details */}
-      <View style={styles.txDetailsWrap}>
-        <View style={styles.txTopRow}>
-          <Text
-            style={[styles.txTitle, { color: theme.colors.textPrimary }]}
-            numberOfLines={1}
-          >
-            {tx.title || 'Untitled Transaction'}
-          </Text>
-
+      {Array.from({ length: count }).map((_, i) => (
+        <View
+          key={i}
+          style={{ width: `${100 / cols}%`, padding: GRID_GAP / 2 }}
+        >
           <View
             style={[
-              styles.txTypeTag,
+              skeletonStyles.card,
               {
-                backgroundColor: isIncome
-                  ? 'rgba(16,185,129,0.12)'
-                  : isTripExpense
-                    ? 'rgba(37,99,235,0.12)'
-                    : 'rgba(113,113,122,0.1)',
+                backgroundColor: theme.colors.surface,
+                borderColor: hairlineFor(theme),
               },
             ]}
           >
-            <Text
-              style={[
-                styles.txTypeTagText,
-                {
-                  color: isIncome
-                    ? '#059669'
-                    : isTripExpense
-                      ? '#2563EB'
-                      : theme.colors.textSecondary,
-                },
-              ]}
-            >
-              {isIncome
-                ? 'INCOME'
-                : isTripExpense
-                  ? 'TRIP EXPENSE'
-                  : 'PERSONAL'}
-            </Text>
+            <View style={[skeletonStyles.lead, { backgroundColor: bone }]} />
+            <View style={{ flex: 1, gap: 9 }}>
+              <View
+                style={[
+                  skeletonStyles.line,
+                  { width: '60%', backgroundColor: bone },
+                ]}
+              />
+              <View
+                style={[
+                  skeletonStyles.line,
+                  { width: '40%', height: 9, backgroundColor: bone },
+                ]}
+              />
+              <View
+                style={[
+                  skeletonStyles.line,
+                  {
+                    width: 70,
+                    height: 20,
+                    borderRadius: 10,
+                    backgroundColor: bone,
+                  },
+                ]}
+              />
+            </View>
           </View>
         </View>
-
-        <View style={styles.txSubRow}>
-          <Text
-            style={[styles.txSubtitle, { color: theme.colors.textTertiary }]}
-            numberOfLines={1}
-          >
-            {tripLabel} · {formattedDateStr}
-          </Text>
-        </View>
-      </View>
-
-      {/* Right Amount & Arrow */}
-      <View style={styles.txAmountBlock}>
-        <Text
-          style={[
-            styles.txAmountText,
-            { color: isIncome ? '#10B981' : theme.colors.textPrimary },
-          ]}
-        >
-          {isIncome ? '+' : '−'}
-          {currencySymbol}
-          {shareAmount.toLocaleString('en-IN', {
-            minimumFractionDigits: shareAmount % 1 === 0 ? 0 : 2,
-            maximumFractionDigits: 2,
-          })}
-        </Text>
-
-        <View
-          style={[
-            styles.txActionCircle,
-            { backgroundColor: theme.colors.background },
-          ]}
-        >
-          <AppIcon
-            name="chevron-right"
-            size={14}
-            color={theme.colors.textTertiary}
-          />
-        </View>
-      </View>
-    </Pressable>
+      ))}
+    </Animated.View>
   );
 }
 
-// ─── Main Screen ─────────────────────────────────────────────
+const skeletonStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  lead: { width: 52, height: 52, borderRadius: 16 },
+  line: { height: 12, borderRadius: 6 },
+});
 
+// ─── Main screen ─────────────────────────────────────────────
 export default function TransactionsScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isDesktop = width >= 860;
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
-  // Filter states
+  // Filter state
   const [filterType, setFilterType] = useState<TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [datePreset, setDatePreset] = useState<DateFilterPreset>('this_month');
+  const [datePreset, setDatePreset] = useState<DateFilterPreset>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState<'start' | 'end' | null>(
@@ -455,7 +546,10 @@ export default function TransactionsScreen() {
   );
 
   useEffect(() => {
-    const handler = setTimeout(() => setDebouncedSearch(searchQuery), 350);
+    const handler = setTimeout(
+      () => setDebouncedSearch(searchQuery.trim()),
+      350,
+    );
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
@@ -463,6 +557,8 @@ export default function TransactionsScreen() {
     () => getPresetRange(datePreset, customStartDate, customEndDate),
     [datePreset, customStartDate, customEndDate],
   );
+
+  const apiFilterType = filterType === 'all' ? undefined : filterType;
 
   const {
     data,
@@ -473,38 +569,134 @@ export default function TransactionsScreen() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteTransactions({
-    type: filterType === 'all' ? undefined : (filterType as any),
+    type: apiFilterType,
     search: debouncedSearch || undefined,
     startDate: resolvedDateRange.startDate,
     endDate: resolvedDateRange.endDate,
   } as any);
 
-  const transactions: Transaction[] = useMemo(
-    () => data?.pages.flatMap((page: any) => page?.transactions || []) || [],
-    [data],
-  );
-  const summary = data?.pages?.[0]?.summary;
-
-  const dateFilterLabel = useMemo(() => {
-    switch (datePreset) {
-      case 'all':
-        return 'All Time';
-      case 'today':
-        return 'Today';
-      case 'this_week':
-        return 'This Week';
-      case 'this_month':
-        return 'This Month';
-      case 'this_year':
-        return 'This Year';
-      case 'custom':
-        return customStartDate && customEndDate
-          ? `${customStartDate} – ${customEndDate}`
-          : 'Custom Range';
+  const transactions: Transaction[] = useMemo(() => {
+    const raw: Transaction[] =
+      data?.pages.flatMap((page: any) => page?.transactions || []) || [];
+    switch (filterType) {
+      case 'regular':
+        return raw.filter(
+          t =>
+            (t.type === 'expense' || t.type === 'regular') &&
+            !t.tripId &&
+            !t.tripName,
+        );
+      case 'trip_expense':
+        return raw.filter(
+          t =>
+            t.type === 'trip_expense' ||
+            Boolean(t.tripId) ||
+            Boolean(t.tripName),
+        );
+      case 'income':
+        return raw.filter(
+          t => t.type === 'income' || t.type === 'settlement_received',
+        );
+      case 'lent':
+        return raw.filter(t => t.type === 'lent');
+      case 'borrowed':
+        return raw.filter(t => t.type === 'borrowed');
       default:
-        return 'Timeframe';
+        return raw;
     }
-  }, [datePreset, customStartDate, customEndDate]);
+  }, [data, filterType]);
+
+  const rawSummary = data?.pages?.[0]?.summary;
+
+  const computedSummary = useMemo(() => {
+    if (filterType === 'all') {
+      return rawSummary || { totalExpense: 0, totalIncome: 0, netAmount: 0 };
+    }
+    let exp = 0,
+      inc = 0,
+      lent = 0,
+      borrowed = 0,
+      repaid = 0;
+    transactions.forEach(t => {
+      const amt = Number(t.amount || 0);
+      if (t.type === 'income' || t.type === 'settlement_received') inc += amt;
+      else if (t.type === 'lent') lent += amt;
+      else if (t.type === 'borrowed') borrowed += amt;
+      else if (t.type === 'repayment') repaid += amt;
+      else exp += amt;
+    });
+    return {
+      totalExpense: exp,
+      totalIncome: inc,
+      totalLent: lent,
+      totalBorrowed: borrowed,
+      totalRepaid: repaid,
+      netAmount: inc - exp,
+    };
+  }, [rawSummary, filterType, transactions]);
+
+  // Group by day (Today / Yesterday / date) with a per-day spending total
+  const groups = useMemo(() => {
+    const map = new Map<string, Transaction[]>();
+    transactions.forEach(t => {
+      const key = dayKey(t.date);
+      const list = map.get(key);
+      if (list) list.push(t);
+      else map.set(key, [t]);
+    });
+    return Array.from(map.entries()).map(([key, items]) => ({
+      key,
+      label: dayLabel(key),
+      items,
+      spent: items
+        .filter(t => !NON_SPENDING.has(t.type))
+        .reduce((sum, t) => sum + Number(t.amount || 0), 0),
+    }));
+  }, [transactions]);
+
+  const rangeLabel =
+    datePreset === 'custom' && customStartDate && customEndDate
+      ? `${customStartDate} to ${customEndDate}`
+      : DATE_LABELS[datePreset];
+
+  const hasActiveFilters =
+    filterType !== 'all' ||
+    datePreset !== 'all' ||
+    searchQuery.trim().length > 0;
+
+  const resetFilters = () => {
+    haptics.light();
+    setFilterType('all');
+    setDatePreset('all');
+    setCustomStartDate('');
+    setCustomEndDate('');
+    setSearchQuery('');
+  };
+
+  // Grid columns follow the real content width, so cards never stretch oddly
+  const contentWidth = Math.min(width, CONTENT_MAX + 32) - 32;
+  const cols = contentWidth >= 960 ? 3 : contentWidth >= 660 ? 2 : 1;
+
+  const openAdd = () => {
+    haptics.light();
+    router.push({
+      pathname: '/finance/add',
+      params:
+        filterType === 'lent' || filterType === 'borrowed'
+          ? { type: filterType }
+          : {},
+    } as any);
+  };
+
+  const headerTop =
+    Platform.OS === 'web'
+      ? 16
+      : Math.max(
+          insets.top,
+          Platform.OS === 'android' ? (StatusBar.currentHeight ?? 38) : 24,
+        ) + 10;
+
+  const count = transactions.length;
 
   return (
     <View style={styles.root}>
@@ -513,16 +705,9 @@ export default function TransactionsScreen() {
         <GlobalBackground />
       </View>
 
-      {/* Sticky Top Header */}
-      <View
-        style={[
-          styles.headerBar,
-          { paddingTop: Platform.OS === 'web' ? 20 : insets.top + 10 },
-        ]}
-      >
-        <View
-          style={[styles.headerInner, isDesktop && styles.desktopHeaderInner]}
-        >
+      {/* ─── Header ─── */}
+      <View style={[styles.headerBar, { paddingTop: headerTop }]}>
+        <View style={styles.headerInner}>
           <View style={styles.headerLeft}>
             <Pressable
               onPress={() => {
@@ -530,11 +715,12 @@ export default function TransactionsScreen() {
                 router.back();
               }}
               style={({ pressed }) => [
-                styles.headerBtn,
-                { backgroundColor: theme.colors.surface },
+                styles.iconBtn,
                 pressed && { opacity: 0.7 },
               ]}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
             >
               <AppIcon
                 name="arrow-left"
@@ -550,13 +736,12 @@ export default function TransactionsScreen() {
                   { color: theme.colors.textPrimary },
                 ]}
               >
-                Transaction Ledger
+                Transactions
               </Text>
               <Text
                 style={[styles.headerSub, { color: theme.colors.textTertiary }]}
               >
-                {dateFilterLabel} · {transactions.length} record
-                {transactions.length !== 1 ? 's' : ''}
+                {`${count} ${count === 1 ? 'record' : 'records'}, ${rangeLabel}`}
               </Text>
             </View>
           </View>
@@ -568,36 +753,46 @@ export default function TransactionsScreen() {
                 refetch();
               }}
               style={({ pressed }) => [
-                styles.headerBtn,
-                { backgroundColor: theme.colors.surface },
+                styles.iconBtn,
                 pressed && { opacity: 0.7 },
               ]}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh"
             >
               <AppIcon
                 name="refresh-cw"
                 size={15}
-                color={theme.colors.textSecondary}
+                color={
+                  isRefetching
+                    ? theme.colors.primary
+                    : theme.colors.textSecondary
+                }
               />
             </Pressable>
 
             <Pressable
-              onPress={() => {
-                haptics.light();
-                router.push('/finance/add' as any);
-              }}
-              style={styles.addBtn}
+              onPress={openAdd}
+              style={({ pressed }) => [
+                styles.addBtn,
+                pressed && { opacity: 0.85 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Add transaction"
             >
               <AppIcon name="plus" size={15} color="#FFFFFF" />
-              <Text style={styles.addBtnText}>Log New</Text>
+              <Text style={styles.addBtnText}>
+                {isDesktop ? 'Add transaction' : 'Add'}
+              </Text>
             </Pressable>
           </View>
         </View>
       </View>
 
-      {/* Main Content Body */}
+      {/* ─── Body ─── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.scrollContent,
           isDesktop && styles.desktopScrollContent,
@@ -616,178 +811,240 @@ export default function TransactionsScreen() {
         }
       >
         <View style={styles.mainWrapper}>
-          {/* ── BENTO SUMMARY METRICS STRIP ── */}
-          <BentoSummaryStrip summary={summary} theme={theme} />
+          <SummaryStrip
+            summary={computedSummary}
+            filterType={filterType}
+            isDesktop={isDesktop}
+          />
 
-          {/* ── TOOLBAR: SEARCH & CATEGORY FILTER PILLS ── */}
-          <View
-            style={[
-              styles.toolbarCard,
-              { backgroundColor: theme.colors.surface },
-            ]}
+          {/* Toolbar: search, type, period */}
+          <GlassCard
+            style={styles.toolbarCard}
+            intensity={theme.isDark ? 15 : 10}
+            padding="none"
           >
-            {/* Search Input */}
-            <View
-              style={[
-                styles.searchRow,
-                { backgroundColor: theme.colors.background },
-              ]}
-            >
-              <AppIcon
-                name="search"
-                size={16}
-                color={theme.colors.textTertiary}
-              />
-              <TextInput
-                style={[
-                  styles.searchInput,
-                  { color: theme.colors.textPrimary },
-                ]}
-                placeholder="Search description, trip, category..."
-                placeholderTextColor={theme.colors.textTertiary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <Pressable onPress={() => setSearchQuery('')} hitSlop={6}>
-                  <AppIcon
-                    name="x"
-                    size={14}
-                    color={theme.colors.textTertiary}
-                  />
+            <SearchField value={searchQuery} onChangeText={setSearchQuery} />
+
+            <TripTabs<TransactionType>
+              tabs={TYPE_TABS}
+              activeTab={filterType}
+              onChange={setFilterType}
+              variant="segmented"
+              size="sm"
+              scrollable
+            />
+
+            <View style={styles.periodRow}>
+              <View style={{ flex: 1 }}>
+                <TripTabs<DateFilterPreset>
+                  tabs={DATE_TABS}
+                  activeTab={datePreset}
+                  onChange={(id: DateFilterPreset) => {
+                    setDatePreset(id);
+                    if (id !== 'custom') {
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                    }
+                  }}
+                  variant="underline"
+                  size="sm"
+                  scrollable
+                />
+              </View>
+              {hasActiveFilters && (
+                <Pressable
+                  onPress={resetFilters}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear all filters"
+                >
+                  <Text
+                    style={[styles.clearText, { color: theme.colors.primary }]}
+                  >
+                    Clear
+                  </Text>
                 </Pressable>
               )}
             </View>
 
-            {/* Type Filter Pills */}
-            <View style={styles.filterPillsRow}>
-              {FILTER_OPTIONS.map(opt => {
-                const isActive = filterType === opt.id;
-                return (
-                  <Pressable
-                    key={opt.id}
-                    onPress={() => {
-                      haptics.light();
-                      setFilterType(opt.id);
-                    }}
-                    style={[
-                      styles.filterPill,
-                      isActive
-                        ? { backgroundColor: theme.colors.primary }
-                        : { backgroundColor: theme.colors.background },
-                    ]}
-                  >
-                    <AppIcon
-                      name={opt.icon as any}
-                      size={12}
-                      color={isActive ? '#FFFFFF' : theme.colors.textSecondary}
-                    />
-                    <Text
-                      style={[
-                        styles.filterPillText,
-                        {
-                          color: isActive
-                            ? '#FFFFFF'
-                            : theme.colors.textSecondary,
-                          fontWeight: isActive ? '800' : '600',
-                        },
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* ── TRANSACTIONS FEED ── */}
-          <View style={styles.listSection}>
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <GlobalLoader
-                  variant="inline"
-                  size="large"
-                  color={theme.colors.primary}
-                />
-                <Text
-                  style={[
-                    styles.loadingText,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  Fetching transaction records…
-                </Text>
-              </View>
-            ) : transactions.length === 0 ? (
-              <Animated.View entering={FadeInUp.delay(100).springify()}>
-                <EmptyState
-                  icon="💳"
-                  title="No Transactions Found"
-                  description="Adjust your search filters or record a new transaction to begin tracking."
-                  actionLabel="Log Transaction"
-                  onAction={() => router.push('/finance/add' as any)}
-                />
-              </Animated.View>
-            ) : (
-              <View style={styles.cardsGrid}>
-                {transactions.map((tx, index) => (
-                  <Animated.View
-                    key={tx._id || tx.id || String(index)}
-                    entering={FadeInDown.delay(index * 25)
-                      .springify()
-                      .damping(20)}
-                    layout={Layout.springify()}
-                    style={styles.cardCol}
-                  >
-                    <TransactionCardItem tx={tx} />
-                  </Animated.View>
-                ))}
+            {datePreset === 'custom' && (
+              <View style={styles.customRangeRow}>
+                {(['start', 'end'] as const).map((which, i) => {
+                  const value =
+                    which === 'start' ? customStartDate : customEndDate;
+                  return (
+                    <React.Fragment key={which}>
+                      {i === 1 && (
+                        <AppIcon
+                          name="arrow-right"
+                          size={12}
+                          color={theme.colors.textTertiary}
+                        />
+                      )}
+                      <Pressable
+                        onPress={() => setShowDatePicker(which)}
+                        style={[
+                          styles.dateRangeBtn,
+                          {
+                            backgroundColor: theme.colors.background,
+                            borderColor: hairlineFor(theme),
+                          },
+                        ]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${which === 'start' ? 'Start' : 'End'} date`}
+                      >
+                        <AppIcon
+                          name="calendar"
+                          size={13}
+                          color={theme.colors.primary}
+                        />
+                        <Text
+                          style={[
+                            styles.dateRangeBtnText,
+                            {
+                              color: value
+                                ? theme.colors.textPrimary
+                                : theme.colors.textTertiary,
+                            },
+                          ]}
+                        >
+                          {value ||
+                            (which === 'start' ? 'Start date' : 'End date')}
+                        </Text>
+                      </Pressable>
+                    </React.Fragment>
+                  );
+                })}
               </View>
             )}
+          </GlassCard>
 
-            {hasNextPage && (
+          {/* Feed */}
+          <View style={styles.listSection}>
+            {isLoading ? (
+              <SkeletonGrid cols={cols} />
+            ) : transactions.length === 0 ? (
+              <EmptyState
+                icon="💳"
+                title={
+                  hasActiveFilters
+                    ? 'No matching transactions'
+                    : 'No transactions yet'
+                }
+                description={
+                  hasActiveFilters
+                    ? 'Nothing matches these filters. Try a wider period or clear the search.'
+                    : 'Add your first expense or income to start building your ledger.'
+                }
+                actionLabel={
+                  hasActiveFilters ? 'Clear filters' : 'Add transaction'
+                }
+                onAction={hasActiveFilters ? resetFilters : openAdd}
+                secondaryActionLabel={
+                  hasActiveFilters ? 'Add transaction' : undefined
+                }
+                onSecondaryAction={hasActiveFilters ? openAdd : undefined}
+              />
+            ) : (
+              <Animated.View
+                key={`${filterType}-${datePreset}`}
+                entering={FadeIn.duration(160)}
+                style={{ gap: 18 }}
+              >
+                {groups.map(group => (
+                  <View key={group.key} style={{ gap: 10 }}>
+                    <View style={styles.dayHeader}>
+                      <Text
+                        style={[
+                          styles.dayLabel,
+                          { color: theme.colors.textPrimary },
+                        ]}
+                      >
+                        {group.label}
+                      </Text>
+                      {group.spent > 0 && (
+                        <Text
+                          style={[
+                            styles.daySpent,
+                            { color: theme.colors.textTertiary },
+                          ]}
+                        >
+                          {inr(group.spent)} spent
+                        </Text>
+                      )}
+                    </View>
+
+                    <View
+                      style={[styles.grid, { marginHorizontal: -GRID_GAP / 2 }]}
+                    >
+                      {group.items.map((tx, index) => (
+                        <View
+                          key={tx._id || tx.id || `${group.key}-${index}`}
+                          style={{
+                            width: `${100 / cols}%`,
+                            padding: GRID_GAP / 2,
+                          }}
+                        >
+                          <TransactionCard
+                            transaction={{
+                              ...tx,
+                              currency:
+                                tx.currency || tx.localCurrency || 'INR',
+                            }}
+                            onPress={() => {
+                              haptics.light();
+                              router.push(
+                                `/finance/transaction/${tx._id || tx.id}` as any,
+                              );
+                            }}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </Animated.View>
+            )}
+
+            {hasNextPage && !isLoading && (
               <View style={styles.loadMoreWrap}>
-                {isFetchingNextPage ? (
-                  <GlobalLoader
-                    variant="inline"
-                    size="small"
-                    color={theme.colors.primary}
-                  />
-                ) : (
-                  <Pressable
-                    onPress={() => {
-                      haptics.light();
-                      fetchNextPage();
-                    }}
+                <Pressable
+                  onPress={() => {
+                    haptics.light();
+                    fetchNextPage();
+                  }}
+                  disabled={isFetchingNextPage}
+                  style={({ pressed }) => [
+                    styles.loadMoreBtn,
+                    { borderColor: hairlineFor(theme) },
+                    pressed && { opacity: 0.75 },
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Text
                     style={[
-                      styles.loadMoreBtn,
-                      { borderColor: theme.colors.borderLight },
+                      styles.loadMoreText,
+                      { color: theme.colors.textPrimary },
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.loadMoreText,
-                        { color: theme.colors.textPrimary },
-                      ]}
-                    >
-                      Load Older Transactions
-                    </Text>
-                  </Pressable>
-                )}
+                    {isFetchingNextPage
+                      ? 'Loading…'
+                      : 'Load older transactions'}
+                  </Text>
+                </Pressable>
               </View>
             )}
           </View>
         </View>
       </ScrollView>
 
-      {/* Date Picker Modal for custom range */}
       <CustomDatePickerModal
         visible={!!showDatePicker}
         onClose={() => setShowDatePicker(null)}
         onSelectDate={date => {
           if (!date) return setShowDatePicker(null);
-          const formatted = new Date(date).toISOString().split('T')[0];
+          // Local date, not toISOString(): UTC conversion shifts the day back in IST.
+          const formatted = format(new Date(date), 'yyyy-MM-dd');
           if (showDatePicker === 'start') setCustomStartDate(formatted);
           else if (showDatePicker === 'end') setCustomEndDate(formatted);
           setShowDatePicker(null);
@@ -798,347 +1055,156 @@ export default function TransactionsScreen() {
   );
 }
 
-// ─── STYLES ──────────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────
+function createStyles(theme: Theme) {
+  const hairline = hairlineFor(theme);
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'transparent' },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-    gap: 10,
-  },
-  loadingText: { fontSize: 13, fontWeight: '600' },
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: 'transparent' },
 
-  // Header Bar
-  headerBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(15,23,42,0.06)',
-    zIndex: 10,
-  },
-  headerInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  desktopHeaderInner: {
-    maxWidth: 1300,
-    alignSelf: 'center',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.06)',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  headerSub: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
+    headerBar: {
+      paddingHorizontal: 16,
+      paddingBottom: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: hairline,
+      zIndex: 10,
+    },
+    headerInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
+      maxWidth: CONTENT_MAX,
+      alignSelf: 'center',
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flexShrink: 1,
+    },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    iconBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: hairline,
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.06)'
+        : 'rgba(255,255,255,0.85)',
+    },
+    headerTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4 },
+    headerSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 38,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      backgroundColor: theme.colors.primary,
+    },
+    addBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 
-  // Main Scroll Body
-  scrollContent: {
-    paddingTop: 16,
-    paddingHorizontal: 16,
-  },
-  desktopScrollContent: {
-    maxWidth: 1300,
-    alignSelf: 'center',
-    width: '100%',
-    paddingHorizontal: 24,
-  },
-  mainWrapper: {
-    gap: 16,
-  },
+    scrollContent: { paddingTop: 16, paddingHorizontal: 16 },
+    // +32 = side padding, so the inner width equals the header's width.
+    desktopScrollContent: {
+      maxWidth: CONTENT_MAX + 32,
+      alignSelf: 'center',
+      width: '100%',
+    },
+    mainWrapper: { gap: 16 },
 
-  // Bento Summary Strip
-  bentoSummaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  bentoSummaryTile: {
-    flex: 1,
-    minWidth: 150,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.05)',
+    toolbarCard: {
+      borderRadius: 20,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: hairline,
+      gap: 12,
+    },
+    periodRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    clearText: { fontSize: 13, fontWeight: '700' },
+    customRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    dateRangeBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      height: 42,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    dateRangeBtnText: { fontSize: 13, fontWeight: '600', flex: 1 },
 
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
-      } as any,
+    listSection: { gap: 10 },
+    dayHeader: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      paddingHorizontal: 2,
+    },
+    dayLabel: { fontSize: 15, fontWeight: '800', letterSpacing: -0.3 },
+    daySpent: { fontSize: 12, fontWeight: '600' },
+    grid: { flexDirection: 'row', flexWrap: 'wrap' },
 
-      default: {
-        shadowColor: '#000',
+    loadMoreWrap: { paddingVertical: 20, alignItems: 'center' },
+    loadMoreBtn: {
+      paddingHorizontal: 20,
+      height: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 14,
+      borderWidth: 1,
+    },
+    loadMoreText: { fontSize: 13, fontWeight: '700' },
+  });
+}
 
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
-      },
-    }),
-
-    justifyContent: 'space-between',
-  },
-  summaryTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  summaryIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summaryCategoryText: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  summaryAmountText: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  summarySubText: {
-    fontSize: 10,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-
-  // Toolbar
-  toolbarCard: {
-    borderRadius: 20,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.05)',
-    gap: 10,
-
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
-      } as any,
-
-      default: {
-        shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
-      },
-    }),
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
-    padding: 0,
-  },
-  filterPillsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  filterPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  filterPillText: {
-    fontSize: 11,
-  },
-
-  // Transaction List & Cards
-  listSection: {
-    gap: 10,
-  },
-  cardsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  cardCol: {
-    flex: 1,
-    minWidth: Platform.OS === 'web' ? 360 : '100%',
-  },
-
-  // Transaction Card
-  txCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.05)',
-
-    ...Platform.select({
-      web: {
-        boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
-      } as any,
-
-      default: {
-        shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
-      },
-    }),
-
-    gap: 12,
-  },
-  iconAura: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  txDetailsWrap: {
-    flex: 1,
-    gap: 3,
-  },
-  txTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  txTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-    flex: 1,
-  },
-  txTypeTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  txTypeTagText: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  txSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  txSubtitle: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  txAmountBlock: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  txAmountText: {
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: -0.3,
-  },
-  txActionCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Load More
-  loadMoreWrap: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  loadMoreBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  loadMoreText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
+function createTileStyles(theme: Theme) {
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 2,
+    },
+    fluidRow: { flexDirection: 'row', gap: 12 },
+    tile: {
+      width: 156,
+      minHeight: 96,
+      borderRadius: 18,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      justifyContent: 'space-between',
+      gap: 6,
+      borderWidth: 1,
+      borderColor: hairlineFor(theme),
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.05)'
+        : 'rgba(255,255,255,0.78)',
+      overflow: 'hidden',
+    },
+    tileFluid: { flex: 1, width: 'auto', minWidth: 0, minHeight: 104 },
+    head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    iconWrap: {
+      width: 24,
+      height: 24,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    label: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
+    value: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+    sub: { fontSize: 11, fontWeight: '500' },
+  });
+}
 // // app/(app)/transactions.tsx
 // import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// import {
-//   View,
-//   ScrollView,
-//   StyleSheet,
-//   Platform,
-//   TextInput,
-//   Modal,
-//   Pressable,
-// } from 'react-native';
+// import { View, Text, ScrollView, StyleSheet, Platform, StatusBar, TextInput, Pressable, useWindowDimensions, RefreshControl } from 'react-native';
 // import { router, Stack } from 'expo-router';
 // import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // import Animated, {
@@ -1146,35 +1212,28 @@ const styles = StyleSheet.create({
 //   FadeInUp,
 //   Layout,
 // } from 'react-native-reanimated';
-// import { LinearGradient } from 'expo-linear-gradient';
+// import { format } from 'date-fns';
 
 // import { useTheme } from '../../../providers/ThemeProvider';
-// import { useResponsive } from '../../../hooks/useResponsive';
 // import { useInfiniteTransactions } from '../../../hooks/useFinance';
 // import { haptics } from '../../../utils/haptics';
 
 // import { GlobalBackground } from '../../../components/ui/GlobalBackground';
-// import { Typography } from '../../../components/ui/Typography';
-// import { Badge } from '../../../components/ui/Badge';
-// import { Button } from '../../../components/ui/Button';
-// import { InteractiveWrapper } from '../../../components/ui/InteractiveWrapper';
-// import { Container } from '../../../components/ui/Container';
-// import { Grid } from '../../../components/ui/Grid';
 // import { EmptyState } from '../../../components/ui/EmptyState';
-// import { AmountDisplay } from '../../../components/ui/AmountDisplay';
-// import { Avatar } from '../../../components/ui/Avatar';
-// import { IconButton } from '../../../components/ui/IconButton';
 // import AppIcon from '../../../components/common/AppIcon';
 // import GlobalLoader from '../../../components/common/GlobalLoader';
-// import { GlassCard } from '../../../components/ui/GlassCard';
 // import { CustomDatePickerModal } from '../../../components/common/CustomDatePickerModal';
+// import { GlassCard } from '../../../components/ui/GlassCard';
+// import type { Theme } from '../../../theme';
+// import { TransactionCard } from '../../../components/ui/TransactionCard';
 
 // // ─── Types ───────────────────────────────────────────────────
-// type TransactionType = 'all' | 'expense' | 'income' | 'trip_expense';
-// type DateFilter = 'today' | 'week' | 'month' | 'year' | 'custom';
+// type TransactionType = 'all' | 'regular' | 'trip_expense' | 'income' | 'lent' | 'borrowed';
+// type DateFilterPreset = 'all' | 'today' | 'this_week' | 'this_month' | 'this_year' | 'custom';
 
 // interface Transaction {
-//   localCurrency: string;
+//   localCurrency?: string;
+//   currency?: string;
 //   _id: string;
 //   id?: string;
 //   title: string;
@@ -1189,386 +1248,266 @@ const styles = StyleSheet.create({
 //   tripName?: string;
 //   splitWith?: string[];
 //   notes?: string;
+//   paidByName?: string;
+//   relationshipId?: string;
+//   personName?: string;
+//   personPhone?: string;
+//   personUserId?: string;
 // }
 
-// // ─── Constants ───────────────────────────────────────────────
-// const WEB = Platform.OS === 'web';
-
-// const MONTHS = [
-//   { value: '1', label: 'Jan' }, { value: '2', label: 'Feb' },
-//   { value: '3', label: 'Mar' }, { value: '4', label: 'Apr' },
-//   { value: '5', label: 'May' }, { value: '6', label: 'Jun' },
-//   { value: '7', label: 'Jul' }, { value: '8', label: 'Aug' },
-//   { value: '9', label: 'Sep' }, { value: '10', label: 'Oct' },
-//   { value: '11', label: 'Nov' }, { value: '12', label: 'Dec' },
+// const FILTER_OPTIONS: { id: TransactionType; label: string; icon: string }[] = [
+//   { id: 'all', label: 'All', icon: 'layers' },
+//   { id: 'regular', label: 'Regular Expenses', icon: 'wallet' },
+//   { id: 'trip_expense', label: 'Trip Expenses', icon: 'map' },
+//   { id: 'income', label: 'Income', icon: 'arrow-up-right' },
+//   { id: 'lent', label: 'Money Lent', icon: 'arrow-up-right' },
+//   { id: 'borrowed', label: 'Borrowed', icon: 'arrow-down-left' },
 // ];
 
-// const getYearOptions = () => {
-//   const currentYear = new Date().getFullYear();
-//   return Array.from({ length: 11 }, (_, i) => ({
-//     value: String(currentYear - 10 + i),
-//     label: String(currentYear - 10 + i),
-//   }));
-// };
-
-// const FILTER_OPTIONS: { id: TransactionType; label: string }[] = [
-//   { id: 'all', label: 'All' },
-//   { id: 'expense', label: 'Expenses' },
-//   { id: 'income', label: 'Income' },
-//   { id: 'trip_expense', label: 'Trip Expenses' },
+// const DATE_PRESETS: { key: DateFilterPreset; label: string; icon: string }[] = [
+//   { key: 'all', label: 'All Time', icon: 'globe' },
+//   { key: 'today', label: 'Today', icon: 'zap' },
+//   { key: 'this_week', label: 'This Week', icon: 'calendar' },
+//   { key: 'this_month', label: 'This Month', icon: 'activity' },
+//   { key: 'this_year', label: 'This Year', icon: 'compass' },
+//   { key: 'custom', label: 'Custom Range', icon: 'sliders' },
 // ];
 
 // // ─── Helpers ─────────────────────────────────────────────────
-// const formatDate = (dateString: string) => {
-//   const date = new Date(dateString);
+// const toISODate = (d: Date) => format(d, 'yyyy-MM-dd');
+
+// function getPresetRange(preset: DateFilterPreset, customStart: string, customEnd: string) {
 //   const now = new Date();
-//   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-//   const yesterday = new Date(today);
-//   yesterday.setDate(yesterday.getDate() - 1);
-
-//   if (date >= today) return 'Today';
-//   if (date >= yesterday) return 'Yesterday';
-//   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-// };
-
-// const formatTime = (dateString: string) =>
-//   new Date(dateString).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-
-// const getCurrencySymbol = (currencyCode: string | undefined) => {
-//   switch (currencyCode?.toUpperCase()) {
-//     case 'INR': return '₹';
-//     case 'USD': return '$';
-//     case 'EUR': return '€';
-//     case 'GBP': return '£';
-//     default: return currencyCode || '₹';
+//   switch (preset) {
+//     case 'today':
+//       return { startDate: toISODate(now), endDate: toISODate(now) };
+//     case 'this_week': {
+//       const start = new Date(now);
+//       const day = start.getDay();
+//       start.setDate(start.getDate() - (day === 0 ? 6 : day - 1));
+//       return { startDate: toISODate(start), endDate: toISODate(now) };
+//     }
+//     case 'this_month': {
+//       const start = new Date(now.getFullYear(), now.getMonth(), 1);
+//       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+//       return { startDate: toISODate(start), endDate: toISODate(end) };
+//     }
+//     case 'this_year': {
+//       const start = new Date(now.getFullYear(), 0, 1);
+//       const end = new Date(now.getFullYear(), 11, 31);
+//       return { startDate: toISODate(start), endDate: toISODate(end) };
+//     }
+//     case 'custom':
+//       return {
+//         startDate: customStart || undefined,
+//         endDate: customEnd || undefined,
+//       };
+//     default:
+//       return {};
 //   }
-// };
-
-// // ─── Tab Bar Filter ──────────────────────────────────────────
-
-// function FilterTabBar({ selectedId, onSelect }: { selectedId: TransactionType; onSelect: (id: TransactionType) => void; }) {
-//   const theme = useTheme();
-
-//   return (
-//     <LinearGradient
-//       colors={theme.gradients.glassWipe}
-//       start={{ x: 0, y: 0 }}
-//       end={{ x: 1, y: 1 }}
-//       style={[styles.segmentedControl, { borderColor: theme.colors.borderLight }]}
-//     >
-//       {FILTER_OPTIONS.map((option) => {
-//         const isActive = selectedId === option.id;
-//         return (
-//           <InteractiveWrapper
-//             key={option.id}
-//             onPress={() => {
-//               haptics.light();
-//               onSelect(option.id);
-//             }}
-//             style={{ flex: 1 }}
-//           >
-//             <View
-//               style={[
-//                 styles.segmentItem,
-//                 isActive && { backgroundColor: theme.colors.primaryBg, borderRadius: theme.borderRadius.md },
-//               ]}
-//             >
-//               <Typography
-//                 variant="caption"
-//                 weight={isActive ? 'bold' : 'medium'}
-//                 color={isActive ? 'primary' : 'textSecondary'}
-//                 align="center"
-//               >
-//                 {option.label}
-//               </Typography>
-//             </View>
-//           </InteractiveWrapper>
-//         );
-//       })}
-//     </LinearGradient>
-//   );
 // }
 
-// // ─── Filter Modal ────────────────────────────────────────────
+// // ─── Sub-Components ──────────────────────────────────────────
 
-// function FilterModal({
-//   visible, onClose, selectedDateFilter, setSelectedDateFilter,
-//   selectedMonth, setSelectedMonth, selectedYear, setSelectedYear,
-//   customStartDate, customEndDate, onShowDatePicker
-// }: {
-//   visible: boolean; onClose: () => void;
-//   selectedDateFilter: DateFilter; setSelectedDateFilter: (v: DateFilter) => void;
-//   selectedMonth: string; setSelectedMonth: (v: string) => void;
-//   selectedYear: string; setSelectedYear: (v: string) => void;
-//   customStartDate: string; customEndDate: string;
-//   onShowDatePicker: (type: 'start' | 'end') => void;
-// }) {
-//   const theme = useTheme();
-
-//   if (!visible) return null;
-
-//   const DATE_FILTERS: { id: DateFilter; label: string }[] = [
-//     { id: 'today', label: 'Today' }, { id: 'week', label: 'This Week' },
-//     { id: 'month', label: 'This Month' }, { id: 'year', label: 'This Year' },
-//     { id: 'custom', label: 'Custom' },
-//   ];
-
-//   return (
-//     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-//       <Pressable style={styles.modalOverlay} onPress={onClose}>
-//         <Pressable>
-//           <Animated.View entering={FadeInUp.springify().damping(20)} style={[styles.modalContent, { backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.borderRadius['3xl'], borderTopRightRadius: theme.borderRadius['3xl'] }]}>
-//             <View style={styles.modalHandleContainer}>
-//               <View style={[styles.modalHandle, { backgroundColor: theme.colors.borderStrong }]} />
-//             </View>
-//             <View style={styles.modalHeader}>
-//               <Typography variant="h3" weight="bold" color="textPrimary">Date Filter</Typography>
-//               <IconButton icon={<AppIcon name="x" size={20} color={theme.colors.textPrimary} />} size="sm" variant="ghost" onPress={onClose} />
-//             </View>
-//             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: theme.spacing.xl, paddingBottom: theme.spacing.xl }}>
-
-//               <View style={{ gap: theme.spacing.sm }}>
-//                 <Typography variant="caption" weight="semibold" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Quick Select</Typography>
-//                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-//                   {DATE_FILTERS.map((filter) => {
-//                     const isActive = selectedDateFilter === filter.id;
-//                     return (
-//                       <InteractiveWrapper key={filter.id} onPress={() => { haptics.light(); setSelectedDateFilter(filter.id); }}>
-//                         <View style={[styles.pillChip, { backgroundColor: isActive ? theme.colors.primary : theme.colors.primaryBg, borderWidth: 1, borderColor: isActive ? theme.colors.primary : theme.colors.borderLight, borderRadius: theme.borderRadius.full }]}>
-//                           <Typography variant="caption" weight="semibold" color={isActive ? 'textInverse' : 'textSecondary'}>{filter.label}</Typography>
-//                         </View>
-//                       </InteractiveWrapper>
-//                     );
-//                   })}
-//                 </View>
-//               </View>
-
-//               {(selectedDateFilter === 'month' || selectedDateFilter === 'year') && (
-//                 <View style={{ gap: theme.spacing.lg }}>
-//                   {selectedDateFilter === 'month' && (
-//                     <View style={{ gap: theme.spacing.sm }}>
-//                       <Typography variant="caption" weight="semibold" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Month</Typography>
-//                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-//                         {MONTHS.map((month) => {
-//                           const isActive = selectedMonth === month.value;
-//                           return (
-//                             <InteractiveWrapper key={month.value} onPress={() => { haptics.light(); setSelectedMonth(month.value); }}>
-//                               <View style={[styles.pillChip, { backgroundColor: isActive ? theme.colors.primary : theme.colors.primaryBg, borderWidth: 1, borderColor: isActive ? theme.colors.primary : theme.colors.borderLight, borderRadius: theme.borderRadius.full }]}>
-//                                 <Typography variant="caption" weight="semibold" color={isActive ? 'textInverse' : 'textSecondary'}>{month.label}</Typography>
-//                               </View>
-//                             </InteractiveWrapper>
-//                           );
-//                         })}
-//                       </View>
-//                     </View>
-//                   )}
-//                   <View style={{ gap: theme.spacing.sm }}>
-//                     <Typography variant="caption" weight="semibold" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Year</Typography>
-//                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-//                       {getYearOptions().map((year) => {
-//                         const isActive = selectedYear === year.value;
-//                         return (
-//                           <InteractiveWrapper key={year.value} onPress={() => { haptics.light(); setSelectedYear(year.value); }}>
-//                             <View style={[styles.pillChip, { backgroundColor: isActive ? theme.colors.primary : theme.colors.primaryBg, borderWidth: 1, borderColor: isActive ? theme.colors.primary : theme.colors.borderLight, borderRadius: theme.borderRadius.full }]}>
-//                               <Typography variant="caption" weight="semibold" color={isActive ? 'textInverse' : 'textSecondary'}>{year.label}</Typography>
-//                             </View>
-//                           </InteractiveWrapper>
-//                         );
-//                       })}
-//                     </View>
-//                   </View>
-//                 </View>
-//               )}
-
-//               {selectedDateFilter === 'custom' && (
-//                 <View style={{ gap: theme.spacing.md }}>
-//                   <Typography variant="caption" weight="semibold" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Custom Range</Typography>
-//                   <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
-//                     <View style={{ flex: 1, gap: theme.spacing.xs }}>
-//                       <Typography variant="caption" color="textTertiary">Start Date</Typography>
-//                       <Pressable onPress={() => onShowDatePicker('start')}>
-//                         <View style={[styles.dateInput, { backgroundColor: theme.colors.primaryBg, borderColor: theme.colors.borderLight, borderRadius: theme.borderRadius.lg }]}>
-//                           <Typography style={{ fontSize: 14, fontWeight: '500' }} color={customStartDate ? 'textPrimary' : 'textTertiary'}>{customStartDate || 'YYYY-MM-DD'}</Typography>
-//                         </View>
-//                       </Pressable>
-//                     </View>
-//                     <View style={{ flex: 1, gap: theme.spacing.xs }}>
-//                       <Typography variant="caption" color="textTertiary">End Date</Typography>
-//                       <Pressable onPress={() => onShowDatePicker('end')}>
-//                         <View style={[styles.dateInput, { backgroundColor: theme.colors.primaryBg, borderColor: theme.colors.borderLight, borderRadius: theme.borderRadius.lg }]}>
-//                           <Typography style={{ fontSize: 14, fontWeight: '500' }} color={customEndDate ? 'textPrimary' : 'textTertiary'}>{customEndDate || 'YYYY-MM-DD'}</Typography>
-//                         </View>
-//                       </Pressable>
-//                     </View>
-//                   </View>
-//                 </View>
-//               )}
-
-//               <Button title="Apply Filters" variant="primary" size="lg" fullWidth onPress={() => { haptics.medium(); onClose(); }} />
-//             </ScrollView>
-//           </Animated.View>
-//         </Pressable>
-//       </Pressable>
-//     </Modal>
-//   );
-// }
-
-// // ─── Summary Section ─────────────────────────────────────────
-
-// function SummarySection({ summary }: { summary: any }) {
-//   const theme = useTheme();
-//   const { isMobile, width } = useResponsive();
-
+// function BentoSummaryStrip({ summary, theme, filterType }: { summary: any; theme: Theme; filterType: TransactionType }) {
 //   if (!summary) return null;
 
-//   const cards = [
-//     { title: 'Expenses', amount: summary.totalExpense || 0, currency: 'INR', variant: 'danger' as const, icon: 'arrow-down' },
-//     { title: 'Income', amount: summary.totalIncome || 0, currency: 'INR', variant: 'success' as const, icon: 'arrow-up' },
-//     { title: 'Net Balance', amount: Math.abs(summary.netAmount || 0), currency: 'INR', variant: (summary.netAmount || 0) >= 0 ? ('success' as const) : ('danger' as const), icon: 'activity', showSign: true, isPositive: (summary.netAmount || 0) >= 0 },
-//   ];
+//   const totalExpense = Number(summary.totalExpense || 0);
+//   const totalIncome = Number(summary.totalIncome || 0);
+//   const netAmount = Number(summary.netAmount || totalIncome - totalExpense);
+//   const totalLent = Number(summary.totalLent || 0);
+//   const totalBorrowed = Number(summary.totalBorrowed || 0);
+//   const totalRepaid = Number(summary.totalRepaid || 0);
+//   const isNetPositive = netAmount >= 0;
 
-//   return (
-//     <View style={{ paddingTop: theme.spacing.lg }}>
+//   if (filterType === 'lent') {
+//     return (
 //       <ScrollView
 //         horizontal
 //         showsHorizontalScrollIndicator={false}
-//         contentContainerStyle={{ paddingHorizontal: theme.spacing.lg, gap: theme.spacing.md }}
-//         snapToInterval={isMobile ? (width * 0.75) + theme.spacing.md : undefined}
-//         decelerationRate="fast"
+//         contentContainerStyle={styles.bentoScrollContent}
+//         style={styles.bentoScrollWrap}
 //       >
-//         {cards.map((card, index) => (
-//           <Animated.View key={card.title} entering={FadeInDown.delay(index * 100).springify().damping(18)} style={{ width: isMobile ? width * 0.75 : 300 }}>
-//             <LinearGradient
-//               colors={theme.gradients.glassWipe}
-//               start={{ x: 0, y: 0 }}
-//               end={{ x: 1, y: 1 }}
-//               style={[
-//                 styles.glassCard,
-//                 theme.shadows.sm,
-//                 { borderColor: theme.colors.borderLight, borderRadius: theme.borderRadius.xl, height: '100%' }
-//               ]}
-//             >
-//               <View style={{ gap: theme.spacing.sm }}>
-//                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
-//                   <View style={[styles.iconCircle, { backgroundColor: theme.colors[`${card.variant}Bg`] || theme.colors.primaryBg }]}>
-//                     <AppIcon name={card.icon as any} size={16} color={theme.colors[card.variant]} />
-//                   </View>
-//                   <Typography variant="caption" weight="semibold" color="textSecondary" style={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-//                     {card.title}
-//                   </Typography>
-//                 </View>
-//                 <AmountDisplay amount={card.amount} currency={card.currency} size="xl" variant={card.variant === 'danger' ? 'negative' : card.variant === 'success' ? 'positive' : 'default'} showSign={card.showSign} />
-//                 {card.title === 'Net Balance' && (
-//                   <Typography variant="caption" color={card.isPositive ? 'success' : 'danger'}>
-//                     {card.isPositive ? "You're in the green" : "You're in the red"}
-//                   </Typography>
-//                 )}
-//               </View>
-//             </LinearGradient>
-//           </Animated.View>
-//         ))}
+//         <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//           <View style={styles.summaryTopRow}>
+//             <View style={[styles.summaryIconWrap, { backgroundColor: '#FEF3C7' }]}>
+//               <AppIcon name="arrow-up-right" size={12} color="#F59E0B" />
+//             </View>
+//             <Text style={[styles.summaryCategoryText, { color: '#F59E0B' }]}>TOTAL LENT</Text>
+//           </View>
+//           <Text style={[styles.summaryAmountText, { color: '#F59E0B' }]}>
+//             ₹{totalLent.toLocaleString('en-IN')}
+//           </Text>
+//           <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//             Money given to contacts
+//           </Text>
+//         </GlassCard>
+
+//         <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//           <View style={styles.summaryTopRow}>
+//             <View style={[styles.summaryIconWrap, { backgroundColor: '#ECFDF5' }]}>
+//               <AppIcon name="check-circle" size={12} color="#10B981" />
+//             </View>
+//             <Text style={[styles.summaryCategoryText, { color: '#10B981' }]}>REPAID</Text>
+//           </View>
+//           <Text style={[styles.summaryAmountText, { color: '#10B981' }]}>
+//             ₹{totalRepaid.toLocaleString('en-IN')}
+//           </Text>
+//           <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//             Collected back
+//           </Text>
+//         </GlassCard>
+
+//         <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//           <View style={styles.summaryTopRow}>
+//             <View style={[styles.summaryIconWrap, { backgroundColor: '#EFF6FF' }]}>
+//               <AppIcon name="clock" size={12} color="#3B82F6" />
+//             </View>
+//             <Text style={[styles.summaryCategoryText, { color: '#3B82F6' }]}>OUTSTANDING</Text>
+//           </View>
+//           <Text style={[styles.summaryAmountText, { color: '#3B82F6' }]}>
+//             ₹{Math.max(0, totalLent - totalRepaid).toLocaleString('en-IN')}
+//           </Text>
+//           <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//             Still owed to you
+//           </Text>
+//         </GlassCard>
 //       </ScrollView>
-//     </View>
-//   );
-// }
+//     );
+//   }
 
-// // ─── Transaction Card ────────────────────────────────────────
+//   if (filterType === 'borrowed') {
+//     return (
+//       <ScrollView
+//         horizontal
+//         showsHorizontalScrollIndicator={false}
+//         contentContainerStyle={styles.bentoScrollContent}
+//         style={styles.bentoScrollWrap}
+//       >
+//         <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//           <View style={styles.summaryTopRow}>
+//             <View style={[styles.summaryIconWrap, { backgroundColor: '#FCE7F3' }]}>
+//               <AppIcon name="arrow-down-left" size={12} color="#EC4899" />
+//             </View>
+//             <Text style={[styles.summaryCategoryText, { color: '#EC4899' }]}>TOTAL BORROWED</Text>
+//           </View>
+//           <Text style={[styles.summaryAmountText, { color: '#EC4899' }]}>
+//             ₹{totalBorrowed.toLocaleString('en-IN')}
+//           </Text>
+//           <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//             Money you took
+//           </Text>
+//         </GlassCard>
 
-// function TransactionCard({ tx, numColumns }: { tx: Transaction; numColumns: number; }) {
-//   const theme = useTheme();
+//         <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//           <View style={styles.summaryTopRow}>
+//             <View style={[styles.summaryIconWrap, { backgroundColor: '#ECFDF5' }]}>
+//               <AppIcon name="check-circle" size={12} color="#10B981" />
+//             </View>
+//             <Text style={[styles.summaryCategoryText, { color: '#10B981' }]}>YOU REPAID</Text>
+//           </View>
+//           <Text style={[styles.summaryAmountText, { color: '#10B981' }]}>
+//             ₹{totalRepaid.toLocaleString('en-IN')}
+//           </Text>
+//           <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//             Paid back by you
+//           </Text>
+//         </GlassCard>
 
-//   const categoryMeta = useMemo(() => {
-//     const meta: Record<string, { icon: string; color: string; bg: string }> = {
-//       food: { icon: 'coffee', color: theme.colors.warningDark, bg: theme.colors.warningBg },
-//       transport: { icon: 'truck', color: theme.colors.infoDark, bg: theme.colors.infoBg },
-//       stay: { icon: 'home', color: theme.colors.purple, bg: theme.colors.secondaryBg },
-//       health: { icon: 'heart', color: theme.colors.dangerDark, bg: theme.colors.dangerBg },
-//       shopping: { icon: 'shopping-bag', color: theme.colors.successDark, bg: theme.colors.successBg },
-//       entertainment: { icon: 'film', color: theme.colors.dangerDark, bg: theme.colors.dangerBg },
-//       activity: { icon: 'activity', color: theme.colors.infoDark, bg: theme.colors.infoBg },
-//       other: { icon: 'file-text', color: theme.colors.textSecondary, bg: theme.colors.neutralBg },
-//     };
-//     return meta[tx.category?.toLowerCase()] || meta.other;
-//   }, [tx.category, theme]);
-
-//   const isExpense = tx.type === 'expense' || tx.type === 'trip_expense';
-//   const isTripExpense = tx.type === 'trip_expense';
-//   const shareAmount = tx.myShare ?? tx.amount;
-
-//   const locationOrTrip = tx.tripName || tx.category || 'General';
-//   const paidByText = tx.splitWith && tx.splitWith.length > 0 ? 'Paid by You' : 'Direct';
-//   const subtitleText = `${locationOrTrip} • ${paidByText}`;
+//         <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//           <View style={styles.summaryTopRow}>
+//             <View style={[styles.summaryIconWrap, { backgroundColor: '#FEE2E2' }]}>
+//               <AppIcon name="alert-circle" size={12} color="#EF4444" />
+//             </View>
+//             <Text style={[styles.summaryCategoryText, { color: '#EF4444' }]}>OUTSTANDING</Text>
+//           </View>
+//           <Text style={[styles.summaryAmountText, { color: '#EF4444' }]}>
+//             ₹{Math.max(0, totalBorrowed - totalRepaid).toLocaleString('en-IN')}
+//           </Text>
+//           <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//             Still to pay back
+//           </Text>
+//         </GlassCard>
+//       </ScrollView>
+//     );
+//   }
 
 //   return (
-//     <InteractiveWrapper onPress={() => { haptics.light(); router.push(`/finance/transaction/${tx._id || tx.id}`); }} style={{ width: '100%' }}>
-//       <LinearGradient
-//         colors={theme.gradients.glassWipe}
-//         start={{ x: 0, y: 0.5 }}
-//         end={{ x: 1, y: 0.5 }}
-//         style={[
-//           styles.glassCard,
-//           theme.shadows.sm,
-//           {
-//             // Differentiating trip expenses with a highlight border
-//             borderColor: isTripExpense ? theme.colors.primary : theme.colors.borderLight,
-//             borderWidth: isTripExpense ? 2 : 1,
-//             borderRadius: theme.borderRadius.xl
-//           }
-//         ]}
-//       >
-//         <View style={{ flexDirection: 'row', gap: theme.spacing.md }}>
-
-//           {/* Left Large Icon Container */}
-//           {isTripExpense && tx.tripId?.coverImage ? (
-//             <View style={[styles.largeIconSquare, { backgroundColor: theme.colors.neutralBg }]}>
-//               <Avatar url={tx.tripId.coverImage} size="lg" fallback={tx.tripId.title?.charAt(0) || 'T'} />
-//             </View>
-//           ) : (
-//             <View style={[styles.largeIconSquare, { backgroundColor: categoryMeta.bg }]}>
-//               <AppIcon name={categoryMeta.icon as any} size={32} color={categoryMeta.color} />
-//             </View>
-//           )}
-
-//           {/* Right Content Column */}
-//           <View style={{ flex: 1, justifyContent: 'space-between' }}>
-
-//             <View>
-//               {/* Title & Badge Row */}
-//               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-//                 <Typography variant="body" weight="bold" color="textPrimary" numberOfLines={1} style={{ flex: 1, marginRight: 8 }}>
-//                   {tx.title || 'Untitled'}
-//                 </Typography>
-
-//                 {/* Status/Split Pill */}
-//                 <View style={[styles.pillBadge, { backgroundColor: theme.colors.warningBg }]}>
-//                   <Typography variant="caption" weight="bold" style={{ color: theme.colors.warningDark, fontSize: 10 }}>
-//                     {tx.splitWith && tx.splitWith.length > 0 ? `1/${tx.splitWith.length + 1} Paid` : (isExpense ? 'Expense' : 'Income')}
-//                   </Typography>
-//                 </View>
-//               </View>
-
-//               {/* Subtitle Row */}
-//               <Typography variant="caption" color="textSecondary" numberOfLines={1} style={{ marginTop: 2 }}>
-//                 {subtitleText}
-//               </Typography>
-//             </View>
-
-//             {/* Amount & Action Button Row */}
-//             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-//               <Typography variant="h3" weight="bold" style={{ color: theme.colors.foreign }}>
-//                 {getCurrencySymbol(tx.localCurrency)}{shareAmount.toFixed(2)}
-//               </Typography>
-
-//               <View style={[styles.circularActionBtn, { backgroundColor: theme.colors.foreign }]}>
-//                 <AppIcon name="arrow-right" size={16} color="#FFF" />
-//               </View>
-//             </View>
-
+//     <ScrollView
+//       horizontal
+//       showsHorizontalScrollIndicator={false}
+//       contentContainerStyle={styles.bentoScrollContent}
+//       style={styles.bentoScrollWrap}
+//     >
+//       {/* Total Expenses */}
+//       <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//         <View style={styles.summaryTopRow}>
+//           <View style={[styles.summaryIconWrap, { backgroundColor: '#FEE2E2' }]}>
+//             <AppIcon name="arrow-down-right" size={12} color="#EF4444" />
 //           </View>
-
+//           <Text style={[styles.summaryCategoryText, { color: '#EF4444' }]}>EXPENSES</Text>
 //         </View>
-//       </LinearGradient>
-//     </InteractiveWrapper>
+//         <Text style={[styles.summaryAmountText, { color: '#EF4444' }]}>
+//           ₹{totalExpense.toLocaleString('en-IN')}
+//         </Text>
+//         <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//           Total money out
+//         </Text>
+//       </GlassCard>
+
+//       {/* Total Income */}
+//       <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//         <View style={styles.summaryTopRow}>
+//           <View style={[styles.summaryIconWrap, { backgroundColor: '#ECFDF5' }]}>
+//             <AppIcon name="arrow-up-right" size={12} color="#10B981" />
+//           </View>
+//           <Text style={[styles.summaryCategoryText, { color: '#10B981' }]}>INCOME</Text>
+//         </View>
+//         <Text style={[styles.summaryAmountText, { color: '#10B981' }]}>
+//           ₹{totalIncome.toLocaleString('en-IN')}
+//         </Text>
+//         <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//           Total money in
+//         </Text>
+//       </GlassCard>
+
+//       {/* Net Balance */}
+//       <GlassCard style={styles.bentoSummaryTile} intensity={theme.isDark ? 15 : 10}>
+//         <View style={styles.summaryTopRow}>
+//           <View
+//             style={[
+//               styles.summaryIconWrap,
+//               { backgroundColor: isNetPositive ? '#ECFDF5' : '#FEF2F2' },
+//             ]}
+//           >
+//             <AppIcon
+//               name="activity"
+//               size={12}
+//               color={isNetPositive ? '#10B981' : '#EF4444'}
+//             />
+//           </View>
+//           <Text
+//             style={[
+//               styles.summaryCategoryText,
+//               { color: isNetPositive ? '#10B981' : '#EF4444' },
+//             ]}
+//           >
+//             NET CASHFLOW
+//           </Text>
+//         </View>
+//         <Text
+//           style={[
+//             styles.summaryAmountText,
+//             { color: isNetPositive ? '#10B981' : '#EF4444' },
+//           ]}
+//         >
+//           {isNetPositive ? '+' : '−'}₹{Math.abs(netAmount).toLocaleString('en-IN')}
+//         </Text>
+//         <Text style={[styles.summarySubText, { color: theme.colors.textTertiary }]}>
+//           {isNetPositive ? 'Positive surplus' : 'Deficit period'}
+//         </Text>
+//       </GlassCard>
+//     </ScrollView>
 //   );
 // }
 
@@ -1576,70 +1515,119 @@ const styles = StyleSheet.create({
 
 // export default function TransactionsScreen() {
 //   const theme = useTheme();
-//   const { isMobile, width } = useResponsive();
+//   const { width } = useWindowDimensions();
 //   const insets = useSafeAreaInsets();
+//   const isDesktop = width >= 860;
 
 //   // Filter states
 //   const [filterType, setFilterType] = useState<TransactionType>('all');
 //   const [searchQuery, setSearchQuery] = useState('');
 //   const [debouncedSearch, setDebouncedSearch] = useState('');
-//   const [selectedDateFilter, setSelectedDateFilter] = useState<DateFilter>('month');
-//   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1));
-//   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
+//   const [datePreset, setDatePreset] = useState<DateFilterPreset>('all');
 //   const [customStartDate, setCustomStartDate] = useState('');
 //   const [customEndDate, setCustomEndDate] = useState('');
-//   const [showFilterModal, setShowFilterModal] = useState(false);
 //   const [showDatePicker, setShowDatePicker] = useState<'start' | 'end' | null>(null);
 
 //   useEffect(() => {
-//     const handler = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+//     const handler = setTimeout(() => setDebouncedSearch(searchQuery), 350);
 //     return () => clearTimeout(handler);
 //   }, [searchQuery]);
 
-//   const getDateFilters = useCallback(() => {
-//     const now = new Date();
-//     const year = now.getFullYear();
-//     const month = now.getMonth();
-//     const day = now.getDate();
+//   const resolvedDateRange = useMemo(
+//     () => getPresetRange(datePreset, customStartDate, customEndDate),
+//     [datePreset, customStartDate, customEndDate]
+//   );
 
-//     switch (selectedDateFilter) {
-//       case 'today':
-//         return { startDate: new Date(year, month, day).toISOString().split('T')[0], endDate: new Date(year, month, day).toISOString().split('T')[0] };
-//       case 'week': {
-//         const startOfWeek = new Date(year, month, day - now.getDay());
-//         const endOfWeek = new Date(year, month, day - now.getDay() + 6);
-//         return { startDate: startOfWeek.toISOString().split('T')[0], endDate: endOfWeek.toISOString().split('T')[0] };
-//       }
-//       case 'month': return { month: selectedMonth, year: parseInt(selectedYear) };
-//       case 'year': return { year: parseInt(selectedYear) };
-//       case 'custom': return { startDate: customStartDate || undefined, endDate: customEndDate || undefined };
-//       default: return { month: selectedMonth, year: parseInt(selectedYear) };
+//   const apiFilterType = useMemo(() => {
+//     if (filterType === 'regular') return 'regular';
+//     if (filterType === 'trip_expense') return 'trip_expense';
+//     if (filterType === 'income') return 'income';
+//     if (filterType === 'lent') return 'lent';
+//     if (filterType === 'borrowed') return 'borrowed';
+//     return undefined;
+//   }, [filterType]);
+
+//   const { data, isLoading, isRefetching, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+//     useInfiniteTransactions({
+//       type: apiFilterType,
+//       search: debouncedSearch || undefined,
+//       startDate: resolvedDateRange.startDate,
+//       endDate: resolvedDateRange.endDate,
+//     } as any);
+
+//   const transactions: Transaction[] = useMemo(() => {
+//     const raw = data?.pages.flatMap((page: any) => page?.transactions || []) || [];
+//     if (filterType === 'regular') {
+//       return raw.filter((t: any) => (t.type === 'expense' || t.type === 'regular') && !t.tripId && !t.tripName);
 //     }
-//   }, [selectedDateFilter, selectedMonth, selectedYear, customStartDate, customEndDate]);
+//     if (filterType === 'trip_expense') {
+//       return raw.filter((t: any) => t.type === 'trip_expense' || Boolean(t.tripId) || Boolean(t.tripName));
+//     }
+//     if (filterType === 'income') {
+//       return raw.filter((t: any) => t.type === 'income' || t.type === 'settlement_received');
+//     }
+//     if (filterType === 'lent') {
+//       return raw.filter((t: any) => t.type === 'lent');
+//     }
+//     if (filterType === 'borrowed') {
+//       return raw.filter((t: any) => t.type === 'borrowed');
+//     }
+//     return raw;
+//   }, [data, filterType]);
 
-//   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteTransactions({
-//     type: filterType === 'all' ? undefined : (filterType as any),
-//     search: debouncedSearch || undefined,
-//     ...getDateFilters(),
-//   });
+//   const rawSummary = data?.pages?.[0]?.summary;
 
-//   const transactions: Transaction[] = useMemo(() => data?.pages.flatMap((page: any) => page?.transactions || []) || [], [data]);
-//   const summary = data?.pages?.[0]?.summary;
+//   const computedSummary = useMemo(() => {
+//     if (filterType === 'all') {
+//       return rawSummary || { totalExpense: 0, totalIncome: 0, netAmount: 0 };
+//     }
+//     let exp = 0;
+//     let inc = 0;
+//     let lent = 0;
+//     let borrowed = 0;
+//     let repaid = 0;
+//     transactions.forEach((t) => {
+//       const amt = Number(t.amount || 0);
+//       if (t.type === 'income' || t.type === 'settlement_received') {
+//         inc += amt;
+//       } else if (t.type === 'lent') {
+//         lent += amt;
+//       } else if (t.type === 'borrowed') {
+//         borrowed += amt;
+//       } else if (t.type === 'repayment') {
+//         repaid += amt;
+//       } else {
+//         exp += amt;
+//       }
+//     });
+//     return {
+//       totalExpense: exp,
+//       totalIncome: inc,
+//       totalLent: lent,
+//       totalBorrowed: borrowed,
+//       totalRepaid: repaid,
+//       netAmount: inc - exp,
+//     };
+//   }, [rawSummary, filterType, transactions]);
 
-//   let numColumns = 1;
-//   if (WEB) {
-//     if (width >= 1400) numColumns = 4;
-//     else if (width >= 1100) numColumns = 3;
-//     else if (width >= 768) numColumns = 2;
-//   }
-
-//   const activeFilterLabel = selectedDateFilter === 'month'
-//     ? `${MONTHS.find((m) => m.value === selectedMonth)?.label} ${selectedYear}`
-//     : selectedDateFilter === 'year'
-//     ? selectedYear
-//     : selectedDateFilter === 'custom'
-//     ? `${customStartDate || '...'} – ${customEndDate || '...'}`
-//     : selectedDateFilter.charAt(0).toUpperCase() + selectedDateFilter.slice(1);
+//   const dateFilterLabel = useMemo(() => {
+//     switch (datePreset) {
+//       case 'all':
+//         return 'All Time';
+//       case 'today':
+//         return 'Today';
+//       case 'this_week':
+//         return 'This Week';
+//       case 'this_month':
+//         return 'This Month';
+//       case 'this_year':
+//         return 'This Year';
+//       case 'custom':
+//         return customStartDate && customEndDate ? `${customStartDate} – ${customEndDate}` : 'Custom Range';
+//       default:
+//         return 'Timeframe';
+//     }
+//   }, [datePreset, customStartDate, customEndDate]);
 
 //   return (
 //     <View style={styles.root}>
@@ -1648,136 +1636,310 @@ const styles = StyleSheet.create({
 //         <GlobalBackground />
 //       </View>
 
-//       {/* Floating Curved Glass Header */}
-//       <View style={[
-//         styles.floatingHeaderContainer,
-//         { paddingTop: Platform.OS === 'web' ? theme.spacing.md : insets.top + theme.spacing.xs }
-//       ]}>
-//         <GlassCard
-//           variant="prominent"
-//           intensity={theme.isDark ? 25 : 18}
-//           style={styles.floatingHeaderCard}
-//         >
-//           <View style={styles.headerInner}>
-//             <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md }}>
-//               <InteractiveWrapper onPress={() => { haptics.light(); router.back(); }}>
-//                 <View style={[styles.headerIconBtn, { backgroundColor: theme.colors.primaryBg, borderColor: theme.colors.borderLight }]}>
-//                   <AppIcon name="arrow-left" size={18} color={theme.colors.textPrimary} />
-//                 </View>
-//               </InteractiveWrapper>
-//               <View>
-//                 <Typography variant="h2" weight="bold" color="textPrimary" style={{ fontSize: 20, letterSpacing: -0.5 }}>
-//                   Transactions
-//                 </Typography>
-//                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-//                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.primary }} />
-//                   <Typography variant="caption" weight="medium" color="textSecondary" style={{ fontSize: 11 }}>
-//                     {activeFilterLabel}
-//                   </Typography>
-//                 </View>
-//               </View>
-//             </View>
+//       {/* Sticky Top Header */}
+//       <View style={[styles.headerBar, {
+//         paddingTop: Platform.OS === 'web'
+//           ? 16
+//           : Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 38) : 24) + 10,
+//       }]}>
+//         <View style={[styles.headerInner, isDesktop && styles.desktopHeaderInner]}>
+//           <View style={styles.headerLeft}>
+//             <Pressable
+//               onPress={() => {
+//                 haptics.light();
+//                 router.back();
+//               }}
+//               style={({ pressed }) => [
+//                 styles.headerBtn,
+//                 { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)' },
+//                 pressed && { opacity: 0.7 },
+//               ]}
+//               hitSlop={8}
+//             >
+//               <AppIcon name="arrow-left" size={18} color={theme.colors.textPrimary} />
+//             </Pressable>
 
-//             <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm }}>
-//               <InteractiveWrapper onPress={() => { haptics.light(); setShowFilterModal(true); }}>
-//                 <View style={[styles.headerIconBtn, { backgroundColor: theme.colors.primaryBg, borderColor: theme.colors.borderLight }]}>
-//                   <AppIcon name="calendar" size={18} color={theme.colors.textPrimary} />
-//                 </View>
-//               </InteractiveWrapper>
-//               <InteractiveWrapper onPress={() => { haptics.light(); router.push('/finance/add'); }}>
-//                 <View style={[styles.headerIconBtn, { backgroundColor: theme.colors.primary, borderColor: 'transparent' }]}>
-//                   <AppIcon name="plus" size={18} color="#FFF" />
-//                 </View>
-//               </InteractiveWrapper>
+//             <View>
+//               <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
+//                 Transaction Ledger
+//               </Text>
+//               <Text style={[styles.headerSub, { color: theme.colors.textTertiary }]}>
+//                 {dateFilterLabel} · {transactions.length} record{transactions.length !== 1 ? 's' : ''}
+//               </Text>
 //             </View>
 //           </View>
-//         </GlassCard>
+
+//           <View style={styles.headerActions}>
+//             <Pressable
+//               onPress={() => {
+//                 haptics.light();
+//                 refetch();
+//               }}
+//               style={({ pressed }) => [
+//                 styles.headerBtn,
+//                 { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.06)' },
+//                 pressed && { opacity: 0.7 },
+//               ]}
+//               hitSlop={8}
+//             >
+//               <AppIcon name="refresh-cw" size={15} color={theme.colors.textSecondary} />
+//             </Pressable>
+
+//             <Pressable
+//               onPress={() => {
+//                 haptics.light();
+//                 router.push({
+//                   pathname: '/finance/add',
+//                   params: (filterType === 'lent' || filterType === 'borrowed') ? { type: filterType } : {}
+//                 } as any);
+//               }}
+//               style={styles.addBtn}
+//             >
+//               <AppIcon name="plus" size={15} color="#FFFFFF" />
+//               <Text style={styles.addBtnText}>Log New</Text>
+//             </Pressable>
+//           </View>
+//         </View>
 //       </View>
 
-//       <Container maxWidth={WEB ? 1400 : undefined} style={{ flex: 1 }}>
-//         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + theme.spacing['5xl'] }}>
+//       {/* Main Content Body */}
+//       <ScrollView
+//         showsVerticalScrollIndicator={false}
+//         contentContainerStyle={[
+//           styles.scrollContent,
+//           isDesktop && styles.desktopScrollContent,
+//           { paddingBottom: insets.bottom + 90 },
+//         ]}
+//         refreshControl={
+//           <RefreshControl
+//             refreshing={isRefetching}
+//             onRefresh={() => {
+//               haptics.light();
+//               refetch();
+//             }}
+//             tintColor={theme.colors.primary}
+//             colors={[theme.colors.primary]}
+//           />
+//         }
+//       >
+//         <View style={styles.mainWrapper}>
+//           {/* ── BENTO SUMMARY METRICS STRIP ── */}
+//           <BentoSummaryStrip summary={computedSummary} theme={theme} filterType={filterType} />
 
-//           <SummarySection summary={summary} />
-
-//           <View style={{ paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.xl, gap: theme.spacing.md }}>
-//             <LinearGradient
-//               colors={theme.gradients.glassWipe}
-//               start={{ x: 0, y: 0.5 }}
-//               end={{ x: 1, y: 0.5 }}
-//               style={[styles.searchWrapper, { borderColor: theme.colors.borderLight }]}
-//             >
-//               <AppIcon name="search" size={18} color={theme.colors.textTertiary} style={{ marginRight: 8 }} />
+//           {/* ── TOOLBAR: SEARCH & CATEGORY FILTER PILLS ── */}
+//           <GlassCard style={styles.toolbarCard} intensity={theme.isDark ? 15 : 10}>
+//             {/* Search Input */}
+//             <View style={[styles.searchRow, { backgroundColor: theme.colors.background }]}>
+//               <AppIcon name="search" size={16} color={theme.colors.textTertiary} />
 //               <TextInput
 //                 style={[styles.searchInput, { color: theme.colors.textPrimary }]}
-//                 placeholder="Search transactions..."
+//                 placeholder="Search description, trip, category..."
 //                 placeholderTextColor={theme.colors.textTertiary}
 //                 value={searchQuery}
 //                 onChangeText={setSearchQuery}
 //               />
-//             </LinearGradient>
-//             <FilterTabBar selectedId={filterType} onSelect={setFilterType} />
-//           </View>
+//               {searchQuery.length > 0 && (
+//                 <Pressable onPress={() => setSearchQuery('')} hitSlop={6}>
+//                   <AppIcon name="x" size={14} color={theme.colors.textTertiary} />
+//                 </Pressable>
+//               )}
+//             </View>
 
-//           <View style={{ paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.xl }}>
+//             {/* Type Filter Pills */}
+//             <ScrollView
+//               horizontal
+//               showsHorizontalScrollIndicator={false}
+//               contentContainerStyle={styles.filterPillsScroll}
+//             >
+//               {FILTER_OPTIONS.map((opt) => {
+//                 const isActive = filterType === opt.id;
+//                 return (
+//                   <Pressable
+//                     key={opt.id}
+//                     onPress={() => {
+//                       haptics.light();
+//                       setFilterType(opt.id);
+//                     }}
+//                     style={[
+//                       styles.filterPill,
+//                       isActive
+//                         ? { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.16)' : theme.colors.primary, borderWidth: 1, borderColor: theme.isDark ? 'rgba(255,255,255,0.22)' : theme.colors.primary }
+//                         : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderWidth: 1, borderColor: 'transparent' },
+//                     ]}
+//                   >
+//                     <AppIcon
+//                       name={opt.icon as any}
+//                       size={12}
+//                       color={isActive ? (theme.isDark ? (theme.colors.fontColor || '#FFFFFF') : theme.colors.textInverse) : theme.colors.textSecondary}
+//                     />
+//                     <Text
+//                       style={[
+//                         styles.filterPillText,
+//                         {
+//                           color: isActive ? (theme.isDark ? (theme.colors.fontColor || '#FFFFFF') : theme.colors.textInverse) : theme.colors.textSecondary,
+//                           fontWeight: isActive ? '700' : '500',
+//                         },
+//                       ]}
+//                     >
+//                       {opt.label}
+//                     </Text>
+//                   </Pressable>
+//                 );
+//               })}
+//             </ScrollView>
+
+//             {/* Date Preset Pills */}
+//             <View style={styles.filterSectionLabel}>
+//               <AppIcon name="calendar" size={11} color={theme.colors.textTertiary} />
+//               <Text style={[styles.filterSectionLabelText, { color: theme.colors.textTertiary }]}>Timeframe</Text>
+//             </View>
+//             <ScrollView
+//               horizontal
+//               showsHorizontalScrollIndicator={false}
+//               contentContainerStyle={styles.filterPillsScroll}
+//             >
+//               {DATE_PRESETS.map((preset) => {
+//                 const isActive = datePreset === preset.key;
+//                 return (
+//                   <Pressable
+//                     key={preset.key}
+//                     onPress={() => {
+//                       haptics.light();
+//                       setDatePreset(preset.key);
+//                       if (preset.key !== 'custom') {
+//                         setCustomStartDate('');
+//                         setCustomEndDate('');
+//                       }
+//                     }}
+//                     style={[
+//                       styles.filterPill,
+//                       isActive
+//                         ? { backgroundColor: theme.isDark ? 'rgba(99,102,241,0.9)' : '#6366F1' }
+//                         : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' },
+//                     ]}
+//                   >
+//                     <AppIcon
+//                       name={preset.icon as any}
+//                       size={12}
+//                       color={isActive ? theme.colors.textInverse : theme.colors.textSecondary}
+//                     />
+//                     <Text
+//                       style={[
+//                         styles.filterPillText,
+//                         {
+//                           color: isActive ? theme.colors.textInverse : theme.colors.textSecondary,
+//                           fontWeight: isActive ? '700' : '500',
+//                         },
+//                       ]}
+//                     >
+//                       {preset.label}
+//                     </Text>
+//                   </Pressable>
+//                 );
+//               })}
+//             </ScrollView>
+
+//             {/* Custom Date Range — shown only when 'custom' preset is active */}
+//             {datePreset === 'custom' && (
+//               <View style={styles.customRangeRow}>
+//                 <Pressable
+//                   onPress={() => setShowDatePicker('start')}
+//                   style={[styles.dateRangeBtn, { backgroundColor: theme.colors.background, borderColor: theme.colors.borderLight }]}
+//                 >
+//                   <AppIcon name="calendar" size={12} color={theme.colors.primary} />
+//                   <Text style={[styles.dateRangeBtnText, { color: customStartDate ? theme.colors.textPrimary : theme.colors.textTertiary }]}>
+//                     {customStartDate || 'Start date'}
+//                   </Text>
+//                 </Pressable>
+//                 <AppIcon name="arrow-right" size={12} color={theme.colors.textTertiary} />
+//                 <Pressable
+//                   onPress={() => setShowDatePicker('end')}
+//                   style={[styles.dateRangeBtn, { backgroundColor: theme.colors.background, borderColor: theme.colors.borderLight }]}
+//                 >
+//                   <AppIcon name="calendar" size={12} color={theme.colors.primary} />
+//                   <Text style={[styles.dateRangeBtnText, { color: customEndDate ? theme.colors.textPrimary : theme.colors.textTertiary }]}>
+//                     {customEndDate || 'End date'}
+//                   </Text>
+//                 </Pressable>
+//               </View>
+//             )}
+//           </GlassCard>
+
+//           {/* ── TRANSACTIONS FEED USING REUSABLE TRANSACTION CARD ── */}
+//           <View style={styles.listSection}>
 //             {isLoading ? (
 //               <View style={styles.loadingContainer}>
 //                 <GlobalLoader variant="inline" size="large" color={theme.colors.primary} />
+//                 <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+//                   Fetching transaction records…
+//                 </Text>
 //               </View>
 //             ) : transactions.length === 0 ? (
-//               <Animated.View entering={FadeInUp.delay(200).springify()}>
-//                 <EmptyState icon="📋" title="No Transactions Found" description="Try adjusting your filters or create your first transaction to start tracking." actionLabel="Add Transaction" onAction={() => router.push('/finance/add')} />
+//               <Animated.View entering={FadeInUp.delay(100).springify()}>
+//                 <EmptyState
+//                   icon="💳"
+//                   title="No Transactions Found"
+//                   description="Adjust your search filters or record a new transaction to begin tracking."
+//                   actionLabel="Log Transaction"
+//                   onAction={() => router.push('/finance/add' as any)}
+//                 />
 //               </Animated.View>
-//             ) : WEB && numColumns > 1 ? (
-//               <>
-//                 <Grid cols={numColumns} gap={theme.spacing.md}>
-//                   {transactions.map((tx, index) => (
-//                     <Animated.View key={tx._id || tx.id} entering={FadeInDown.delay(index * 40).springify().damping(20)} layout={Layout.springify()} style={{ minWidth: 0 }}>
-//                       <TransactionCard tx={tx} numColumns={numColumns} />
-//                     </Animated.View>
-//                   ))}
-//                 </Grid>
-//                 {hasNextPage && (
-//                   <View style={{ paddingVertical: theme.spacing.xl, alignItems: 'center' }}>
-//                     {isFetchingNextPage ? <GlobalLoader variant="inline" size="small" color={theme.colors.primary} /> : <Button title="Load More" variant="outline" size="md" onPress={() => fetchNextPage()} />}
-//                   </View>
-//                 )}
-//               </>
 //             ) : (
-//               <View style={{ gap: theme.spacing.md }}>
+//               <View style={styles.cardsGrid}>
 //                 {transactions.map((tx, index) => (
-//                   <Animated.View key={tx._id || tx.id} entering={FadeInDown.delay(index * 40).springify().damping(20)} layout={Layout.springify()}>
-//                     <TransactionCard tx={tx} numColumns={1} />
+//                   <Animated.View
+//                     key={tx._id || tx.id || String(index)}
+//                     entering={FadeInDown.delay(index * 25).springify().damping(20)}
+//                     layout={Layout.springify()}
+//                     style={styles.cardCol}
+//                   >
+//                     <TransactionCard
+//                       transaction={{
+//                         ...tx,
+//                         currency: tx.currency || tx.localCurrency || 'INR',
+//                       }}
+//                       onPress={() => {
+//                         haptics.light();
+//                         router.push(`/finance/transaction/${tx._id || tx.id}` as any);
+//                       }}
+//                     />
 //                   </Animated.View>
 //                 ))}
-//                 {hasNextPage && (
-//                   <View style={{ paddingVertical: theme.spacing.xl, alignItems: 'center' }}>
-//                     {isFetchingNextPage ? <GlobalLoader variant="inline" size="small" color={theme.colors.primary} /> : <Button title="Load More" variant="outline" size="md" onPress={() => fetchNextPage()} />}
-//                   </View>
+//               </View>
+//             )}
+
+//             {hasNextPage && (
+//               <View style={styles.loadMoreWrap}>
+//                 {isFetchingNextPage ? (
+//                   <GlobalLoader variant="inline" size="small" color={theme.colors.primary} />
+//                 ) : (
+//                   <Pressable
+//                     onPress={() => {
+//                       haptics.light();
+//                       fetchNextPage();
+//                     }}
+//                     style={[styles.loadMoreBtn, { borderColor: theme.colors.borderLight }]}
+//                   >
+//                     <Text style={[styles.loadMoreText, { color: theme.colors.textPrimary }]}>
+//                       Load Older Transactions
+//                     </Text>
+//                   </Pressable>
 //                 )}
 //               </View>
 //             )}
 //           </View>
-//         </ScrollView>
-//       </Container>
+//         </View>
+//       </ScrollView>
 
-//       <FilterModal
-//         visible={showFilterModal}
-//         onClose={() => setShowFilterModal(false)}
-//         selectedDateFilter={selectedDateFilter} setSelectedDateFilter={setSelectedDateFilter}
-//         selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth}
-//         selectedYear={selectedYear} setSelectedYear={setSelectedYear}
-//         customStartDate={customStartDate} customEndDate={customEndDate}
-//         onShowDatePicker={setShowDatePicker}
-//       />
-
+//       {/* Date Picker Modal for custom range */}
 //       <CustomDatePickerModal
 //         visible={!!showDatePicker}
 //         onClose={() => setShowDatePicker(null)}
 //         onSelectDate={(date) => {
 //           if (!date) return setShowDatePicker(null);
-//           const formattedDate = new Date(date).toISOString().split('T')[0];
-//           if (showDatePicker === 'start') setCustomStartDate(formattedDate);
-//           else if (showDatePicker === 'end') setCustomEndDate(formattedDate);
+//           const formatted = new Date(date).toISOString().split('T')[0];
+//           if (showDatePicker === 'start') setCustomStartDate(formatted);
+//           else if (showDatePicker === 'end') setCustomEndDate(formatted);
 //           setShowDatePicker(null);
 //         }}
 //         currentDate={new Date()}
@@ -1786,145 +1948,250 @@ const styles = StyleSheet.create({
 //   );
 // }
 
-// // ─── Styles ──────────────────────────────────────────────────
+// // ─── STYLES ──────────────────────────────────────────────────
 
-// const styles :any = StyleSheet.create({
-//   root: { flex: 1 },
-
-//   // Header
-//   floatingHeaderContainer: {
-//     paddingHorizontal: 16,
-//     paddingBottom: 8,
-//     width: '100%',
-//     maxWidth: 1400,
-//     alignSelf: 'center',
-//     zIndex: 20,
+// const styles = StyleSheet.create({
+//   root: { flex: 1, backgroundColor: 'transparent' },
+//   loadingContainer: {
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     paddingVertical: 60,
+//     gap: 10,
 //   },
-//   floatingHeaderCard: {
-//     borderRadius: 22,
-//     paddingVertical: 10,
+//   loadingText: { fontSize: 13, fontWeight: '600' },
+
+//   // Header Bar
+//   headerBar: {
 //     paddingHorizontal: 16,
-//     borderWidth: 1,
+//     paddingBottom: 12,
+//     borderBottomWidth: 1,
+//     borderBottomColor: 'rgba(15,23,42,0.06)',
+//     zIndex: 10,
 //   },
 //   headerInner: {
 //     flexDirection: 'row',
 //     alignItems: 'center',
 //     justifyContent: 'space-between',
+//     width: '100%',
 //   },
-//   headerIconBtn: {
-//     width: 38,
-//     height: 38,
-//     borderRadius: 19,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     borderWidth: 1,
-//     ...(WEB ? { cursor: 'pointer' } : {}),
+//   desktopHeaderInner: {
+//     maxWidth: 1300,
+//     alignSelf: 'center',
 //   },
-
-//   // Base Glass Card Layout
-//   glassCard: {
-//     padding: 16,
-//     borderWidth: 1,
-//   },
-//   iconCircle: {
-//     width: 34,
-//     height: 34,
-//     borderRadius: 10,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-
-//   // New Layout Specific Styles
-//   largeIconSquare: {
-//     width: 76,
-//     height: 76,
-//     borderRadius: 18,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-//   pillBadge: {
-//     paddingHorizontal: 8,
-//     paddingVertical: 4,
-//     borderRadius: 12,
-//   },
-//   circularActionBtn: {
-//     width: 28,
-//     height: 28,
-//     borderRadius: 14,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-
-//   // Controls (Search & Tabs)
-//   searchWrapper: {
+//   headerLeft: {
 //     flexDirection: 'row',
 //     alignItems: 'center',
-//     paddingHorizontal: 16,
-//     height: 52,
-//     borderRadius: 16,
+//     gap: 12,
+//   },
+//   headerBtn: {
+//     width: 36,
+//     height: 36,
+//     borderRadius: 12,
+//     alignItems: 'center',
+//     justifyContent: 'center',
 //     borderWidth: 1,
+//     borderColor: 'rgba(15,23,42,0.06)',
+//   },
+//   headerTitle: {
+//     fontSize: 18,
+//     fontWeight: '900',
+//     letterSpacing: -0.4,
+//   },
+//   headerSub: {
+//     fontSize: 12,
+//     fontWeight: '500',
+//     marginTop: 1,
+//   },
+//   headerActions: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 8,
+//   },
+//   addBtn: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 6,
+//     backgroundColor: '#2563EB',
+//     paddingHorizontal: 14,
+//     paddingVertical: 8,
+//     borderRadius: 12,
+//   },
+//   addBtnText: {
+//     color: '#FFFFFF',
+//     fontSize: 12,
+//     fontWeight: '800',
+//   },
+
+//   // Main Scroll Body
+//   scrollContent: {
+//     paddingTop: 16,
+//     paddingHorizontal: 16,
+//   },
+//   desktopScrollContent: {
+//     maxWidth: 1300,
+//     alignSelf: 'center',
+//     width: '100%',
+//     paddingHorizontal: 24,
+//   },
+//   mainWrapper: {
+//     gap: 16,
+//   },
+
+//   // Bento Summary Strip
+//   bentoScrollWrap: {
+//     marginHorizontal: -16,
+//   },
+//   bentoScrollContent: {
+//     paddingHorizontal: 16,
+//     gap: 10,
+//     flexDirection: 'row',
+//   },
+//   bentoSummaryTile: {
+//     width: 145,
+//     minHeight: 74,
+//     paddingVertical: 8,
+//     paddingHorizontal: 12,
+//     borderRadius: 14,
+//     borderWidth: 1,
+//     borderColor: 'rgba(255,255,255,0.08)',
+//     justifyContent: 'space-between',
+//   },
+//   summaryTopRow: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 6,
+//   },
+//   summaryIconWrap: {
+//     width: 22,
+//     height: 22,
+//     borderRadius: 6,
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//   },
+//   summaryCategoryText: {
+//     fontSize: 9,
+//     fontWeight: '800',
+//     letterSpacing: 0.5,
+//   },
+//   summaryAmountText: {
+//     fontSize: 16,
+//     fontWeight: '900',
+//     letterSpacing: -0.3,
+//     marginTop: 4,
+//   },
+//   summarySubText: {
+//     fontSize: 9.5,
+//     fontWeight: '500',
+//     marginTop: 1,
+//   },
+
+//   // Toolbar
+//   toolbarCard: {
+//     borderRadius: 18,
+//     padding: 10,
+//     borderWidth: 1,
+//     borderColor: 'rgba(255,255,255,0.08)',
+//     gap: 8,
+//   },
+//   searchRow: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 10,
+//     paddingHorizontal: 12,
+//     paddingVertical: 8,
+//     borderRadius: 12,
 //   },
 //   searchInput: {
 //     flex: 1,
-//     fontSize: 16,
+//     fontSize: 13,
 //     fontWeight: '500',
-//     // outlineStyle: 'none',
+//     padding: 0,
 //   },
-//   segmentedControl: {
+//   filterPillsScroll: {
 //     flexDirection: 'row',
-//     padding: 6,
-//     borderRadius: 16,
-//     borderWidth: 1,
+//     alignItems: 'center',
+//     gap: 6,
+//     paddingVertical: 2,
 //   },
-//   segmentItem: {
+//   filterPill: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 5,
+//     paddingHorizontal: 12,
+//     paddingVertical: 6,
+//     borderRadius: 20,
+//     minHeight: 32,
+//   },
+//   filterPillText: {
+//     fontSize: 11.5,
+//     letterSpacing: -0.2,
+//   },
+
+//   // Transaction List & Cards
+//   listSection: {
+//     gap: 10,
+//   },
+//   cardsGrid: {
+//     flexDirection: 'row',
+//     flexWrap: 'wrap',
+//     gap: 10,
+//   },
+//   cardCol: {
+//     flex: 1,
+//     minWidth: Platform.OS === 'web' ? 360 : '100%',
+//   },
+
+//   // Load More
+//   loadMoreWrap: {
+//     paddingVertical: 20,
+//     alignItems: 'center',
+//   },
+//   loadMoreBtn: {
+//     paddingHorizontal: 20,
 //     paddingVertical: 10,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//   },
-
-//   // Filter Modal
-//   modalOverlay: {
-//     flex: 1,
-//     backgroundColor: 'rgba(0,0,0,0.55)',
-//     justifyContent: 'flex-end',
-//   },
-//   modalContent: {
-//     padding: 24,
-//     paddingBottom: 40,
-//     maxHeight: '85%',
-//   },
-//   modalHandleContainer: {
-//     alignItems: 'center',
-//     marginBottom: 20,
-//   },
-//   modalHandle: {
-//     width: 40,
-//     height: 5,
-//     borderRadius: 3,
-//   },
-//   modalHeader: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     marginBottom: 24,
-//   },
-//   pillChip: {
-//     paddingHorizontal: 16,
-//     paddingVertical: 8,
-//   },
-//   dateInput: {
-//     paddingHorizontal: 14,
-//     paddingVertical: 12,
+//     borderRadius: 14,
 //     borderWidth: 1,
-//     minHeight: 48,
-//     justifyContent: 'center',
+//   },
+//   loadMoreText: {
+//     fontSize: 13,
+//     fontWeight: '700',
 //   },
 
-//   // Loading
-//   loadingContainer: {
-//     flex: 1,
-//     justifyContent: 'center',
+//   // Filter section label
+//   filterSectionLabel: {
+//     flexDirection: 'row',
 //     alignItems: 'center',
-//     paddingVertical: 80,
+//     gap: 5,
+//     paddingTop: 2,
+//     paddingBottom: 0,
+//   },
+//   filterSectionLabelText: {
+//     fontSize: 10,
+//     fontWeight: '700',
+//     letterSpacing: 0.4,
+//     textTransform: 'uppercase',
+//   },
+
+//   // Custom date range row
+//   customRangeRow: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 8,
+//     paddingTop: 4,
+//   },
+//   dateRangeBtn: {
+//     flex: 1,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     gap: 6,
+//     paddingHorizontal: 12,
+//     paddingVertical: 8,
+//     borderRadius: 10,
+//     borderWidth: 1,
+//   },
+//   dateRangeBtnText: {
+//     fontSize: 12,
+//     fontWeight: '600',
+//     flex: 1,
 //   },
 // });

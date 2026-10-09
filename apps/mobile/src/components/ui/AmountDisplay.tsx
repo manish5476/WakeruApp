@@ -30,7 +30,8 @@ export function AmountDisplay({
 }: AmountDisplayProps) {
   const theme = useTheme();
 
-  const absAmount = Math.abs(amount);
+  const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+  const absAmount = Math.abs(safeAmount);
 
   // Format the number with proper separators
   const formatNumber = (num: number): string => {
@@ -80,7 +81,7 @@ export function AmountDisplay({
   const color = getVariantColor();
   const sign = showSign && amount < 0 ? '−' : showSign && amount > 0 ? '+' : '';
 
-  const currencySymbol = getCurrencySymbol(currency);
+  const currencySymbol = getCurrencySymbol(currency || 'INR');
 
   return (
     <View style={[styles.container, style]}>

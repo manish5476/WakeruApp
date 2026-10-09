@@ -30,6 +30,7 @@ import { haptics } from '../../utils/haptics';
 import AppIcon from '../../components/common/AppIcon';
 import GlobalLoader from '../../components/common/GlobalLoader';
 import { GlobalBackground } from '../../components/ui/GlobalBackground';
+import { GlassCard } from '../../components/ui/GlassCard';
 import type { Theme } from '../../theme';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -314,12 +315,28 @@ export default function InsightsScreen() {
           <View style={[styles.topHeroBento, !isDesktop && styles.stackLayout]}>
             {/* Group Benchmark Comparison Card */}
             {groupComp ? (
-              <LinearGradient
-                colors={['#0F172A', '#1E1B4B', '#1E293B']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <GlassCard
+                intensity={theme.isDark ? 24 : 36}
                 style={[styles.benchmarkCard, isDesktop && { flex: 1.3 }]}
               >
+                <LinearGradient
+                  colors={
+                    theme.isDark
+                      ? [
+                          'rgba(15, 23, 42, 0.40)',
+                          'rgba(30, 27, 75, 0.35)',
+                          'rgba(30, 41, 59, 0.40)',
+                        ]
+                      : [
+                          'rgba(255, 255, 255, 0.75)',
+                          'rgba(241, 245, 249, 0.65)',
+                          'rgba(255, 255, 255, 0.80)',
+                        ]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
                 <View style={styles.benchmarkHeader}>
                   <View style={styles.benchmarkTagRow}>
                     <View
@@ -376,11 +393,29 @@ export default function InsightsScreen() {
                 </View>
 
                 <View style={styles.benchmarkValueBlock}>
-                  <Text style={styles.benchmarkValue}>
+                  <Text
+                    style={[
+                      styles.benchmarkValue,
+                      {
+                        color: theme.isDark
+                          ? '#FFFFFF'
+                          : theme.colors.textPrimary,
+                      },
+                    ]}
+                  >
                     {groupComp.difference > 0 ? '+' : '−'}₹
                     {Math.abs(groupComp.difference).toLocaleString('en-IN')}
                   </Text>
-                  <Text style={styles.benchmarkSub}>
+                  <Text
+                    style={[
+                      styles.benchmarkSub,
+                      {
+                        color: theme.isDark
+                          ? 'rgba(255,255,255,0.7)'
+                          : theme.colors.textSecondary,
+                      },
+                    ]}
+                  >
                     {groupComp.difference > 0
                       ? 'You are currently contributing above the group baseline'
                       : 'You are currently contributing below the group baseline'}
@@ -389,28 +424,84 @@ export default function InsightsScreen() {
 
                 <View style={styles.benchmarkStatsRow}>
                   <View style={styles.benchmarkStatItem}>
-                    <Text style={styles.benchmarkStatLabel}>YOUR SPEND</Text>
-                    <Text style={styles.benchmarkStatVal}>
+                    <Text
+                      style={[
+                        styles.benchmarkStatLabel,
+                        {
+                          color: theme.isDark
+                            ? 'rgba(255,255,255,0.5)'
+                            : theme.colors.textTertiary,
+                        },
+                      ]}
+                    >
+                      YOUR SPEND
+                    </Text>
+                    <Text
+                      style={[
+                        styles.benchmarkStatVal,
+                        {
+                          color: theme.isDark
+                            ? '#FFFFFF'
+                            : theme.colors.textPrimary,
+                        },
+                      ]}
+                    >
                       ₹{(groupComp.mySpending || 0).toLocaleString('en-IN')}
                     </Text>
                   </View>
                   <View style={styles.benchmarkDivider} />
                   <View style={styles.benchmarkStatItem}>
-                    <Text style={styles.benchmarkStatLabel}>CREW AVERAGE</Text>
-                    <Text style={styles.benchmarkStatVal}>
+                    <Text
+                      style={[
+                        styles.benchmarkStatLabel,
+                        {
+                          color: theme.isDark
+                            ? 'rgba(255,255,255,0.5)'
+                            : theme.colors.textTertiary,
+                        },
+                      ]}
+                    >
+                      CREW AVERAGE
+                    </Text>
+                    <Text
+                      style={[
+                        styles.benchmarkStatVal,
+                        {
+                          color: theme.isDark
+                            ? '#FFFFFF'
+                            : theme.colors.textPrimary,
+                        },
+                      ]}
+                    >
                       ₹
                       {(groupComp.averageSpending || 0).toLocaleString('en-IN')}
                     </Text>
                   </View>
                 </View>
-              </LinearGradient>
+              </GlassCard>
             ) : (
-              <LinearGradient
-                colors={['#0F172A', '#1E1B4B', '#1E293B']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <GlassCard
+                intensity={theme.isDark ? 24 : 36}
                 style={[styles.benchmarkCard, isDesktop && { flex: 1.3 }]}
               >
+                <LinearGradient
+                  colors={
+                    theme.isDark
+                      ? [
+                          'rgba(15, 23, 42, 0.40)',
+                          'rgba(30, 27, 75, 0.35)',
+                          'rgba(30, 41, 59, 0.40)',
+                        ]
+                      : [
+                          'rgba(255, 255, 255, 0.75)',
+                          'rgba(241, 245, 249, 0.65)',
+                          'rgba(255, 255, 255, 0.80)',
+                        ]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
                 <View style={styles.benchmarkHeader}>
                   <View
                     style={[
@@ -425,42 +516,98 @@ export default function InsightsScreen() {
                   </View>
                 </View>
                 <View style={styles.benchmarkValueBlock}>
-                  <Text style={styles.benchmarkValue}>
+                  <Text
+                    style={[
+                      styles.benchmarkValue,
+                      {
+                        color: theme.isDark
+                          ? '#FFFFFF'
+                          : theme.colors.textPrimary,
+                      },
+                    ]}
+                  >
                     ₹
                     {(quickStats?.thisMonth?.total || 0).toLocaleString(
                       'en-IN',
                     )}
                   </Text>
-                  <Text style={styles.benchmarkSub}>
+                  <Text
+                    style={[
+                      styles.benchmarkSub,
+                      {
+                        color: theme.isDark
+                          ? 'rgba(255,255,255,0.7)'
+                          : theme.colors.textSecondary,
+                      },
+                    ]}
+                  >
                     Total logged expenses for the current active cycle
                   </Text>
                 </View>
                 <View style={styles.benchmarkStatsRow}>
                   <View style={styles.benchmarkStatItem}>
-                    <Text style={styles.benchmarkStatLabel}>TRANSACTIONS</Text>
-                    <Text style={styles.benchmarkStatVal}>
+                    <Text
+                      style={[
+                        styles.benchmarkStatLabel,
+                        {
+                          color: theme.isDark
+                            ? 'rgba(255,255,255,0.5)'
+                            : theme.colors.textTertiary,
+                        },
+                      ]}
+                    >
+                      TRANSACTIONS
+                    </Text>
+                    <Text
+                      style={[
+                        styles.benchmarkStatVal,
+                        {
+                          color: theme.isDark
+                            ? '#FFFFFF'
+                            : theme.colors.textPrimary,
+                        },
+                      ]}
+                    >
                       {quickStats?.thisMonth?.count || 0}
                     </Text>
                   </View>
                   <View style={styles.benchmarkDivider} />
                   <View style={styles.benchmarkStatItem}>
-                    <Text style={styles.benchmarkStatLabel}>ACTIVE TRIPS</Text>
-                    <Text style={styles.benchmarkStatVal}>
+                    <Text
+                      style={[
+                        styles.benchmarkStatLabel,
+                        {
+                          color: theme.isDark
+                            ? 'rgba(255,255,255,0.5)'
+                            : theme.colors.textTertiary,
+                        },
+                      ]}
+                    >
+                      ACTIVE TRIPS
+                    </Text>
+                    <Text
+                      style={[
+                        styles.benchmarkStatVal,
+                        {
+                          color: theme.isDark
+                            ? '#FFFFFF'
+                            : theme.colors.textPrimary,
+                        },
+                      ]}
+                    >
                       {quickStats?.activeTrips || 0}
                     </Text>
                   </View>
                 </View>
-              </LinearGradient>
+              </GlassCard>
             )}
 
             {/* 4-Tile Quick Metric Cluster */}
             <View style={[styles.quickMetricsGrid, isDesktop && { flex: 1 }]}>
               {/* Tile 1: Monthly Total */}
-              <View
-                style={[
-                  styles.metricTile,
-                  { backgroundColor: theme.colors.surface },
-                ]}
+              <GlassCard
+                style={styles.metricTile}
+                intensity={theme.isDark ? 16 : 28}
               >
                 <View style={styles.metricTopRow}>
                   <View
@@ -491,14 +638,12 @@ export default function InsightsScreen() {
                 >
                   {quickStats?.thisMonth?.count || 0} entries
                 </Text>
-              </View>
+              </GlassCard>
 
               {/* Tile 2: Daily Burn Rate */}
-              <View
-                style={[
-                  styles.metricTile,
-                  { backgroundColor: theme.colors.surface },
-                ]}
+              <GlassCard
+                style={styles.metricTile}
+                intensity={theme.isDark ? 16 : 28}
               >
                 <View style={styles.metricTopRow}>
                   <View
@@ -527,14 +672,12 @@ export default function InsightsScreen() {
                 >
                   Daily average
                 </Text>
-              </View>
+              </GlassCard>
 
               {/* Tile 3: Peak Transaction */}
-              <View
-                style={[
-                  styles.metricTile,
-                  { backgroundColor: theme.colors.surface },
-                ]}
+              <GlassCard
+                style={styles.metricTile}
+                intensity={theme.isDark ? 16 : 28}
               >
                 <View style={styles.metricTopRow}>
                   <View
@@ -569,14 +712,12 @@ export default function InsightsScreen() {
                 >
                   {analytics?.highestExpense?.title || 'No data'}
                 </Text>
-              </View>
+              </GlassCard>
 
               {/* Tile 4: Lowest Transaction */}
-              <View
-                style={[
-                  styles.metricTile,
-                  { backgroundColor: theme.colors.surface },
-                ]}
+              <GlassCard
+                style={styles.metricTile}
+                intensity={theme.isDark ? 16 : 28}
               >
                 <View style={styles.metricTopRow}>
                   <View
@@ -611,7 +752,7 @@ export default function InsightsScreen() {
                 >
                   {analytics?.lowestExpense?.title || 'No data'}
                 </Text>
-              </View>
+              </GlassCard>
             </View>
           </View>
 
@@ -623,11 +764,9 @@ export default function InsightsScreen() {
             <View style={[styles.bentoCol, isDesktop && { flex: 1.4 }]}>
               {/* Category Breakdown Chart */}
               {categories.length > 0 && (
-                <View
-                  style={[
-                    styles.chartPanel,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
+                <GlassCard
+                  style={styles.chartPanel}
+                  intensity={theme.isDark ? 16 : 28}
                 >
                   <View style={styles.panelHeader}>
                     <View
@@ -677,16 +816,14 @@ export default function InsightsScreen() {
                     center={[10, 0]}
                     absolute
                   />
-                </View>
+                </GlassCard>
               )}
 
               {/* Monthly Trend Bar Chart */}
-              {monthlyData.length > 0 && (
-                <View
-                  style={[
-                    styles.chartPanel,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
+              {monthlyData.length > 0 && chartWidth > 0 && (
+                <GlassCard
+                  style={styles.chartPanel}
+                  intensity={theme.isDark ? 16 : 28}
                 >
                   <View style={styles.panelHeader}>
                     <View
@@ -728,7 +865,7 @@ export default function InsightsScreen() {
                         {
                           data: monthlyData
                             .slice(-6)
-                            .map((m: any) => m.totalAmount),
+                            .map((m: any) => Number(m.totalAmount) || 0),
                         },
                       ],
                     }}
@@ -743,16 +880,14 @@ export default function InsightsScreen() {
                     style={styles.chartInnerStyle}
                     fromZero
                   />
-                </View>
+                </GlassCard>
               )}
 
               {/* Daily Outflow Line Chart */}
-              {dailyData.length > 0 && (
-                <View
-                  style={[
-                    styles.chartPanel,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
+              {dailyData.length > 0 && chartWidth > 0 && (
+                <GlassCard
+                  style={styles.chartPanel}
+                  intensity={theme.isDark ? 16 : 28}
                 >
                   <View style={styles.panelHeader}>
                     <View
@@ -783,42 +918,75 @@ export default function InsightsScreen() {
                     </View>
                   </View>
 
-                  <LineChart
-                    data={{
-                      labels: dailyData
-                        .slice(-10)
-                        .map((d: any) => d.date?.slice(5) || ''),
-                      datasets: [
-                        {
-                          data: dailyData
-                            .slice(-10)
-                            .map((d: any) => d.totalAmount),
-                        },
-                      ],
-                    }}
-                    width={chartWidth}
-                    height={210}
-                    chartConfig={{
-                      ...chartConfig,
-                      color: () => '#10B981',
-                    }}
-                    bezier
-                    style={styles.chartInnerStyle}
-                    yAxisLabel="₹"
-                    yAxisSuffix=""
-                  />
-                </View>
+                  {dailyData.length >= 2 ? (
+                    <LineChart
+                      data={{
+                        labels: dailyData
+                          .slice(-10)
+                          .map((d: any) => d.date?.slice(5) || ''),
+                        datasets: [
+                          {
+                            data: dailyData
+                              .slice(-10)
+                              .map((d: any) => Number(d.totalAmount) || 0),
+                          },
+                        ],
+                      }}
+                      width={chartWidth}
+                      height={210}
+                      chartConfig={{
+                        ...chartConfig,
+                        color: () => '#10B981',
+                      }}
+                      bezier
+                      style={styles.chartInnerStyle}
+                      yAxisLabel="₹"
+                      yAxisSuffix=""
+                      withDots={Platform.OS !== 'web'}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        paddingVertical: 24,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: theme.colors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: '600',
+                        }}
+                      >
+                        Recorded ₹
+                        {Number(
+                          dailyData[0]?.totalAmount || 0,
+                        ).toLocaleString()}{' '}
+                        on {dailyData[0]?.date || 'today'}
+                      </Text>
+                      <Text
+                        style={{
+                          color: theme.colors.textTertiary,
+                          fontSize: 11,
+                          marginTop: 4,
+                        }}
+                      >
+                        More daily spending records needed to chart rolling
+                        frequency trends.
+                      </Text>
+                    </View>
+                  )}
+                </GlassCard>
               )}
             </View>
 
             {/* ── RIGHT COLUMN: SMART INSIGHTS & PATTERNS ── */}
             <View style={[styles.bentoCol, isDesktop && { flex: 1 }]}>
               {/* Intelligence Briefing Card */}
-              <View
-                style={[
-                  styles.intelligencePanel,
-                  { backgroundColor: theme.colors.surface },
-                ]}
+              <GlassCard
+                style={styles.intelligencePanel}
+                intensity={theme.isDark ? 16 : 28}
               >
                 <View style={styles.intelligenceHeader}>
                   <View
@@ -855,7 +1023,11 @@ export default function InsightsScreen() {
                       key={idx}
                       style={[
                         styles.insightItem,
-                        { backgroundColor: theme.colors.background },
+                        {
+                          backgroundColor: theme.isDark
+                            ? 'rgba(255,255,255,0.04)'
+                            : 'rgba(0,0,0,0.03)',
+                        },
                       ]}
                     >
                       <View
@@ -891,15 +1063,13 @@ export default function InsightsScreen() {
                     </View>
                   ))}
                 </View>
-              </View>
+              </GlassCard>
 
               {/* Day of the Week Outflow Pattern */}
               {dayPattern.length > 0 && (
-                <View
-                  style={[
-                    styles.chartPanel,
-                    { backgroundColor: theme.colors.surface },
-                  ]}
+                <GlassCard
+                  style={styles.chartPanel}
+                  intensity={theme.isDark ? 16 : 28}
                 >
                   <View style={styles.panelHeader}>
                     <View
@@ -950,7 +1120,7 @@ export default function InsightsScreen() {
                     style={styles.chartInnerStyle}
                     fromZero
                   />
-                </View>
+                </GlassCard>
               )}
             </View>
           </View>
@@ -1043,6 +1213,7 @@ function createStyles(theme: Theme, isDesktop: boolean) {
     },
     benchmarkCard: {
       borderRadius: 22,
+      overflow: 'hidden',
       padding: 22,
       justifyContent: 'space-between',
 
@@ -1353,667 +1524,3 @@ function createStyles(theme: Theme, isDesktop: boolean) {
     },
   });
 }
-
-// import AppIcon  from '../../components/common/AppIcon';
-// // app/(app)/insights.tsx
-// import React, { useMemo, useCallback, useState } from 'react';
-// import {
-//     View, Text, StyleSheet, ScrollView,
-//     Dimensions, RefreshControl, Platform, useWindowDimensions,
-//     Pressable, PressableStateCallbackType
-// } from 'react-native';
-// import { router, useLocalSearchParams } from 'expo-router';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { LinearGradient } from 'expo-linear-gradient';
-// import { useInsightsData, useSpendingTrends, useTripComparison, useGroupComparison } from '../../hooks/useInsights';
-// import { useAuthStore } from '../../stores/auth.store';
-// import { PieChart, LineChart, BarChart } from 'react-native-chart-kit';
-// import { format } from 'date-fns';
-// import { useTheme } from '../../providers/ThemeProvider';
-// import { useGlobalStyles } from '../../hooks/useGlobalStyles';
-// import { GlassCard } from '../../components/ui/GlassCard';
-// import { Badge } from '../../components/ui/Badge';
-// import { GlobalBackground } from "../../components/ui/GlobalBackground";
-
-// type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
-
-// const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// // ============================================================
-// // Insight Card
-// // ============================================================
-
-// function InsightCard({ icon, title, value, subtitle, color, trend }: {
-//     icon: string;
-//     title: string;
-//     value: string;
-//     subtitle: string;
-//     color?: string;
-//     trend?: string;
-// }) {
-//     const theme = useTheme();
-//     const styles = useStyles();
-
-//     return (
-//         <GlassCard style={styles.insightCard} intensity={theme.isDark ? 10 : 5}>
-//             <View style={[styles.iconWrapper, { backgroundColor: color ? `${color}20` : theme.colors.primaryBg }]}>
-//                 <AppIcon name={icon} size={20} color={color || theme.colors.primary} />
-//             </View>
-//             <Text style={[styles.insightTitle, { color: theme.colors.textSecondary }]}>{title}</Text>
-//             <Text style={[styles.insightValue, color ? { color } : { color: theme.colors.textPrimary }]} numberOfLines={1} adjustsFontSizeToFit>
-//                 {value}
-//             </Text>
-//             <Text style={[styles.insightSubtitle, { color: theme.colors.textTertiary }]}>{subtitle}</Text>
-//             {trend && (
-//                 <View style={[
-//                     styles.trendBadge,
-//                     {
-//                         backgroundColor: trend === 'up' ? theme.colors.dangerBg : theme.colors.successBg
-//                     }
-//                 ]}>
-//                     <Text style={[
-//                         styles.trendText,
-//                         { color: trend === 'up' ? theme.colors.danger : theme.colors.success }
-//                     ]}>
-//                         {trend === 'up' ? '↑' : '↓'}
-//                     </Text>
-//                 </View>
-//             )}
-//         </GlassCard>
-//     );
-// }
-
-// // ============================================================
-// // Smart Insight Row (rule-based spending analysis)
-// // ============================================================
-
-// function SmartInsight({ emoji, text }: { emoji: string; text: string }) {
-//     const theme = useTheme();
-//     const styles = useStyles();
-//     return (
-//         <View style={styles.aiRow}>
-//             <Text style={styles.aiEmoji}>{emoji}</Text>
-//             <Text style={[styles.aiText, { color: theme.colors.textSecondary }]}>{text}</Text>
-//         </View>
-//     );
-// }
-
-// // ============================================================
-// // Main Screen
-// // ============================================================
-
-// export default function InsightsScreen() {
-//     const theme = useTheme();
-//     const globalStyles = useGlobalStyles();
-//     const styles = useStyles();
-//     const insets = useSafeAreaInsets();
-//     const { width } = useWindowDimensions();
-//     const { tripId } = useLocalSearchParams<{ tripId?: string }>();
-//     const { user } = useAuthStore();
-//     const [refreshing, setRefreshing] = useState(false);
-
-//     const isWebDesktop = Platform.OS === 'web' && width > 768;
-//     const chartWidth = isWebDesktop ? Math.min(width - 80, 1024 - 80) : width - 64;
-
-//     const CATEGORY_COLORS: Record<string, string> = useMemo(() => ({
-//         food: '#F59E0B',
-//         stay: '#8B5CF6',
-//         transport: '#3B82F6',
-//         activity: '#10B981',
-//         shopping: '#EC4899',
-//         health: '#EF4444',
-//         other: '#6B7280',
-//     }), []);
-
-//     const {
-//         data: insightsData,
-//         isLoading: insightsLoading,
-//         refetch: refetchInsights,
-//         isRefetching: insightsRefetching,
-//     } = useInsightsData();
-
-//     const {
-//         data: trendsData,
-//         isLoading: trendsLoading,
-//         refetch: refetchTrends,
-//     } = useSpendingTrends();
-
-//     const {
-//         data: tripComparison,
-//         isLoading: tripCompLoading,
-//         refetch: refetchTripComp,
-//     } = useTripComparison(tripId || '');
-
-//     const {
-//         data: groupComparison,
-//         isLoading: groupCompLoading,
-//         refetch: refetchGroupComp,
-//     } = useGroupComparison(tripId || '');
-
-//     const analytics = insightsData?.analytics;
-//     const quickStats = insightsData?.quickStats;
-//     const trends = trendsData?.data;
-//     const tripComp = tripComparison?.data;
-//     const groupComp = groupComparison?.data;
-
-//     const isLoading = insightsLoading || trendsLoading;
-//     const isRefetching = insightsRefetching;
-
-//     const onRefresh = useCallback(async () => {
-//         setRefreshing(true);
-//         await Promise.all([
-//             refetchInsights(),
-//             refetchTrends(),
-//             tripId ? refetchTripComp() : Promise.resolve(),
-//             tripId ? refetchGroupComp() : Promise.resolve(),
-//         ]);
-//         setRefreshing(false);
-//     }, [tripId, refetchInsights, refetchTrends, refetchTripComp, refetchGroupComp]);
-
-//     const aiInsights = useMemo(() => {
-//         const insights: { emoji: string; text: string }[] = [];
-//         if (quickStats) {
-//             if (quickStats.spendingChange > 20) {
-//                 insights.push({ emoji: '📈', text: `Your spending is up ${quickStats.spendingChange}% compared to last month. Consider reviewing your expenses.` });
-//             } else if (quickStats.spendingChange < -20) {
-//                 insights.push({ emoji: '📉', text: `Great job! Your spending is down ${Math.abs(quickStats.spendingChange)}% vs last month. Keep it up! 🎉` });
-//             } else if (quickStats.spendingChange !== 0) {
-//                 insights.push({ emoji: '📊', text: `Your spending is ${quickStats.spendingChange > 0 ? 'up' : 'down'} ${Math.abs(quickStats.spendingChange)}% vs last month.` });
-//             }
-//             if (quickStats.pendingSettlements > 0) {
-//                 insights.push({ emoji: '⚠️', text: `You have ${quickStats.pendingSettlements} pending settlement${quickStats.pendingSettlements > 1 ? 's' : ''}. Clear them to stay on top of your finances!` });
-//             }
-//             if (quickStats.topCategory) {
-//                 insights.push({ emoji: '🔥', text: `Your top category is "${quickStats.topCategory.category}" — ₹${quickStats.topCategory.total?.toLocaleString() || 0} spent this month.` });
-//             }
-//             if (quickStats.activeTrips > 0) {
-//                 insights.push({ emoji: '✈️', text: `You have ${quickStats.activeTrips} active trip${quickStats.activeTrips > 1 ? 's' : ''}. Happy travels!` });
-//             }
-//         }
-//         if (trends?.overallTrend === 'rising') {
-//             insights.push({ emoji: '📊', text: 'Your monthly spending has been trending upward. Consider setting a budget to keep it in check.' });
-//         } else if (trends?.overallTrend === 'falling') {
-//             insights.push({ emoji: '🎯', text: 'Your spending trend is going down. You\'re getting better at managing your finances!' });
-//         }
-//         if (groupComp) {
-//             const diff = groupComp.mySpending - groupComp.averageSpending;
-//             if (Math.abs(diff) > 100) {
-//                 if (diff > 0) {
-//                     insights.push({ emoji: '👑', text: `You spend ₹${Math.abs(diff).toLocaleString()} more than the group average. You're the big spender!` });
-//                 } else {
-//                     insights.push({ emoji: '🌱', text: `You spend ₹${Math.abs(diff).toLocaleString()} less than the group average. Frugal traveler!` });
-//                 }
-//             }
-//         }
-//         insights.push({ emoji: '💡', text: 'Tip: Use the "Reminders" feature to never forget a settlement payment.' });
-//         insights.push({ emoji: '💡', text: 'Tip: Create trip templates for your frequent destinations to save time.' });
-//         return insights.slice(0, 6);
-//     }, [quickStats, trends, groupComp]);
-
-//     if (isLoading && !refreshing) {
-//         return (
-//             <GlobalBackground>
-//                 <View style={[styles.container, { backgroundColor: 'transparent' }]}>
-//                     <View style={[styles.webDesktopContent, isWebDesktop && styles.webDesktopContentCentered]}>
-//                         <View style={[styles.header, {
-//                             paddingTop: Platform.OS === 'web' ? theme.spacing['4'] : insets.top + theme.spacing['3'],
-//                             borderBottomColor: theme.colors.borderLight,
-//                             backgroundColor: theme.colors.surface
-//                         }]}>
-//                             <Pressable
-//                                 onPress={() => router.back()}
-//                                 style={({ hovered }: WebPressableState) => [
-//                                     styles.backBtnWrap,
-//                                     Platform.OS === 'web' && hovered && { opacity: 0.7, cursor: 'pointer' } as any
-//                                 ]}
-//                             >
-//                                 <AppIcon name="arrow-left" size={24} color={theme.colors.textPrimary} />
-//                             </Pressable>
-//                             <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Spending Insights</Text>
-//                             <View style={{ width: 40 }} />
-//                         </View>
-//                         <View style={styles.loadingContainer}>
-//                             <AppIcon name="bar-chart-2" size={48} color={theme.colors.textTertiary} />
-//                             <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-//                                 Loading your insights...
-//                             </Text>
-//                         </View>
-//                     </View>
-//                 </View>
-//             </GlobalBackground>
-//         );
-//     }
-
-//     const categories = analytics?.categories || [];
-//     const monthlyData = analytics?.monthlySpending || [];
-//     const dailyData = analytics?.dailySpending || [];
-//     const dayPattern = analytics?.dayOfWeekPattern || [];
-//     const totalSpent = analytics?.summary?.totalSpent || 0;
-
-//     const chartConfig = {
-//         backgroundGradientFrom: theme.colors.card,
-//         backgroundGradientTo: theme.colors.card,
-//         color: (opacity = 1) => theme.isDark ? `rgba(255, 255, 255, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
-//         labelColor: (opacity = 1) => theme.colors.textSecondary,
-//         strokeWidth: 2,
-//         barPercentage: 0.5,
-//         useShadowColorFromDataset: false,
-//         propsForDots: { r: "4", strokeWidth: "2", stroke: theme.colors.primary },
-//         decimalPlaces: 0,
-//         formatYLabel: (y: string) => {
-//             const val = parseInt(y);
-//             if (val >= 10000000) return (val / 10000000).toFixed(1) + 'Cr';
-//             if (val >= 100000) return (val / 100000).toFixed(1) + 'L';
-//             if (val >= 1000) return (val / 1000).toFixed(1) + 'K';
-//             return y;
-//         }
-//     };
-
-//     return (
-//         <GlobalBackground>
-//             <View style={[styles.container, { backgroundColor: 'transparent' }]}>
-//                 <View style={[styles.webDesktopContent, isWebDesktop && styles.webDesktopContentCentered]}>
-//                     <View style={[styles.header, {
-//                         paddingTop: Platform.OS === 'web' ? theme.spacing['4'] : insets.top + theme.spacing['3'],
-//                         borderBottomColor: theme.colors.borderLight,
-//                         backgroundColor: theme.colors.surface
-//                     }]}>
-//                         <Pressable
-//                             onPress={() => router.back()}
-//                             style={({ hovered }: WebPressableState) => [
-//                                 styles.backBtnWrap,
-//                                 Platform.OS === 'web' && hovered && { opacity: 0.7, cursor: 'pointer' } as any
-//                             ]}
-//                         >
-//                             <AppIcon name="arrow-left" size={24} color={theme.colors.textPrimary} />
-//                         </Pressable>
-//                         <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Spending Insights</Text>
-//                         <Pressable
-//                             onPress={onRefresh}
-//                             style={({ hovered, pressed }: WebPressableState) => [
-//                                 styles.refreshBtnWrap,
-//                                 Platform.OS === 'web' && hovered && { opacity: 0.7, cursor: 'pointer' } as any,
-//                                 pressed && styles.pressedState
-//                             ]}
-//                         >
-//                             <AppIcon name="refresh-cw" size={20} color={theme.colors.textPrimary} />
-//                         </Pressable>
-//                     </View>
-
-//                     <ScrollView
-//                         style={{ flex: 1 }}
-//                         contentContainerStyle={[styles.content, { paddingBottom: Platform.OS === 'web' ? 120 : insets.bottom + 40 }]}
-//                         showsVerticalScrollIndicator={false}
-//                         refreshControl={
-//                             <RefreshControl
-//                                 refreshing={refreshing}
-//                                 onRefresh={onRefresh}
-//                                 colors={[theme.colors.primary]}
-//                                 tintColor={theme.colors.primary}
-//                             />
-//                         }
-//                     >
-//                         <Text style={[styles.lastUpdated, { color: theme.colors.textTertiary }]}>
-//                             Last updated: {format(new Date(), 'MMM d, h:mm a')}
-//                             {isRefetching && ' (refreshing...)'}
-//                         </Text>
-
-//                         {groupComp && (
-//                             <LinearGradient
-//                                 colors={groupComp.difference > 0 ? [theme.colors.danger, theme.colors.danger || '#B91C1C'] : [theme.colors.success, theme.colors.successBorder || '#047857']}
-//                                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-//                                 style={styles.comparisonCard}
-//                             >
-//                                 <Text style={styles.compLabel}>Your Spending vs Group Average</Text>
-//                                 <Text style={styles.compValue}>
-//                                     {groupComp.difference > 0 ? '+' : ''}₹{Math.abs(groupComp.difference).toLocaleString()}
-//                                 </Text>
-//                                 <Text style={styles.compSub}>
-//                                     {groupComp.difference > 0
-//                                         ? `You spend ${((groupComp.difference / Math.max(groupComp.averageSpending, 1)) * 100).toFixed(0)}% more than average`
-//                                         : `You spend ${((Math.abs(groupComp.difference) / Math.max(groupComp.averageSpending, 1)) * 100).toFixed(0)}% less than average`}
-//                                 </Text>
-//                             </LinearGradient>
-//                         )}
-
-//                         <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Overview</Text>
-//                         <View style={styles.statsRow}>
-//                             <InsightCard
-//                                 icon="credit-card"
-//                                 title="This Month"
-//                                 value={`₹${(quickStats?.thisMonth?.total || 0).toLocaleString()}`}
-//                                 subtitle={`${quickStats?.thisMonth?.count || 0} expenses`}
-//                                 color={theme.colors.primary}
-//                                 trend={quickStats?.spendingChange > 0 ? 'up' : 'down'}
-//                             />
-//                             <InsightCard
-//                                 icon="bar-chart-2"
-//                                 title="Average/Day"
-//                                 value={`₹${Math.round(analytics?.summary?.averagePerDay || 0).toLocaleString()}`}
-//                                 subtitle="daily avg"
-//                                 color={theme.colors.success}
-//                             />
-//                             <InsightCard
-//                                 icon="trending-up"
-//                                 title="Highest"
-//                                 value={analytics?.highestExpense ? `₹${analytics.highestExpense.amountBase.toLocaleString()}` : '—'}
-//                                 subtitle={analytics?.highestExpense?.title || 'No data'}
-//                                 color={theme.colors.danger}
-//                             />
-//                             <InsightCard
-//                                 icon="trending-down"
-//                                 title="Lowest"
-//                                 value={analytics?.lowestExpense ? `₹${analytics.lowestExpense.amountBase.toLocaleString()}` : '—'}
-//                                 subtitle={analytics?.lowestExpense?.title || 'No data'}
-//                                 color={theme.colors.warning}
-//                             />
-//                         </View>
-
-//                         {categories.length > 0 && (
-//                             <GlassCard style={styles.chartCard} intensity={theme.isDark ? 10 : 5}>
-//                                 <View style={styles.chartHeader}>
-//                                     <AppIcon name="pie-chart" size={16} color={theme.colors.secondary} />
-//                                     <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Spending by Category</Text>
-//                                 </View>
-//                                 <PieChart
-//                                     data={categories.slice(0, 6).map((c: any, i: number) => ({
-//                                         name: c.category,
-//                                         population: c.totalAmount,
-//                                         color: CATEGORY_COLORS[c.category] || ['#FF9F40', '#9966FF', '#4BC0C0'][i % 3],
-//                                         legendFontColor: theme.colors.textSecondary,
-//                                         legendFontSize: 12,
-//                                     }))}
-//                                     width={chartWidth}
-//                                     height={220}
-//                                     chartConfig={chartConfig}
-//                                     accessor={"population"}
-//                                     backgroundColor={"transparent"}
-//                                     paddingLeft={"15"}
-//                                     center={[10, 0]}
-//                                     absolute
-//                                 />
-//                             </GlassCard>
-//                         )}
-
-//                         {monthlyData.length > 0 && (
-//                             <GlassCard style={styles.chartCard} intensity={theme.isDark ? 10 : 5}>
-//                                 <View style={styles.chartHeader}>
-//                                     <AppIcon name="bar-chart-2" size={16} color={theme.colors.primary} />
-//                                     <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Monthly Spending Trend</Text>
-//                                 </View>
-//                                 <BarChart
-//                                     data={{
-//                                         labels: monthlyData.slice(-6).map((m: any) => m.monthName || m.month?.slice(5) || ''),
-//                                         datasets: [{ data: monthlyData.slice(-6).map((m: any) => m.totalAmount) }]
-//                                     }}
-//                                     width={chartWidth}
-//                                     height={220}
-//                                     yAxisLabel="₹"
-//                                     yAxisSuffix=""
-//                                     chartConfig={{
-//                                         ...chartConfig,
-//                                         color: (opacity = 1) => theme.colors.primary,
-//                                     }}
-//                                     style={{ marginVertical: 8, borderRadius: 16 }}
-//                                     fromZero
-//                                 />
-//                             </GlassCard>
-//                         )}
-
-//                         {dailyData.length > 0 && (
-//                             <GlassCard style={styles.chartCard} intensity={theme.isDark ? 10 : 5}>
-//                                 <View style={styles.chartHeader}>
-//                                     <AppIcon name="activity" size={16} color={theme.colors.success} />
-//                                     <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Daily Spending</Text>
-//                                 </View>
-//                                 <LineChart
-//                                     data={{
-//                                         labels: dailyData.slice(-14).map((d: any) => d.date?.slice(5) || ''),
-//                                         datasets: [{ data: dailyData.slice(-14).map((d: any) => d.totalAmount) }]
-//                                     }}
-//                                     width={chartWidth}
-//                                     height={220}
-//                                     chartConfig={{
-//                                         ...chartConfig,
-//                                         color: (opacity = 1) => theme.colors.secondary,
-//                                     }}
-//                                     bezier
-//                                     style={{ marginVertical: 8, borderRadius: 16 }}
-//                                     yAxisLabel="₹"
-//                                     yAxisSuffix=""
-//                                 />
-//                             </GlassCard>
-//                         )}
-
-//                         {dayPattern.length > 0 && (
-//                             <GlassCard style={styles.chartCard} intensity={theme.isDark ? 10 : 5}>
-//                                 <View style={styles.chartHeader}>
-//                                     <AppIcon name="calendar" size={16} color={theme.colors.warning} />
-//                                     <Text style={[styles.chartTitle, { color: theme.colors.textPrimary }]}>Spending by Day of Week</Text>
-//                                 </View>
-//                                 <BarChart
-//                                     data={{
-//                                         labels: dayPattern.map((d: any) => d.day),
-//                                         datasets: [{ data: dayPattern.map((d: any) => d.totalAmount) }]
-//                                     }}
-//                                     width={chartWidth}
-//                                     height={220}
-//                                     yAxisLabel="₹"
-//                                     yAxisSuffix=""
-//                                     chartConfig={{
-//                                         ...chartConfig,
-//                                         color: (opacity = 1) => theme.colors.success,
-//                                     }}
-//                                     style={{ marginVertical: 8, borderRadius: 16 }}
-//                                     fromZero
-//                                 />
-//                             </GlassCard>
-//                         )}
-
-//                         {aiInsights.length > 0 && (
-//                             <GlassCard style={[styles.aiCard, { borderColor: theme.colors.primary + '25' }]} intensity={theme.isDark ? 10 : 5}>
-//                                 <View style={styles.aiHeader}>
-//                                     <AppIcon name="zap" size={20} color={theme.colors.primary} />
-//                                     <Text style={[styles.aiTitle, { color: theme.colors.primary }]}>Spending Tips &amp; Highlights</Text>
-//                                     <Badge label="Beta" variant="primary" />
-//                                 </View>
-//                                 {aiInsights.map((insight, index) => (
-//                                     <SmartInsight key={index} emoji={insight.emoji} text={insight.text} />
-//                                 ))}
-//                             </GlassCard>
-//                         )}
-
-//                     </ScrollView>
-//                 </View>
-//             </View>
-//         </GlobalBackground>
-//     );
-// }
-
-// const useStyles = () => {
-//     const theme = useTheme();
-//     return useMemo(() => StyleSheet.create({
-//         container: { flex: 1 },
-//         webDesktopContent: { flex: 1, width: '100%' },
-//         webDesktopContentCentered: { maxWidth: 1024, alignSelf: 'center' },
-//         pressedState: { opacity: 0.8, transform: [{ scale: 0.98 }] },
-
-//         header: {
-//             flexDirection: 'row',
-//             justifyContent: 'space-between',
-//             alignItems: 'center',
-//             paddingHorizontal: 20,
-//             paddingBottom: 16,
-//             borderBottomWidth: 1,
-//         },
-//         backBtnWrap: {
-//             alignItems: 'flex-start',
-//             width: 40
-//         },
-//         headerTitle: {
-//             fontSize: 20,
-//             fontWeight: '700'
-//         },
-//         refreshBtnWrap: {
-//             alignItems: 'flex-end',
-//             width: 40
-//         },
-
-//         content: {
-//             padding: 16
-//         },
-//         lastUpdated: {
-//             fontSize: 10,
-//             textAlign: 'center',
-//             marginBottom: 24
-//         },
-
-//         loadingContainer: {
-//             flex: 1,
-//             justifyContent: 'center',
-//             alignItems: 'center',
-//             gap: 16,
-//         },
-//         loadingText: {
-//             fontSize: 14,
-//             fontWeight: '500'
-//         },
-
-//         sectionTitle: {
-//             fontSize: 18,
-//             fontWeight: '700',
-//             marginBottom: 16,
-//             marginTop: 8
-//         },
-
-//         comparisonCard: {
-//             borderRadius: 16,
-//             padding: 20,
-//             alignItems: 'center',
-//             marginBottom: 24
-//         },
-//         compLabel: {
-//             fontSize: 11,
-//             color: '#fff',
-//             textTransform: 'uppercase',
-//             letterSpacing: 1
-//         },
-//         compValue: {
-//             fontSize: 36,
-//             fontWeight: 'bold',
-//             color: '#fff',
-//             marginTop: 8
-//         },
-//         compSub: {
-//             fontSize: 14,
-//             color: '#fff',
-//             marginTop: 4
-//         },
-
-//         statsRow: {
-//             flexDirection: 'row',
-//             flexWrap: 'wrap',
-//             gap: 12,
-//             marginBottom: 24
-//         },
-//         insightCard: {
-//             flex: 1,
-//             minWidth: 150,
-//             alignItems: 'center',
-//             position: 'relative',
-//             padding: 16,
-//             borderRadius: 16,
-//             borderWidth: 1,
-//             borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.2)',
-//         },
-//         iconWrapper: {
-//             width: 44,
-//             height: 44,
-//             borderRadius: 22,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//             marginBottom: 10,
-//         },
-//         insightTitle: {
-//             fontSize: 11,
-//             fontWeight: '600',
-//             textTransform: 'uppercase',
-//             letterSpacing: 0.5
-//         },
-//         insightValue: {
-//             fontSize: 20,
-//             fontWeight: '800',
-//             marginTop: 2
-//         },
-//         insightSubtitle: {
-//             fontSize: 10,
-//             marginTop: 2,
-//             textAlign: 'center'
-//         },
-//         trendBadge: {
-//             position: 'absolute',
-//             top: 10,
-//             right: 10,
-//             paddingHorizontal: 6,
-//             paddingVertical: 2,
-//             borderRadius: 10
-//         },
-//         trendText: {
-//             fontSize: 10,
-//             fontWeight: 'bold'
-//         },
-
-//         chartCard: {
-//             padding: 16,
-//             marginBottom: 16,
-//             borderRadius: 16,
-//             borderWidth: 1,
-//             borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.2)',
-//             alignItems: 'center',
-//         },
-//         chartHeader: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 8,
-//             marginBottom: 16,
-//             alignSelf: 'flex-start',
-//         },
-//         chartTitle: {
-//             fontSize: 15,
-//             fontWeight: '700'
-//         },
-
-//         aiCard: {
-//             padding: 16,
-//             marginBottom: 24,
-//             borderRadius: 16,
-//             borderWidth: 1,
-//         },
-//         aiHeader: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             gap: 8,
-//             marginBottom: 16,
-//         },
-//         aiTitle: {
-//             fontSize: 16,
-//             fontWeight: '700',
-//             flex: 1,
-//         },
-//         aiRow: {
-//             flexDirection: 'row',
-//             gap: 10,
-//             marginBottom: 10,
-//             alignItems: 'flex-start'
-//         },
-//         aiEmoji: {
-//             fontSize: 16,
-//             marginTop: 1
-//         },
-//         aiText: {
-//             flex: 1,
-//             fontSize: 13,
-//             lineHeight: 20
-//         },
-//     }), [theme]);
-// };

@@ -37,6 +37,8 @@ const WEB = Platform.OS === 'web';
 
 interface FinanceAnalyticsProps {
   month: string;
+  includeTripExpenses?: boolean;
+  onToggleIncludeTripExpenses?: (val: boolean) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────

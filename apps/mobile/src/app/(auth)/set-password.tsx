@@ -26,6 +26,7 @@ import { useAuthStore } from '../../stores/auth.store';
 import AuthLayout from '../../components/auth/AuthLayout';
 import { useTheme } from '../../providers/ThemeProvider';
 import { haptics } from '../../utils/haptics';
+import { showToast } from '../../utils/toast';
 import { storage } from '../../utils/storage';
 import { GlobalBackground } from '../../components/ui/GlobalBackground';
 
@@ -64,24 +65,23 @@ export default function SetPasswordScreen() {
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Error', 'Password should be at least 6 characters.');
+      showToast.warning(
+        'Weak Password',
+        'Password should be at least 6 characters.',
+      );
       return;
     }
 
     setIsSubmitting(true);
     try {
       await setPassword(password);
-      Alert.alert('Success', 'Password set successfully!', [
-        { text: 'OK', onPress: () => router.replace('/(app)/(tabs)/home') },
-      ]);
-      if (Platform.OS === 'web') {
-        router.replace('/(app)/(tabs)/home');
-      }
-    } catch (e: any) {
-      Alert.alert(
-        'Error',
-        e.message || 'An error occurred while setting the password.',
+      showToast.success(
+        'Password Set',
+        'Your password has been set successfully!',
       );
+      router.replace('/(app)/(tabs)/dashboard');
+    } catch (e: any) {
+      showToast.fromError(e, 'Failed to Set Password');
     } finally {
       setIsSubmitting(false);
     }
@@ -93,7 +93,7 @@ export default function SetPasswordScreen() {
     if (user?.uid) {
       storage.setBoolean(`skipped_password_${user.uid}`, true);
     }
-    router.replace('/(app)/(tabs)/home');
+    router.replace('/(app)/(tabs)/dashboard');
   };
 
   const renderForm = () => (

@@ -9,6 +9,8 @@ import React, {
 import { useColorScheme } from 'react-native';
 import { type AppTheme, darkTheme, lightTheme } from './index';
 
+import { useTheme as useDesignSystemTheme } from '@tripsplit/design-system';
+
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 type ThemeContextValue = {
@@ -18,14 +20,14 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: darkTheme,
-  mode: 'dark',
+  theme: lightTheme,
+  mode: 'light',
   setMode: () => undefined,
 });
 
 export function AppThemeProvider({
   children,
-  initialMode = 'dark',
+  initialMode = 'light',
 }: PropsWithChildren<{ initialMode?: ThemeMode }>) {
   const systemScheme = useColorScheme();
   const [mode, setMode] = useState<ThemeMode>(initialMode);
@@ -53,6 +55,14 @@ export function AppThemeProvider({
 
 /** Hook for accessing the full TripSplit app theme. */
 export function useAppTheme(): AppTheme {
+  try {
+    const dsTheme = useDesignSystemTheme();
+    if (dsTheme && dsTheme.colors) {
+      return dsTheme as unknown as AppTheme;
+    }
+  } catch {
+    // fallback
+  }
   return useContext(ThemeContext).theme;
 }
 

@@ -32,7 +32,7 @@ import { GlassCard } from '@/shared/components/GlassCard';
 import { storage } from '@/shared/utils/storage';
 import GlobalLoader from '@/shared/components/GlobalLoader';
 import AppIcon from '@/shared/components/AppIcon';
-import AppLogo from '@/shared/components/AppIcon';
+import AppLogo from '@/components/common/AppLogo';
 import { Typography } from '@/shared/components/Typography';
 
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -43,15 +43,15 @@ const FULL_BG_IMAGE = {
 };
 
 export default function LoginScreen() {
+  console.log('>>> [BOOT] LoginScreen rendering!');
   const navigation = useNavigation<GuestNavigationProp<'Login'>>();
-  const params = useLocalSearchParams<{
-    email?: string;
-    unverified?: string;
-  }>();
+  const params: { email?: string; unverified?: string } = {};
   const theme = useTheme();
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+
+  console.log('>>> [BOOT] LoginScreen window dimensions:', { width, height });
 
   const [email, setEmail] = useState(params.email || '');
   const [password, setPassword] = useState('');
@@ -97,16 +97,16 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       await loginWithEmail(email.trim(), password);
-      router.replace('/(app)/(tabs)/dashboard');
+      // Auth state update unmounts GuestNavigator automatically
     } catch (e: any) {
       if (
         e?.code === 'EMAIL_NOT_VERIFIED' ||
         e?.message?.toLowerCase().includes('verify your email')
       ) {
-        router.push({
-          pathname: '/(auth)/verify-email',
-          params: { email: email.trim() },
-        });
+        showToast.info(
+          'Verification Required',
+          'Please check your inbox to verify your email address.',
+        );
       } else {
         showToast.fromError(e, 'Login Failed');
       }
@@ -129,10 +129,9 @@ export default function LoginScreen() {
         : false;
 
       if (user && !hasPassword && !hasSkipped) {
-        router.replace('/(auth)/set-password');
-      } else {
-        router.replace('/(app)/(tabs)/dashboard');
+        navigation.navigate('SetPassword');
       }
+      // Auth state update unmounts GuestNavigator automatically
     } catch (e: any) {
       showToast.fromError(e, 'Google Sign-In Failed');
     } finally {

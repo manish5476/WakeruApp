@@ -9,10 +9,10 @@ export const showToast = {
     Toast.show({ type: 'info', text1: msg, text2: desc }),
   info: (msg: string, desc?: string) =>
     Toast.show({ type: 'info', text1: msg, text2: desc }),
-  fromError: (err: any) =>
+  fromError: (err: any, fallbackTitle?: string) =>
     Toast.show({
       type: 'error',
-      text1: 'Error',
+      text1: fallbackTitle || 'Error',
       text2: err?.message || 'Something went wrong',
     }),
 };

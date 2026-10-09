@@ -11,11 +11,22 @@ export const invitationsApi = {
   },
 
   send: async (
-    tripId: string,
-    toUserId: string,
+    tripIdOrPayload:
+      | string
+      | { tripId: string; toUserId?: string; email?: string; message?: string },
+    toUserId?: string,
     message?: string,
+    email?: string,
   ): Promise<ApiResponse<{ invitation: any }>> => {
-    return apiClient.post('/invitations/send', { tripId, toUserId, message });
+    if (typeof tripIdOrPayload === 'object') {
+      return apiClient.post('/invitations/send', tripIdOrPayload);
+    }
+    return apiClient.post('/invitations/send', {
+      tripId: tripIdOrPayload,
+      toUserId,
+      message,
+      email,
+    });
   },
 
   accept: async (invitationId: string): Promise<ApiResponse<void>> => {
@@ -35,44 +46,12 @@ export const invitationsApi = {
     console.log('📡 Decline response:', response?.status);
     return response;
   },
+
+  getSent: async (): Promise<ApiResponse<{ invitations: any[] }>> => {
+    return apiClient.get('/invitations/sent');
+  },
+
+  cancel: async (invitationId: string): Promise<ApiResponse<void>> => {
+    return apiClient.delete(`/invitations/${invitationId}`);
+  },
 };
-
-// import apiClient, { ApiResponse } from './client';
-
-// export const invitationsApi = {
-//     getPending: async (): Promise<ApiResponse<{ invitations: any[] }>> => {
-//         return apiClient.get('/invitations/pending');
-//     },
-
-//     send: async (tripId: string, toUserId: string, message?: string): Promise<ApiResponse<{ invitation: any }>> => {
-//         return apiClient.post('/invitations/send', { tripId, toUserId, message });
-//     },
-
-//     accept: async (invitationId: string): Promise<ApiResponse<void>> => {
-//         return apiClient.post(`/invitations/${invitationId}/accept`);
-//     },
-
-//     decline: async (invitationId: string): Promise<ApiResponse<void>> => {
-//         return apiClient.post(`/invitations/${invitationId}/decline`);
-//     },
-// };
-
-// // import apiClient, { ApiResponse } from './client';
-
-// // export const invitationsApi = {
-// //     getPending: async (): Promise<ApiResponse<{ invitations: any[] }>> => {
-// //         return apiClient.get('/invitations/pending');
-// //     },
-
-// //     send: async (tripId: string, toUserId: string, message?: string): Promise<ApiResponse<{ invitation: any }>> => {
-// //         return apiClient.post('/invitations/send', { tripId, toUserId, message });
-// //     },
-
-// //     accept: async (invitationId: string): Promise<ApiResponse<void>> => {
-// //         return apiClient.post(`/invitations/${invitationId}/accept`);
-// //     },
-
-// //     decline: async (invitationId: string): Promise<ApiResponse<void>> => {
-// //         return apiClient.post(`/invitations/${invitationId}/decline`);
-// //     },
-// // };

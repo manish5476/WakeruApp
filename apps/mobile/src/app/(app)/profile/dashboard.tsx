@@ -389,7 +389,8 @@ function TripCard({ trip, onPress }: { trip: any; onPress: () => void }) {
           </View>
         )}
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          colors={['transparent', 'rgba(0,0,0,0.45)']}
+          locations={[0.45, 1]}
           style={styles.tripCardGradient}
         />
         <View style={styles.tripCardOverlay}>

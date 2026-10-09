@@ -32,6 +32,8 @@ import {
 } from '../../../../../hooks';
 import { useAuthStore } from '../../../../../stores/auth.store';
 import { haptics } from '../../../../../utils/haptics';
+import { showToast } from '../../../../../utils/toast';
+import { getStopCoverImage } from '../../../../../utils/tripImage';
 import { useTheme } from '../../../../../providers/ThemeProvider';
 import { Badge } from '../../../../../components/ui/Badge';
 import { GlassCard } from '../../../../../components/ui/GlassCard';
@@ -50,7 +52,6 @@ import {
   mapStopToHeroUI,
   mapStopToSummaryUI,
   mapStopToLocationUI,
-  mapExpenseToTimelineUI,
   mapContributorsUI,
   mapCategoriesUI,
 } from '../../../../../components/trips/StopDetails/StopMappers';
@@ -328,7 +329,7 @@ export default function StopDetailScreen() {
 
   const handleDeleteExpense = (expenseId: string) => {
     haptics.warning();
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (
         window.confirm('This will reverse all related balances. Are you sure?')
       ) {
@@ -364,31 +365,46 @@ export default function StopDetailScreen() {
 
   const handleDeleteStop = () => {
     haptics.warning();
-    if (Platform.OS === 'web') {
-      if (
-        window.confirm(
-          'All expenses in this stop will also be deleted. This cannot be undone. Are you sure?',
-        )
-      ) {
-        deleteStop({ tripId, stopId }, { onSuccess: () => router.back() });
+    const expenseCount = totalExpenses || expenses.length;
+    if (expenseCount > 0) {
+      Alert.alert(
+        'Cannot Delete Stop',
+        `This stop has ${expenseCount} expense${expenseCount !== 1 ? 's' : ''}. To protect your trip financial balances, please delete all expenses in this stop first before deleting the stop.`,
+        [{ text: 'OK', style: 'default' }],
+      );
+      return;
+    }
+
+    const confirmMsg =
+      'Are you sure you want to delete this stop? This action cannot be undone.';
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(confirmMsg)) {
+        deleteStop(
+          { tripId, stopId },
+          {
+            onSuccess: () => router.back(),
+            onError: (err: any) =>
+              showToast.fromError(err, 'Failed to delete stop'),
+          },
+        );
       }
     } else {
-      Alert.alert(
-        'Delete Stop',
-        'All expenses in this stop will also be deleted. This cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete Stop',
-            style: 'destructive',
-            onPress: () =>
-              deleteStop(
-                { tripId, stopId },
-                { onSuccess: () => router.back() },
-              ),
-          },
-        ],
-      );
+      Alert.alert('Delete Stop', confirmMsg, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Stop',
+          style: 'destructive',
+          onPress: () =>
+            deleteStop(
+              { tripId, stopId },
+              {
+                onSuccess: () => router.back(),
+                onError: (err: any) =>
+                  showToast.fromError(err, 'Failed to delete stop'),
+              },
+            ),
+        },
+      ]);
     }
   };
 
@@ -403,40 +419,42 @@ export default function StopDetailScreen() {
 
   if (isTripLoading || isExpensesLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <GlobalBackground />
-        <GlobalLoader
-          variant="inline"
-          size="large"
-          color={theme.colors.secondary}
-        />
-        <Text
-          style={[styles.loadingText, { color: theme.colors.textSecondary }]}
-        >
-          Loading stop details...
-        </Text>
-      </View>
+      <GlobalBackground>
+        <View style={styles.loadingContainer}>
+          <GlobalLoader
+            variant="inline"
+            size="large"
+            color={theme.colors.secondary}
+          />
+          <Text
+            style={[styles.loadingText, { color: theme.colors.textSecondary }]}
+          >
+            Loading stop details...
+          </Text>
+        </View>
+      </GlobalBackground>
     );
   }
 
   if (!stop) {
     return (
-      <View style={styles.loadingContainer}>
-        <GlobalBackground />
-        <Text
-          style={[styles.loadingText, { color: theme.colors.textSecondary }]}
-        >
-          Stop not found in this trip.
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{ marginTop: 20, padding: 10 }}
-        >
-          <Text style={{ color: theme.colors.textLink, fontWeight: '600' }}>
-            ← Go Back
+      <GlobalBackground>
+        <View style={styles.loadingContainer}>
+          <Text
+            style={[styles.loadingText, { color: theme.colors.textSecondary }]}
+          >
+            Stop not found in this trip.
           </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ marginTop: 20, padding: 10 }}
+          >
+            <Text style={{ color: theme.colors.textLink, fontWeight: '600' }}>
+              ← Go Back
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </GlobalBackground>
     );
   }
 
@@ -449,7 +467,7 @@ export default function StopDetailScreen() {
       : budgetPercent > 75
         ? theme.colors.warning
         : theme.colors.success;
-  const coverImage = stop.coverImage || DEFAULT_COVER;
+  const coverImage = getStopCoverImage(stop, trip?.title);
 
   return (
     <View style={[styles.container, { backgroundColor: 'transparent' }]}>
@@ -474,7 +492,7 @@ export default function StopDetailScreen() {
         }}
       />
 
-      <View style={StyleSheet.absoluteFill}>
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <GlobalBackground />
       </View>
 
@@ -549,45 +567,57 @@ export default function StopDetailScreen() {
                 <StopHero data={heroUI} />
                 <FinancialSummary data={summaryUI} />
                 {locationUI && (
-                  <View style={{ paddingHorizontal: isWebDesktop ? 0 : 20 }}>
-                    <MiniMapCard
-                      data={locationUI}
-                      onPressMap={() =>
-                        router.push(
-                          `/(app)/trips/${tripId}/map?lat=${locationUI.coordinates.lat}&lng=${locationUI.coordinates.lng}`,
-                        )
-                      }
-                      onPressNavigate={() => {}}
-                    />
-                  </View>
+                  <MiniMapCard
+                    data={locationUI}
+                    onPressMap={() =>
+                      router.push(
+                        `/(app)/trips/${tripId}/map?lat=${locationUI.coordinates.lat}&lng=${locationUI.coordinates.lng}`,
+                      )
+                    }
+                    onPressNavigate={() => {}}
+                  />
                 )}
-                <View style={{ paddingHorizontal: isWebDesktop ? 0 : 20 }}>
-                  <PeopleOverview contributors={contributors} />
-                  <CategoryBreakdown categories={categories} />
-                  <QuickActions actions={actions} />
-                </View>
+                <PeopleOverview contributors={contributors} />
+                <CategoryBreakdown categories={categories} />
+                <QuickActions actions={actions} />
 
-                <View
-                  style={[
-                    styles.listHeader,
-                    { paddingHorizontal: isWebDesktop ? 0 : 20, marginTop: 24 },
-                  ]}
-                >
-                  <AppIcon name="list" size={16} color={theme.colors.primary} />
-                  <Text
-                    style={[
-                      styles.listTitle,
-                      { color: theme.colors.textPrimary },
-                    ]}
+                <View style={styles.listHeader}>
+                  <View style={styles.listHeaderLeft}>
+                    <AppIcon
+                      name="receipt"
+                      size={16}
+                      color={theme.colors.secondary}
+                    />
+                    <Text
+                      style={[
+                        styles.listTitle,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      All Expenses
+                    </Text>
+                    <Badge label={`${totalExpenses}`} variant="neutral" />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.headerAddBtn}
+                    onPress={() =>
+                      router.push(
+                        `/(app)/trips/${tripId}/add-expense?stopId=${stopId}`,
+                      )
+                    }
+                    activeOpacity={0.8}
                   >
-                    All Expenses
-                  </Text>
-                  <Badge label={`${totalExpenses}`} variant="neutral" />
+                    <AppIcon name="plus" size={13} color="#FFFFFF" />
+                    <Text style={styles.headerAddBtnText}>Add</Text>
+                  </TouchableOpacity>
                 </View>
               </Animated.View>
             );
           }}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 100 },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -749,6 +779,10 @@ const useStyles = (isWebDesktop: boolean = false) => {
     () =>
       StyleSheet.create({
         container: { flex: 1, backgroundColor: 'transparent' },
+        listContent: {
+          paddingHorizontal: isWebDesktop ? 0 : 16,
+          paddingTop: 8,
+        },
         webDesktopContent: { flex: 1, width: '100%' },
         webDesktopContentCentered: {
           maxWidth: 960,
@@ -1045,14 +1079,33 @@ const useStyles = (isWebDesktop: boolean = false) => {
         listHeader: {
           flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 20,
+          marginBottom: 14,
+        },
+        listHeaderLeft: {
+          flexDirection: 'row',
+          alignItems: 'center',
           gap: 8,
-          marginTop: 8,
-          marginBottom: 16,
         },
         listTitle: {
           fontSize: 16,
           fontWeight: '800',
           color: theme.colors.textPrimary,
+        },
+        headerAddBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: theme.borderRadius.full,
+          backgroundColor: theme.colors.secondary,
+        },
+        headerAddBtnText: {
+          fontSize: 12,
+          fontWeight: '700',
+          color: '#FFFFFF',
         },
 
         statusPill: {

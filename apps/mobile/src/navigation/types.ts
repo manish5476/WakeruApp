@@ -8,6 +8,7 @@ export type GuestStackParamList = {
   ForgotPassword: undefined;
   SetPassword: undefined;
   Onboarding: undefined;
+  VerifyEmail: { email?: string } | undefined;
 };
 
 export type AuthenticatedTabParamList = {

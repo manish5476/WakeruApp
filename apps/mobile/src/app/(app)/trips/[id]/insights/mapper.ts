@@ -238,3 +238,7 @@ export function mapInsightsToUI(
     funFacts,
   };
 }
+
+export default function InsightsMapper() {
+  return null;
+}

@@ -14,12 +14,25 @@ export function EnvironmentLoader() {
   const [config, setConfig] = useState<RuntimeConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  console.log(
+    '>>> [BOOT] EnvironmentLoader rendering, config:',
+    !!config,
+    'error:',
+    error,
+  );
+
   useEffect(() => {
     try {
+      console.log('>>> [BOOT] createRuntimeConfig starting');
       const cfg = createRuntimeConfig();
+      console.log('>>> [BOOT] createRuntimeConfig result:', cfg);
       setConfig(cfg);
     } catch (err: any) {
-      setError(err.message || 'Failed to load environment configuration');
+      console.error(
+        '>>> [BOOT] createRuntimeConfig error, falling back to onrender:',
+        err,
+      );
+      setConfig({ apiBaseUrl: 'https://wakeru.onrender.com/api/v1' });
     }
   }, []);
 
@@ -32,6 +45,7 @@ export function EnvironmentLoader() {
   }
 
   if (!config) {
+    console.log('>>> [BOOT] EnvironmentLoader: config is null, returning null');
     return null;
   }
 

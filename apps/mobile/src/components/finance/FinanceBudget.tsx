@@ -53,6 +53,8 @@ const CATEGORY_EMOJIS: Record<string, string> = {
 
 interface FinanceBudgetProps {
   month: string;
+  includeTripExpenses?: boolean;
+  onToggleIncludeTripExpenses?: (val: boolean) => void;
 }
 
 // ─── Bento Hero Budget Card ──────────────────────────────────

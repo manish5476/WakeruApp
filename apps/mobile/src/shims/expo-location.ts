@@ -57,10 +57,15 @@ export async function getCurrentPositionAsync(_options?: any) {
   };
 }
 
+export async function getLastKnownPositionAsync(_options?: any) {
+  return getCurrentPositionAsync(_options);
+}
+
 export default {
   PermissionStatus,
   Accuracy,
   requestForegroundPermissionsAsync,
   getForegroundPermissionsAsync,
   getCurrentPositionAsync,
+  getLastKnownPositionAsync,
 };

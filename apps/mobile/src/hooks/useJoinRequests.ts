@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { joinRequestsApi } from '../services/api/joinRequests.api';
+import { showToast } from '../utils/toast';
 
 export function useAdminJoinRequests() {
   return useQuery({
@@ -29,23 +30,32 @@ export function useAdminJoinRequests() {
   });
 }
 
-export function usePendingJoinRequests(tripId: string) {
+export function usePendingJoinRequests(
+  tripId: string,
+  enabled: boolean = true,
+) {
   return useQuery({
     queryKey: ['trips', tripId, 'join-requests'],
     queryFn: async () => {
-      const response = await joinRequestsApi.getPending(tripId);
+      try {
+        const response = await joinRequestsApi.getPending(tripId);
 
-      if (response?.data?.requests) {
-        return response.data.requests;
+        if (response?.data?.requests) {
+          return response.data.requests;
+        }
+
+        if (Array.isArray(response?.data)) {
+          return response.data;
+        }
+
+        return [];
+      } catch (err: any) {
+        // If user is not admin or request fails, gracefully return empty list
+        return [];
       }
-
-      if (Array.isArray(response?.data)) {
-        return response.data;
-      }
-
-      return [];
     },
-    enabled: !!tripId,
+    enabled: Boolean(tripId && enabled),
+    retry: false,
   });
 }
 
@@ -64,12 +74,16 @@ export function useApproveJoinRequest(tripId: string) {
       });
       queryClient.invalidateQueries({ queryKey: ['trips', tripId] });
       queryClient.invalidateQueries({ queryKey: ['trips'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      showToast.success('Request Approved! 🎉', 'Member has joined the trip.');
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-join-requests'] });
       queryClient.invalidateQueries({
         queryKey: ['trips', tripId, 'join-requests'],
       });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -86,12 +100,16 @@ export function useRejectJoinRequest(tripId: string) {
       queryClient.invalidateQueries({
         queryKey: ['trips', tripId, 'join-requests'],
       });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      showToast.info('Request Declined', 'Join request declined.');
     },
     onError: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-join-requests'] });
       queryClient.invalidateQueries({
         queryKey: ['trips', tripId, 'join-requests'],
       });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }

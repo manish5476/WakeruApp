@@ -19,6 +19,8 @@ import { useTheme } from '../../../../providers/ThemeProvider';
 import AppIcon from '../../../../components/common/AppIcon';
 import { GlobalBackground } from '../../../../components/ui/GlobalBackground';
 import GlobalLoader from '../../../../components/common/GlobalLoader';
+import { useAds } from '../../../../hooks/useAds';
+import { TravelAffiliateCard } from '../../../../components/ads/TravelAffiliateCard';
 
 const MEMBER_COLORS = [
   '#2563EB',
@@ -35,6 +37,7 @@ export default function TripSummaryScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { isAdFree } = useAds();
 
   const isDesktop = width >= 768;
   const isWideDesktop = width >= 1100;
@@ -42,7 +45,7 @@ export default function TripSummaryScreen() {
   const stops = summary?.stops || [];
   const members = summary?.members || [];
 
-  if (isLoading) {
+  if (isLoading && !summary) {
     return (
       <View
         style={[styles.center, { backgroundColor: theme.colors.background }]}
@@ -717,6 +720,22 @@ export default function TripSummaryScreen() {
               })}
             </View>
           </View>
+
+          {/* Contextual Travel Partner Card for Free Users */}
+          {!isAdFree && (
+            <View style={{ marginTop: 20, width: '100%' }}>
+              <TravelAffiliateCard
+                destination={title}
+                type="hotel"
+                customTitle={
+                  title
+                    ? `Top Stays & Hotels in ${title}`
+                    : 'Exclusive Flight & Hotel Deals'
+                }
+                customSubtitle="Plan your next getaway with verified partners and free cancellation"
+              />
+            </View>
+          )}
         </View>
 
         <View style={{ height: 60 }} />

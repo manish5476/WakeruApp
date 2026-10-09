@@ -24,6 +24,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  ScrollView,
   useWindowDimensions,
   Platform,
 } from 'react-native';
@@ -224,7 +225,7 @@ interface MoneyOverviewWidgetProps {
 export function MoneyOverviewWidget({ month }: MoneyOverviewWidgetProps) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 860;
+  const isDesktop = Platform.OS === 'web' && width >= 860;
 
   const { data, isLoading, isError, error, refetch } =
     useFinanceOverview(month);
@@ -463,39 +464,25 @@ export function MoneyOverviewWidget({ month }: MoneyOverviewWidgetProps) {
           ]}
         />
 
-        {/* ── KPI ROW 1: EXPENSES ── */}
-        <View style={styles(theme).kpiRow}>
+        {/* ── KPI CAROUSEL ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          directionalLockEnabled
+          nestedScrollEnabled
+          contentContainerStyle={styles(theme).kpiCarousel}
+        >
           <KpiCell
             label="Paid by me"
             value={safeFormatCurrency(data.amountPaidByMe, currency)}
             icon="credit-card"
             theme={theme}
           />
-          <View
-            style={[
-              styles(theme).kpiDivider,
-              {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.07)'
-                  : 'rgba(0,0,0,0.06)',
-              },
-            ]}
-          />
           <KpiCell
             label="My Share"
             value={safeFormatCurrency(data.myShare, currency)}
             icon="pie-chart"
             theme={theme}
-          />
-          <View
-            style={[
-              styles(theme).kpiDivider,
-              {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.07)'
-                  : 'rgba(0,0,0,0.06)',
-              },
-            ]}
           />
           <KpiCell
             label="Settled"
@@ -504,26 +491,12 @@ export function MoneyOverviewWidget({ month }: MoneyOverviewWidgetProps) {
             icon="check-circle"
             theme={theme}
           />
-        </View>
-
-        {/* ── KPI ROW 2: LENDING ── */}
-        <View style={[styles(theme).kpiRow, { marginTop: 8 }]}>
           <KpiCell
             label="Lent"
             value={safeFormatCurrency(data.amountLent, currency)}
             accent={data.amountLent > 0 ? '#10B981' : undefined}
             icon="arrow-up-right"
             theme={theme}
-          />
-          <View
-            style={[
-              styles(theme).kpiDivider,
-              {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.07)'
-                  : 'rgba(0,0,0,0.06)',
-              },
-            ]}
           />
           <KpiCell
             label="Borrowed"
@@ -532,16 +505,6 @@ export function MoneyOverviewWidget({ month }: MoneyOverviewWidgetProps) {
             icon="arrow-down-left"
             theme={theme}
           />
-          <View
-            style={[
-              styles(theme).kpiDivider,
-              {
-                backgroundColor: theme.isDark
-                  ? 'rgba(255,255,255,0.07)'
-                  : 'rgba(0,0,0,0.06)',
-              },
-            ]}
-          />
           <KpiCell
             label="Pending"
             value={safeFormatCurrency(data.pendingAmount, currency)}
@@ -549,7 +512,7 @@ export function MoneyOverviewWidget({ month }: MoneyOverviewWidgetProps) {
             icon="clock"
             theme={theme}
           />
-        </View>
+        </ScrollView>
 
         {/* ── PEOPLE BREAKDOWN ── */}
         {topPeople.length > 0 && (
@@ -674,21 +637,32 @@ function styles(theme: Theme) {
       height: 1,
       marginVertical: 12,
     },
-    kpiDivider: {
-      width: 1,
-      height: 32,
-      alignSelf: 'center',
-    },
-
-    // KPI row
+    // Retained for the loading skeleton, whose compact placeholders do
+    // not need the interactive carousel treatment.
     kpiRow: {
       flexDirection: 'row',
       alignItems: 'stretch',
+      gap: 8,
+    },
+    // Horizontal KPI carousel. Each card retains a predictable touch-sized
+    // width so the next metric remains visible as a scroll affordance.
+    kpiCarousel: {
+      gap: 10,
+      paddingRight: 10,
     },
     kpiCell: {
-      flex: 1,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
+      width: 132,
+      minHeight: 76,
+      justifyContent: 'space-between',
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.isDark
+        ? 'rgba(255,255,255,0.08)'
+        : 'rgba(15,23,42,0.06)',
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.05)'
+        : 'rgba(255,255,255,0.54)',
     },
     kpiLabel: {
       fontSize: 9,

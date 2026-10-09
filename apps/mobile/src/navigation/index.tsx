@@ -64,11 +64,23 @@ export function RootNavigator() {
   const { isAuthenticated, isInitialized, initialize } = useAuthStore();
   const theme = useTheme();
 
+  console.log(
+    '>>> [BOOT] RootNavigator rendering, isHydrated:',
+    isHydrated,
+    'isInitialized:',
+    isInitialized,
+    'session:',
+    !!session,
+    'isAuthenticated:',
+    isAuthenticated,
+  );
+
   React.useEffect(() => {
     initialize();
   }, [initialize]);
 
   if (!isHydrated && !isInitialized) {
+    console.log('>>> [BOOT] RootNavigator: waiting for hydration/init');
     return (
       <View
         style={[styles.loading, { backgroundColor: theme.colors.background }]}
@@ -79,6 +91,7 @@ export function RootNavigator() {
   }
 
   const isLoggedIn = !!session || isAuthenticated;
+  console.log('>>> [BOOT] RootNavigator: isLoggedIn =', isLoggedIn);
 
   return (
     <NavigationContainer ref={navigationRef} linking={linking}>

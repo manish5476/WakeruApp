@@ -321,7 +321,7 @@ export default function TripInsightsScreen() {
   }, [response?.data, theme, totalBudget]);
 
   // ── loading ─────────────────────────────────────────
-  if (isLoading) {
+  if (isLoading && !(response as any)?.data) {
     return (
       <GlobalBackground>
         <View style={s.center}>

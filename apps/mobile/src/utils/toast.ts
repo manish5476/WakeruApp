@@ -7,7 +7,7 @@ import { normalizeApiError } from './error';
  * Integrates haptic feedback and error normalization automatically.
  */
 export const showToast = {
-  success: (title: string, message?: string) => {
+  success: (title: string, message?: string, options?: any) => {
     try {
       haptics.success();
     } catch {}
@@ -18,10 +18,11 @@ export const showToast = {
       visibilityTime: 4000,
       autoHide: true,
       topOffset: 50,
+      props: options,
     });
   },
 
-  error: (title: string, message?: string) => {
+  error: (title: string, message?: string, options?: any) => {
     try {
       haptics.error();
     } catch {}
@@ -32,10 +33,11 @@ export const showToast = {
       visibilityTime: 5000,
       autoHide: true,
       topOffset: 50,
+      props: options,
     });
   },
 
-  warning: (title: string, message?: string) => {
+  warning: (title: string, message?: string, options?: any) => {
     try {
       haptics.warning();
     } catch {}
@@ -46,10 +48,11 @@ export const showToast = {
       visibilityTime: 4500,
       autoHide: true,
       topOffset: 50,
+      props: options,
     });
   },
 
-  info: (title: string, message?: string) => {
+  info: (title: string, message?: string, options?: any) => {
     try {
       haptics.light();
     } catch {}
@@ -60,6 +63,7 @@ export const showToast = {
       visibilityTime: 3500,
       autoHide: true,
       topOffset: 50,
+      props: options,
     });
   },
 

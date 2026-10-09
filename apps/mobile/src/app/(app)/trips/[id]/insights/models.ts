@@ -67,3 +67,7 @@ export interface TripIntelligenceUI {
   recommendations: RecommendationUI[];
   funFacts: FunFactUI[];
 }
+
+export default function InsightsModels() {
+  return null;
+}

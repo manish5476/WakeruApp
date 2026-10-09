@@ -127,9 +127,14 @@ export function AuthenticatedNavigator() {
   const [sidebarOpen, setSidebarOpen] = useState(
     Platform.OS === 'web' && width > 768,
   );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<string>('Home');
   const isDesktop = Platform.OS === 'web' && width > 768;
   const pathname = usePathname();
+
+  useEffect(() => {
+    setSidebarOpen(isDesktop);
+  }, [isDesktop]);
 
   useEffect(() => {
     PushNotificationService.syncToken();
@@ -149,6 +154,10 @@ export function AuthenticatedNavigator() {
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen(prev => !prev);
+  }, []);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
   }, []);
 
   // Sync logic with Expo app _layout.tsx
@@ -191,6 +200,8 @@ export function AuthenticatedNavigator() {
   }, [currentRoute]);
 
   const shouldShowGlobalBottomBar = !isDesktop && !isModalRoute;
+  const sidebarOffset =
+    isDesktop && sidebarOpen ? (sidebarCollapsed ? 96 : 294) : 0;
 
   const styles = StyleSheet.create({
     mainContainer: {
@@ -214,11 +225,12 @@ export function AuthenticatedNavigator() {
               <View style={{ flex: 1, flexDirection: 'row' }}>
                 <AppSidebar
                   open={sidebarOpen}
-                  collapsed={false}
-                  onToggleCollapsed={() => {}}
+                  collapsed={sidebarCollapsed}
+                  isDesktop={isDesktop}
+                  onToggleCollapsed={toggleSidebarCollapsed}
                   onClose={() => setSidebarOpen(false)}
                 />
-                <View style={styles.body}>
+                <View style={[styles.body, { marginLeft: sidebarOffset }]}>
                   <Stack.Navigator
                     initialRouteName="Tabs"
                     screenOptions={{

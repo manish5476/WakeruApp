@@ -118,6 +118,11 @@ export default function TripExpensesScreen() {
   >('date_desc');
 
   const { data: trip } = useTrip(id as string);
+  const expenseFilters = useMemo(
+    () => (category !== 'all' ? { category } : undefined),
+    [category],
+  );
+
   const {
     data,
     isLoading,
@@ -126,21 +131,30 @@ export default function TripExpensesScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteTripExpenses(
-    id as string,
-    category !== 'all' ? { category } : undefined,
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      refetch();
-    }, [refetch]),
-  );
+  } = useInfiniteTripExpenses(id as string, expenseFilters);
 
   const expenses = useMemo(() => {
-    const list =
-      data?.pages?.flatMap((page: any) => page?.expenses || []) ?? [];
-    return list.sort((a: any, b: any) => {
+    if (!data?.pages) return [];
+    const seen = new Set<string>();
+    const uniqueList: any[] = [];
+
+    for (const page of data.pages) {
+      const pageExpenses = (page as any)?.expenses;
+      if (Array.isArray(pageExpenses)) {
+        for (const exp of pageExpenses) {
+          if (!exp) continue;
+          const key = String(exp._id || exp.id || exp.clientOperationId || '');
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            uniqueList.push(exp);
+          } else if (!key) {
+            uniqueList.push(exp);
+          }
+        }
+      }
+    }
+
+    return uniqueList.sort((a: any, b: any) => {
       if (sortBy === 'date_desc')
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       if (sortBy === 'date_asc')
@@ -171,7 +185,7 @@ export default function TripExpensesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: 'transparent' }]}>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <GlobalBackground />
       </View>
 

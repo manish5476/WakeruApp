@@ -1,5 +1,5 @@
 // src/app/(app)/create-trip.tsx
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -28,14 +28,22 @@ import {
   useDebounce,
   useFriends,
 } from '../../hooks';
+import { useEntitlements } from '../../hooks/useEntitlements';
+import { useAds } from '../../hooks/useAds';
+import { PlanLimitModal } from '../../components/subscription/PlanLimitModal';
 import { useTheme } from '../../providers/ThemeProvider';
 import { GlobalBackground } from '../../components/ui/GlobalBackground';
 import { Avatar } from '../../components/ui/Avatar';
 import { haptics } from '../../utils/haptics';
+import { showToast } from '../../utils/toast';
 import { locationApi } from '../../services/api/location.api';
 import AppIcon from '../../components/common/AppIcon';
 import GlobalLoader from '../../components/common/GlobalLoader';
-import type { Theme } from '../../theme';
+import {
+  SUPPORTED_CURRENCIES,
+  getCurrencyInfo,
+  getQuickBudgets,
+} from '../../constants/countries';
 
 // ─── Types & Constants ───────────────────────────────────────
 type SplitMethod = 'equal' | 'percentage' | 'exact' | 'shares';
@@ -87,7 +95,50 @@ const TEMPLATE_META: Record<
   },
 };
 
-const QUICK_BUDGETS = [20000, 50000, 100000, 250000];
+const SPLIT_OPTIONS: Array<{
+  id: SplitMethod;
+  title: string;
+  desc: string;
+  icon: string;
+}> = [
+  {
+    id: 'equal',
+    title: 'Equal Split',
+    desc: 'Split evenly across all travelers',
+    icon: 'scale',
+  },
+  {
+    id: 'percentage',
+    title: 'Percentage',
+    desc: 'Custom percentage ratio per member',
+    icon: 'percent',
+  },
+  {
+    id: 'exact',
+    title: 'Exact Amounts',
+    desc: 'Specify exact currency sums',
+    icon: 'calculator',
+  },
+  {
+    id: 'shares',
+    title: 'Weighted Shares',
+    desc: 'Ratio units like 1:2 or points',
+    icon: 'users',
+  },
+];
+
+const POPULAR_CURRENCY_CODES = [
+  'INR',
+  'USD',
+  'EUR',
+  'GBP',
+  'AED',
+  'SGD',
+  'JPY',
+  'THB',
+  'AUD',
+  'CAD',
+];
 
 // ─── Step Indicator Component ────────────────────────────────
 function StepIndicator({
@@ -143,7 +194,7 @@ function StepIndicator({
                         indicatorStyles.stepNumber,
                         {
                           color: isActive
-                            ? '#FFFFFF'
+                            ? theme.colors.textInverse
                             : theme.colors.textTertiary,
                         },
                       ]}
@@ -422,6 +473,292 @@ function WebDateModal({
   );
 }
 
+// ─── Currency Picker Modal ───────────────────────────────────
+function CurrencyPickerModal({
+  visible,
+  onClose,
+  selectedCurrency,
+  onSelect,
+  currencies,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  selectedCurrency: string;
+  onSelect: (code: string) => void;
+  currencies: Array<{
+    code: string;
+    name: string;
+    symbol: string;
+    flag?: string;
+  }>;
+}) {
+  const theme = useTheme();
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return currencies;
+    const q = search.toLowerCase().trim();
+    return currencies.filter(
+      c =>
+        c.code.toLowerCase().includes(q) ||
+        c.name.toLowerCase().includes(q) ||
+        c.symbol.toLowerCase().includes(q),
+    );
+  }, [currencies, search]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal
+      transparent
+      animationType="fade"
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={modalStyles.overlay}>
+          <TouchableWithoutFeedback>
+            <View
+              style={[
+                modalStyles.currencyModalContent,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.isDark
+                    ? 'rgba(255,255,255,0.1)'
+                    : 'rgba(15,23,42,0.08)',
+                },
+              ]}
+            >
+              {/* Header */}
+              <View style={modalStyles.currencyHeader}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text
+                    style={[
+                      modalStyles.currencyModalTitle,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    Select Currency
+                  </Text>
+                  <Text
+                    style={[
+                      modalStyles.currencyModalSub,
+                      { color: theme.colors.textSecondary },
+                    ]}
+                  >
+                    Choose the baseline currency for expenses and settlements.
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={onClose}
+                  hitSlop={8}
+                  style={[
+                    modalStyles.modalCloseBtn,
+                    {
+                      backgroundColor: theme.colors.background,
+                      borderColor: theme.isDark
+                        ? 'rgba(255,255,255,0.08)'
+                        : 'rgba(15,23,42,0.06)',
+                    },
+                  ]}
+                >
+                  <AppIcon
+                    name="x"
+                    size={16}
+                    color={theme.colors.textPrimary}
+                  />
+                </Pressable>
+              </View>
+
+              {/* Search Bar */}
+              <View
+                style={[
+                  modalStyles.searchBox,
+                  {
+                    backgroundColor: theme.colors.background,
+                    borderColor: theme.isDark
+                      ? 'rgba(255,255,255,0.08)'
+                      : 'rgba(15,23,42,0.06)',
+                  },
+                ]}
+              >
+                <AppIcon
+                  name="search"
+                  size={15}
+                  color={theme.colors.textTertiary}
+                />
+                <TextInput
+                  style={[
+                    modalStyles.searchInput,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                  placeholder="Search by name, symbol, or ISO code..."
+                  placeholderTextColor={theme.colors.textTertiary}
+                  value={search}
+                  onChangeText={setSearch}
+                  autoCapitalize="none"
+                />
+                {search.length > 0 && (
+                  <Pressable onPress={() => setSearch('')} hitSlop={8}>
+                    <AppIcon
+                      name="x"
+                      size={14}
+                      color={theme.colors.textTertiary}
+                    />
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Popular Currencies Quick Bar */}
+              {!search.trim() && (
+                <View style={modalStyles.popularSection}>
+                  <Text
+                    style={[
+                      modalStyles.popularTitle,
+                      { color: theme.colors.textTertiary },
+                    ]}
+                  >
+                    FREQUENTLY USED
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={modalStyles.popularScroll}
+                  >
+                    {POPULAR_CURRENCY_CODES.map(code => {
+                      const c = currencies.find(item => item.code === code);
+                      if (!c) return null;
+                      const isSelected = selectedCurrency === code;
+                      return (
+                        <Pressable
+                          key={code}
+                          onPress={() => {
+                            haptics.light();
+                            onSelect(code);
+                            onClose();
+                          }}
+                          style={[
+                            modalStyles.popularChip,
+                            {
+                              backgroundColor: isSelected
+                                ? theme.colors.primary
+                                : theme.colors.background,
+                              borderColor: isSelected
+                                ? theme.colors.primary
+                                : theme.isDark
+                                  ? 'rgba(255,255,255,0.08)'
+                                  : 'rgba(15,23,42,0.08)',
+                            },
+                          ]}
+                        >
+                          <Text style={{ fontSize: 13 }}>{c.flag}</Text>
+                          <Text
+                            style={[
+                              modalStyles.popularChipText,
+                              {
+                                color: isSelected
+                                  ? theme.colors.textInverse
+                                  : theme.colors.textPrimary,
+                              },
+                            ]}
+                          >
+                            {code}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Currency List */}
+              <ScrollView
+                style={modalStyles.currencyList}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+              >
+                {filtered.map(c => {
+                  const isSelected = selectedCurrency === c.code;
+                  return (
+                    <Pressable
+                      key={c.code}
+                      onPress={() => {
+                        haptics.light();
+                        onSelect(c.code);
+                        onClose();
+                      }}
+                      style={({ pressed }) => [
+                        modalStyles.currencyItem,
+                        isSelected && {
+                          backgroundColor: `${theme.colors.primary}12`,
+                        },
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          modalStyles.currencyFlagBadge,
+                          { backgroundColor: theme.colors.background },
+                        ]}
+                      >
+                        <Text style={{ fontSize: 18 }}>{c.flag || '🌐'}</Text>
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text
+                          style={[
+                            modalStyles.currencyItemName,
+                            {
+                              color: theme.colors.textPrimary,
+                              fontWeight: isSelected ? '800' : '600',
+                            },
+                          ]}
+                        >
+                          {c.name}
+                        </Text>
+                        <Text
+                          style={[
+                            modalStyles.currencyItemCode,
+                            { color: theme.colors.textTertiary },
+                          ]}
+                        >
+                          {c.code} &bull; {c.symbol}
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <View
+                          style={[
+                            modalStyles.checkBadge,
+                            { backgroundColor: theme.colors.primary },
+                          ]}
+                        >
+                          <AppIcon
+                            name="check"
+                            size={12}
+                            color={theme.colors.textInverse}
+                          />
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <View style={modalStyles.emptySearch}>
+                    <Text
+                      style={{ color: theme.colors.textTertiary, fontSize: 13 }}
+                    >
+                      No matching currencies found
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
 // ─── Main Create Trip Screen ─────────────────────────────────
 export default function CreateTripScreen() {
   const theme = useTheme();
@@ -445,6 +782,13 @@ export default function CreateTripScreen() {
     memberIds: [],
   });
 
+  // Calculate live trip duration in days
+  const durationDays = useMemo(() => {
+    const diffTime = formData.endDate.getTime() - formData.startDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays);
+  }, [formData.startDate, formData.endDate]);
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery.trim(), 250);
@@ -459,10 +803,21 @@ export default function CreateTripScreen() {
   const [showCurrencies, setShowCurrencies] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Entitlements & Subscription Limits
+  const { planName, getLimitStatus } = useEntitlements();
+  const tripsStatus = getLimitStatus('trips');
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [limitModalData, setLimitModalData] = useState<{
+    message?: string;
+    limitValue?: number;
+    currentUsage?: number;
+  }>({});
+
   // Queries & Mutations
   const { data: templatesData } = useTripTemplates();
   const templates = templatesData || [];
   const { mutate: createTrip, isPending } = useCreateTrip();
+  const { triggerTripCreatedInterstitial } = useAds();
 
   const { data: countriesResponse } = useQuery({
     queryKey: ['countries'],
@@ -471,25 +826,31 @@ export default function CreateTripScreen() {
 
   const currencies = useMemo(() => {
     const raw = countriesResponse?.data?.data || [];
-    const map = new Map();
+    const map = new Map<string, any>();
+
+    // Seed with high-quality supported currencies
+    SUPPORTED_CURRENCIES.forEach((sc: any) => {
+      map.set(sc.code, {
+        code: sc.code,
+        symbol: sc.symbol,
+        name: sc.name,
+        flag: sc.flag,
+      });
+    });
+
+    // Merge any additional currencies from API
     raw.forEach((c: any) => {
-      if (!map.has(c.currency)) {
+      if (c.currency && !map.has(c.currency)) {
         map.set(c.currency, {
           code: c.currency,
           symbol: c.currencySymbol || c.currency,
           name: c.currencyName || c.currency,
+          flag: c.emoji || '',
         });
       }
     });
-    const arr = Array.from(map.values());
-    return arr.length > 0
-      ? arr
-      : [
-          { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-          { code: 'USD', symbol: '$', name: 'US Dollar' },
-          { code: 'EUR', symbol: '€', name: 'Euro' },
-          { code: 'GBP', symbol: '£', name: 'British Pound' },
-        ];
+
+    return Array.from(map.values());
   }, [countriesResponse]);
 
   // ── Handlers ──
@@ -509,16 +870,16 @@ export default function CreateTripScreen() {
         if (!formData.title.trim()) {
           haptics.warning();
           Alert.alert(
-            'Title Required',
-            'Please enter a name for your expedition.',
+            'Trip Name Required',
+            'Please enter a name for your journey to proceed.',
           );
           return false;
         }
         if (formData.endDate < formData.startDate) {
           haptics.warning();
           Alert.alert(
-            'Invalid Dates',
-            'The end date must be on or after the start date.',
+            'Invalid Timeline',
+            'Return date must be on or after your departure date.',
           );
           return false;
         }
@@ -587,20 +948,45 @@ export default function CreateTripScreen() {
           },
         },
         {
-          onSuccess: (trip: any) => {
-            haptics.success();
+          onSuccess: async (trip: any) => {
+            showToast.success(
+              'Trip Created! ✈️',
+              `"${formData.title.trim()}" is ready.`,
+            );
             setIsSubmitting(false);
+            try {
+              await triggerTripCreatedInterstitial();
+            } catch (_) {}
             router.replace(`/(app)/trips/${trip._id}`);
           },
           onError: (error: any) => {
             setIsSubmitting(false);
-            Alert.alert('Error', error.message || 'Failed to create trip.');
+            if (
+              error?.code === 'PLAN_LIMIT_REACHED' ||
+              error?.message?.includes('PLAN_LIMIT_REACHED') ||
+              error?.statusCode === 403
+            ) {
+              setLimitModalData({
+                message:
+                  error.message ||
+                  'You have reached your plan limit for trips. Upgrade to create more.',
+                limitValue:
+                  error?.details?.limit ??
+                  error?.details?.maxAllowed ??
+                  tripsStatus.total ??
+                  5,
+                currentUsage: error?.details?.currentUsage ?? tripsStatus.used,
+              });
+              setShowLimitModal(true);
+            } else {
+              showToast.fromError(error, 'Failed to Create Trip');
+            }
           },
         },
       );
     } catch (error: any) {
       setIsSubmitting(false);
-      Alert.alert('Error', error.message || 'Something went wrong.');
+      showToast.fromError(error, 'Something Went Wrong');
     }
   };
 
@@ -619,7 +1005,7 @@ export default function CreateTripScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Select a preconfigured framework or start fresh.
+          Select a tailored expedition framework or start fresh.
         </Text>
       </View>
 
@@ -663,7 +1049,7 @@ export default function CreateTripScreen() {
     </View>
   );
 
-  // ── STEP 2: TRIP DETAILS ──
+  // ── STEP 2: TRIP DETAILS (DECLUTTERED & BENTO-STRUCTURED) ──
   const renderDetailsStep = () => (
     <View style={screenStyles.stepBox}>
       <View style={screenStyles.stepHeader}>
@@ -678,17 +1064,48 @@ export default function CreateTripScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Configure your title, itinerary timeframe, and currency baseline.
+          Configure your itinerary timeline, baseline currency, and group
+          splitting rules.
         </Text>
       </View>
 
+      {/* ── CARD 1: EXPEDITION IDENTITY ── */}
       <View
         style={[
-          screenStyles.formCard,
+          screenStyles.sectionCard,
           { backgroundColor: theme.colors.surface },
         ]}
       >
-        {/* Title */}
+        <View style={screenStyles.sectionHeaderRow}>
+          <View
+            style={[
+              screenStyles.sectionIconBadge,
+              { backgroundColor: `${theme.colors.primary}12` },
+            ]}
+          >
+            <AppIcon name="compass" size={16} color={theme.colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                screenStyles.sectionTitle,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              Expedition Identity
+            </Text>
+            <Text
+              style={[
+                screenStyles.sectionSubtitle,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              Give your adventure a name and add destination highlights
+            </Text>
+          </View>
+        </View>
+
+        {/* Title Input */}
         <View style={screenStyles.fieldGroup}>
           <Text
             style={[
@@ -696,25 +1113,26 @@ export default function CreateTripScreen() {
               { color: theme.colors.textSecondary },
             ]}
           >
-            TRIP TITLE *
+            TRIP NAME *
           </Text>
           <View
             style={[
               screenStyles.inputBox,
-              { backgroundColor: theme.colors.background },
+              {
+                backgroundColor: theme.colors.background,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'rgba(15,23,42,0.08)',
+              },
             ]}
           >
-            <AppIcon
-              name="compass"
-              size={16}
-              color={theme.colors.textTertiary}
-            />
+            <AppIcon name="map-pin" size={16} color={theme.colors.primary} />
             <TextInput
               style={[
                 screenStyles.textInput,
                 { color: theme.colors.textPrimary },
               ]}
-              placeholder="e.g. Goa Beach Expedition, Tokyo Explorer..."
+              placeholder="e.g. Kyoto Cherry Blossoms, Swiss Alps Trek..."
               placeholderTextColor={theme.colors.textTertiary}
               value={formData.title}
               onChangeText={text => handleUpdateField('title', text)}
@@ -722,7 +1140,7 @@ export default function CreateTripScreen() {
           </View>
         </View>
 
-        {/* Description */}
+        {/* Description / Notes Input */}
         <View style={screenStyles.fieldGroup}>
           <Text
             style={[
@@ -730,12 +1148,17 @@ export default function CreateTripScreen() {
               { color: theme.colors.textSecondary },
             ]}
           >
-            DESCRIPTION (OPTIONAL)
+            TRIP NOTES & DESCRIPTION (OPTIONAL)
           </Text>
           <View
             style={[
               screenStyles.notesBox,
-              { backgroundColor: theme.colors.background },
+              {
+                backgroundColor: theme.colors.background,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'rgba(15,23,42,0.08)',
+              },
             ]}
           >
             <TextInput
@@ -743,7 +1166,7 @@ export default function CreateTripScreen() {
                 screenStyles.notesInput,
                 { color: theme.colors.textPrimary },
               ]}
-              placeholder="Add key destinations, itinerary notes, or reminders..."
+              placeholder="Key destinations, flight numbers, hotel bookings, or packing reminders..."
               placeholderTextColor={theme.colors.textTertiary}
               value={formData.description}
               onChangeText={text => handleUpdateField('description', text)}
@@ -752,112 +1175,247 @@ export default function CreateTripScreen() {
             />
           </View>
         </View>
+      </View>
 
-        {/* Dates Row */}
-        <View style={screenStyles.dateRow}>
-          <View style={[screenStyles.fieldGroup, { flex: 1 }]}>
-            <Text
-              style={[
-                screenStyles.fieldLabel,
-                { color: theme.colors.textSecondary },
-              ]}
-            >
-              START DATE *
-            </Text>
-            <Pressable
-              onPress={() => {
-                haptics.light();
-                setShowStartDate(true);
-              }}
-              style={[
-                screenStyles.dateBtn,
-                { backgroundColor: theme.colors.background },
-              ]}
-            >
-              <AppIcon name="calendar" size={15} color={theme.colors.primary} />
-              <Text
-                style={[
-                  screenStyles.dateText,
-                  { color: theme.colors.textPrimary },
-                ]}
-              >
-                {format(formData.startDate, 'MMM d, yyyy')}
-              </Text>
-            </Pressable>
-
-            {Platform.OS !== 'web' && showStartDate && (
-              <DateTimePicker
-                value={formData.startDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowStartDate(false);
-                  if (selectedDate)
-                    handleUpdateField('startDate', selectedDate);
-                }}
-              />
-            )}
-            {Platform.OS === 'web' && showStartDate && (
-              <WebDateModal
-                currentDate={formData.startDate}
-                onClose={() => setShowStartDate(false)}
-                onSave={date => handleUpdateField('startDate', date)}
-              />
-            )}
+      {/* ── CARD 2: TRAVEL TIMELINE & DURATION ── */}
+      <View
+        style={[
+          screenStyles.sectionCard,
+          { backgroundColor: theme.colors.surface },
+        ]}
+      >
+        <View style={screenStyles.sectionHeaderRow}>
+          <View
+            style={[
+              screenStyles.sectionIconBadge,
+              { backgroundColor: 'rgba(56, 189, 248, 0.15)' },
+            ]}
+          >
+            <AppIcon name="calendar" size={16} color="#0284C7" />
           </View>
-
-          <View style={[screenStyles.fieldGroup, { flex: 1 }]}>
+          <View style={{ flex: 1 }}>
             <Text
               style={[
-                screenStyles.fieldLabel,
+                screenStyles.sectionTitle,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              Dates & Duration
+            </Text>
+            <Text
+              style={[
+                screenStyles.sectionSubtitle,
                 { color: theme.colors.textSecondary },
               ]}
             >
-              END DATE *
+              Set departure and return window
             </Text>
-            <Pressable
-              onPress={() => {
-                haptics.light();
-                setShowEndDate(true);
-              }}
-              style={[
-                screenStyles.dateBtn,
-                { backgroundColor: theme.colors.background },
-              ]}
-            >
-              <AppIcon name="calendar" size={15} color={theme.colors.primary} />
-              <Text
-                style={[
-                  screenStyles.dateText,
-                  { color: theme.colors.textPrimary },
-                ]}
-              >
-                {format(formData.endDate, 'MMM d, yyyy')}
-              </Text>
-            </Pressable>
-
-            {Platform.OS !== 'web' && showEndDate && (
-              <DateTimePicker
-                value={formData.endDate}
-                mode="date"
-                display="default"
-                onChange={(event, selectedDate) => {
-                  setShowEndDate(false);
-                  if (selectedDate) handleUpdateField('endDate', selectedDate);
-                }}
-              />
-            )}
-            {Platform.OS === 'web' && showEndDate && (
-              <WebDateModal
-                currentDate={formData.endDate}
-                onClose={() => setShowEndDate(false)}
-                onSave={date => handleUpdateField('endDate', date)}
-              />
-            )}
           </View>
         </View>
 
-        {/* Currency Selector */}
+        {/* Live Duration Highlight Pill */}
+        <View
+          style={[
+            screenStyles.durationBanner,
+            {
+              backgroundColor: `${theme.colors.primary}0C`,
+              borderColor: `${theme.colors.primary}22`,
+            },
+          ]}
+        >
+          <AppIcon name="clock" size={14} color={theme.colors.primary} />
+          <Text
+            style={[
+              screenStyles.durationBannerText,
+              { color: theme.colors.textPrimary },
+            ]}
+          >
+            <Text style={{ fontWeight: '800', color: theme.colors.primary }}>
+              {durationDays} Day{durationDays > 1 ? 's' : ''} Journey
+            </Text>
+            {'  '}&bull;{'  '}
+            {format(formData.startDate, 'MMM d')} &rarr;{' '}
+            {format(formData.endDate, 'MMM d, yyyy')}
+          </Text>
+        </View>
+
+        {/* Boarding-Pass Style Date Tiles */}
+        <View style={screenStyles.dateTilesRow}>
+          <Pressable
+            onPress={() => {
+              haptics.light();
+              setShowStartDate(true);
+            }}
+            style={({ pressed }) => [
+              screenStyles.dateTile,
+              {
+                backgroundColor: theme.colors.background,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'rgba(15,23,42,0.08)',
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <View style={screenStyles.dateTileHeader}>
+              <Text
+                style={[
+                  screenStyles.dateTileCaption,
+                  { color: theme.colors.textTertiary },
+                ]}
+              >
+                DEPARTURE
+              </Text>
+              <AppIcon name="calendar" size={13} color={theme.colors.primary} />
+            </View>
+            <Text
+              style={[
+                screenStyles.dateTileDay,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              {format(formData.startDate, 'EEE, MMM d')}
+            </Text>
+            <Text
+              style={[
+                screenStyles.dateTileYear,
+                { color: theme.colors.textTertiary },
+              ]}
+            >
+              {format(formData.startDate, 'yyyy')}
+            </Text>
+          </Pressable>
+
+          <View style={screenStyles.dateArrowWrap}>
+            <AppIcon
+              name="arrow-right"
+              size={14}
+              color={theme.colors.textTertiary}
+            />
+          </View>
+
+          <Pressable
+            onPress={() => {
+              haptics.light();
+              setShowEndDate(true);
+            }}
+            style={({ pressed }) => [
+              screenStyles.dateTile,
+              {
+                backgroundColor: theme.colors.background,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'rgba(15,23,42,0.08)',
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <View style={screenStyles.dateTileHeader}>
+              <Text
+                style={[
+                  screenStyles.dateTileCaption,
+                  { color: theme.colors.textTertiary },
+                ]}
+              >
+                RETURN
+              </Text>
+              <AppIcon name="calendar" size={13} color={theme.colors.primary} />
+            </View>
+            <Text
+              style={[
+                screenStyles.dateTileDay,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              {format(formData.endDate, 'EEE, MMM d')}
+            </Text>
+            <Text
+              style={[
+                screenStyles.dateTileYear,
+                { color: theme.colors.textTertiary },
+              ]}
+            >
+              {format(formData.endDate, 'yyyy')}
+            </Text>
+          </Pressable>
+        </View>
+
+        {Platform.OS !== 'web' && showStartDate && (
+          <DateTimePicker
+            value={formData.startDate}
+            mode="date"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowStartDate(false);
+              if (selectedDate) handleUpdateField('startDate', selectedDate);
+            }}
+          />
+        )}
+        {Platform.OS === 'web' && showStartDate && (
+          <WebDateModal
+            currentDate={formData.startDate}
+            onClose={() => setShowStartDate(false)}
+            onSave={date => handleUpdateField('startDate', date)}
+          />
+        )}
+
+        {Platform.OS !== 'web' && showEndDate && (
+          <DateTimePicker
+            value={formData.endDate}
+            mode="date"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowEndDate(false);
+              if (selectedDate) handleUpdateField('endDate', selectedDate);
+            }}
+          />
+        )}
+        {Platform.OS === 'web' && showEndDate && (
+          <WebDateModal
+            currentDate={formData.endDate}
+            onClose={() => setShowEndDate(false)}
+            onSave={date => handleUpdateField('endDate', date)}
+          />
+        )}
+      </View>
+
+      {/* ── CARD 3: FINANCIAL BASELINE & BUDGET ── */}
+      <View
+        style={[
+          screenStyles.sectionCard,
+          { backgroundColor: theme.colors.surface },
+        ]}
+      >
+        <View style={screenStyles.sectionHeaderRow}>
+          <View
+            style={[
+              screenStyles.sectionIconBadge,
+              { backgroundColor: 'rgba(16, 185, 129, 0.15)' },
+            ]}
+          >
+            <AppIcon name="banknote" size={16} color="#10B981" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                screenStyles.sectionTitle,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              Financial Baseline
+            </Text>
+            <Text
+              style={[
+                screenStyles.sectionSubtitle,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              Base currency and optional group spending cap
+            </Text>
+          </View>
+        </View>
+
+        {/* Currency Trigger Button (Dedicated Modal) */}
         <View style={screenStyles.fieldGroup}>
           <Text
             style={[
@@ -870,139 +1428,154 @@ export default function CreateTripScreen() {
           <Pressable
             onPress={() => {
               haptics.light();
-              setShowCurrencies(!showCurrencies);
+              setShowCurrencies(true);
             }}
-            style={[
-              screenStyles.currencySelectBtn,
-              { backgroundColor: theme.colors.background },
+            style={({ pressed }) => [
+              screenStyles.currencyCardBtn,
+              {
+                backgroundColor: theme.colors.background,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'rgba(15,23,42,0.08)',
+              },
+              pressed && { opacity: 0.8 },
             ]}
           >
             <View
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                flex: 1,
+              }}
             >
               <View
                 style={[
-                  screenStyles.currencySymbolBadge,
-                  { backgroundColor: `${theme.colors.primary}18` },
+                  screenStyles.currencySymbolBadgeLarge,
+                  { backgroundColor: `${theme.colors.primary}15` },
                 ]}
               >
                 <Text
                   style={[
-                    screenStyles.currencySymbolText,
+                    screenStyles.currencySymbolTextLarge,
                     { color: theme.colors.primary },
                   ]}
                 >
-                  {
-                    currencies.find(
-                      (c: any) => c.code === formData.baseCurrency,
-                    )?.symbol
-                  }
+                  {getCurrencyInfo(formData.baseCurrency).symbol.trim()}
                 </Text>
               </View>
-              <Text
-                style={[
-                  screenStyles.currencyNameText,
-                  { color: theme.colors.textPrimary },
-                ]}
-              >
-                {
-                  currencies.find((c: any) => c.code === formData.baseCurrency)
-                    ?.name
-                }{' '}
-                ({formData.baseCurrency})
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    screenStyles.currencyNameTextLarge,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  {getCurrencyInfo(formData.baseCurrency).flag
+                    ? `${getCurrencyInfo(formData.baseCurrency).flag} `
+                    : ''}
+                  {getCurrencyInfo(formData.baseCurrency).name}
+                </Text>
+                <Text
+                  style={[
+                    screenStyles.currencyCodeSub,
+                    { color: theme.colors.textTertiary },
+                  ]}
+                >
+                  {formData.baseCurrency} &bull; Primary ledger baseline
+                </Text>
+              </View>
             </View>
-            <AppIcon
-              name={showCurrencies ? 'chevron-up' : 'chevron-down'}
-              size={15}
-              color={theme.colors.textTertiary}
-            />
-          </Pressable>
-
-          {showCurrencies && (
             <View
               style={[
-                screenStyles.currencyDropdown,
-                { backgroundColor: theme.colors.surface },
+                screenStyles.changeCurrencyPill,
+                { backgroundColor: `${theme.colors.primary}10` },
               ]}
             >
-              <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
-                {currencies.map((c: any) => (
-                  <Pressable
-                    key={c.code}
-                    onPress={() => {
-                      haptics.light();
-                      handleUpdateField('baseCurrency', c.code);
-                      setShowCurrencies(false);
-                    }}
-                    style={[
-                      screenStyles.currencyOption,
-                      formData.baseCurrency === c.code && {
-                        backgroundColor: `${theme.colors.primary}12`,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        screenStyles.currencyOptionSymbol,
-                        { color: theme.colors.primary },
-                      ]}
-                    >
-                      {c.symbol}
-                    </Text>
-                    <Text
-                      style={[
-                        screenStyles.currencyOptionName,
-                        { color: theme.colors.textPrimary },
-                      ]}
-                    >
-                      {c.name}
-                    </Text>
-                    <Text
-                      style={[
-                        screenStyles.currencyOptionCode,
-                        { color: theme.colors.textTertiary },
-                      ]}
-                    >
-                      {c.code}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+              <Text
+                style={[
+                  screenStyles.changeCurrencyText,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                Change
+              </Text>
+              <AppIcon
+                name="chevron-right"
+                size={13}
+                color={theme.colors.primary}
+              />
             </View>
-          )}
+          </Pressable>
         </View>
 
-        {/* Total Budget */}
+        {/* Estimated Budget Input */}
         <View style={screenStyles.fieldGroup}>
-          <Text
-            style={[
-              screenStyles.fieldLabel,
-              { color: theme.colors.textSecondary },
-            ]}
-          >
-            ESTIMATED BUDGET (OPTIONAL)
-          </Text>
           <View
-            style={[
-              screenStyles.inputBox,
-              { backgroundColor: theme.colors.background },
-            ]}
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
           >
             <Text
               style={[
-                screenStyles.budgetSymbolPrefix,
-                { color: theme.colors.primary },
+                screenStyles.fieldLabel,
+                { color: theme.colors.textSecondary },
               ]}
             >
-              {
-                currencies.find((c: any) => c.code === formData.baseCurrency)
-                  ?.symbol
-              }
+              ESTIMATED TOTAL BUDGET (OPTIONAL)
             </Text>
+            {formData.totalBudget ? (
+              <Pressable
+                onPress={() => {
+                  haptics.light();
+                  handleUpdateField('totalBudget', '');
+                }}
+                hitSlop={8}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: theme.colors.danger,
+                  }}
+                >
+                  Clear
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <View
+            style={[
+              screenStyles.budgetInputContainer,
+              {
+                backgroundColor: theme.colors.background,
+                borderColor: theme.isDark
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'rgba(15,23,42,0.08)',
+              },
+            ]}
+          >
+            <View
+              style={[
+                screenStyles.budgetPrefixBadge,
+                { backgroundColor: `${theme.colors.primary}10` },
+              ]}
+            >
+              <Text
+                style={[
+                  screenStyles.budgetSymbolPrefixLarge,
+                  { color: theme.colors.primary },
+                ]}
+              >
+                {getCurrencyInfo(formData.baseCurrency).symbol.trim()}
+              </Text>
+            </View>
             <TextInput
               style={[
-                screenStyles.textInput,
+                screenStyles.budgetTextInput,
                 { color: theme.colors.textPrimary },
               ]}
               placeholder="e.g. 50,000"
@@ -1015,30 +1588,82 @@ export default function CreateTripScreen() {
             />
           </View>
 
+          {/* Quick Add Budget Pills */}
           <View style={screenStyles.quickBudgetRow}>
-            {QUICK_BUDGETS.map(amt => (
+            {getQuickBudgets(formData.baseCurrency).map((item: any) => (
               <Pressable
-                key={amt}
-                onPress={() => handleAddBudget(amt)}
-                style={[
-                  screenStyles.quickBudgetChip,
-                  { backgroundColor: theme.colors.background },
+                key={item.amount}
+                onPress={() => handleAddBudget(item.amount)}
+                style={({ pressed }) => [
+                  screenStyles.quickBudgetPill,
+                  {
+                    backgroundColor: theme.colors.background,
+                    borderColor: theme.isDark
+                      ? 'rgba(255,255,255,0.08)'
+                      : 'rgba(15,23,42,0.08)',
+                  },
+                  pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] },
                 ]}
               >
                 <Text
                   style={[
                     screenStyles.quickBudgetText,
-                    { color: theme.colors.textSecondary },
+                    { color: theme.colors.textPrimary },
                   ]}
                 >
-                  +₹{(amt / 1000).toFixed(0)}k
+                  {item.label}
                 </Text>
               </Pressable>
             ))}
           </View>
+          <Text
+            style={[
+              screenStyles.fieldHelperText,
+              { color: theme.colors.textTertiary },
+            ]}
+          >
+            Leave blank to track expenses flexibly without a budget limit.
+          </Text>
+        </View>
+      </View>
+
+      {/* ── CARD 4: SPLITTING PREFERENCES & ACCESS ── */}
+      <View
+        style={[
+          screenStyles.sectionCard,
+          { backgroundColor: theme.colors.surface },
+        ]}
+      >
+        <View style={screenStyles.sectionHeaderRow}>
+          <View
+            style={[
+              screenStyles.sectionIconBadge,
+              { backgroundColor: 'rgba(168, 85, 247, 0.15)' },
+            ]}
+          >
+            <AppIcon name="users" size={16} color="#9333EA" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                screenStyles.sectionTitle,
+                { color: theme.colors.textPrimary },
+              ]}
+            >
+              Split Method & Access
+            </Text>
+            <Text
+              style={[
+                screenStyles.sectionSubtitle,
+                { color: theme.colors.textSecondary },
+              ]}
+            >
+              Expense allocation rule and co-traveler spending privileges
+            </Text>
+          </View>
         </View>
 
-        {/* Default Split Method */}
+        {/* 2x2 Segmented Split Cards */}
         <View style={screenStyles.fieldGroup}>
           <Text
             style={[
@@ -1046,49 +1671,87 @@ export default function CreateTripScreen() {
               { color: theme.colors.textSecondary },
             ]}
           >
-            DEFAULT EXPENSE SPLIT
+            DEFAULT SPLIT METHOD
           </Text>
-          <View style={screenStyles.splitGrid}>
-            {(
-              [
-                { id: 'equal', label: 'Equal ⚖️' },
-                { id: 'percentage', label: 'Percentage 📊' },
-                { id: 'exact', label: 'Exact 🔢' },
-                { id: 'shares', label: 'Shares 🤝' },
-              ] as const
-            ).map(m => {
-              const isSelected = formData.defaultSplitMethod === m.id;
+          <View style={screenStyles.splitGrid2x2}>
+            {SPLIT_OPTIONS.map(opt => {
+              const isSelected = formData.defaultSplitMethod === opt.id;
               return (
                 <Pressable
-                  key={m.id}
+                  key={opt.id}
                   onPress={() => {
                     haptics.light();
-                    handleUpdateField('defaultSplitMethod', m.id);
+                    handleUpdateField('defaultSplitMethod', opt.id);
                   }}
-                  style={[
-                    screenStyles.splitChip,
+                  style={({ pressed }) => [
+                    screenStyles.splitOptionCard,
                     {
                       backgroundColor: isSelected
-                        ? theme.colors.primary
+                        ? `${theme.colors.primary}10`
                         : theme.colors.background,
                       borderColor: isSelected
                         ? theme.colors.primary
-                        : 'transparent',
+                        : theme.isDark
+                          ? 'rgba(255,255,255,0.06)'
+                          : 'rgba(15,23,42,0.06)',
                     },
+                    pressed && { opacity: 0.8 },
                   ]}
                 >
+                  <View style={screenStyles.splitOptionTop}>
+                    <View
+                      style={[
+                        screenStyles.splitIconCircle,
+                        {
+                          backgroundColor: isSelected
+                            ? theme.colors.primary
+                            : `${theme.colors.primary}15`,
+                        },
+                      ]}
+                    >
+                      <AppIcon
+                        name={opt.icon as any}
+                        size={14}
+                        color={
+                          isSelected
+                            ? theme.colors.textInverse
+                            : theme.colors.primary
+                        }
+                      />
+                    </View>
+                    {isSelected && (
+                      <View
+                        style={[
+                          screenStyles.splitCheckmarkPill,
+                          { backgroundColor: theme.colors.primary },
+                        ]}
+                      >
+                        <AppIcon
+                          name="check"
+                          size={10}
+                          color={theme.colors.textInverse}
+                        />
+                      </View>
+                    )}
+                  </View>
                   <Text
                     style={[
-                      screenStyles.splitChipText,
+                      screenStyles.splitOptionTitle,
                       {
-                        color: isSelected
-                          ? '#FFFFFF'
-                          : theme.colors.textPrimary,
-                        fontWeight: isSelected ? '800' : '600',
+                        color: theme.colors.textPrimary,
+                        fontWeight: isSelected ? '800' : '700',
                       },
                     ]}
                   >
-                    {m.label}
+                    {opt.title}
+                  </Text>
+                  <Text
+                    style={[
+                      screenStyles.splitOptionDesc,
+                      { color: theme.colors.textTertiary },
+                    ]}
+                  >
+                    {opt.desc}
                   </Text>
                 </Pressable>
               );
@@ -1096,32 +1759,49 @@ export default function CreateTripScreen() {
           </View>
         </View>
 
-        {/* Allow Anyone to Pay Switch */}
-        <View style={screenStyles.toggleRow}>
-          <View style={{ flex: 1, paddingRight: 16 }}>
+        {/* Payer Permission Switch */}
+        <Pressable
+          onPress={() => {
+            haptics.light();
+            handleUpdateField('allowAnyPayer', !formData.allowAnyPayer);
+          }}
+          style={[
+            screenStyles.permissionCard,
+            {
+              backgroundColor: theme.colors.background,
+              borderColor: theme.isDark
+                ? 'rgba(255,255,255,0.06)'
+                : 'rgba(15,23,42,0.06)',
+            },
+          ]}
+        >
+          <View
+            style={[
+              screenStyles.permissionIconBadge,
+              { backgroundColor: 'rgba(16, 185, 129, 0.12)' },
+            ]}
+          >
+            <AppIcon name="credit-card" size={18} color="#10B981" />
+          </View>
+          <View style={{ flex: 1, paddingHorizontal: 12 }}>
             <Text
               style={[
-                screenStyles.toggleTitle,
+                screenStyles.permissionTitle,
                 { color: theme.colors.textPrimary },
               ]}
             >
-              Allow Any Member to Pay
+              Co-Travelers Can Record Expenses
             </Text>
             <Text
               style={[
-                screenStyles.toggleSub,
+                screenStyles.permissionSub,
                 { color: theme.colors.textTertiary },
               ]}
             >
-              When active, all travelers can record payments on behalf of the
-              group.
+              When active, all members can log group expenses and settlements.
             </Text>
           </View>
-          <Pressable
-            onPress={() => {
-              haptics.light();
-              handleUpdateField('allowAnyPayer', !formData.allowAnyPayer);
-            }}
+          <View
             style={[
               screenStyles.toggleTrack,
               {
@@ -1141,22 +1821,63 @@ export default function CreateTripScreen() {
                   : { alignSelf: 'flex-start' },
               ]}
             />
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
       </View>
 
-      <Pressable
-        onPress={handleNext}
-        style={[
-          screenStyles.primaryActionBtn,
-          { backgroundColor: theme.colors.primary },
-        ]}
-      >
-        <Text style={screenStyles.primaryActionBtnText}>
-          Continue to Members
-        </Text>
-        <AppIcon name="arrow-right" size={16} color="#FFFFFF" />
-      </Pressable>
+      {/* ── BOTTOM NAVIGATION ACTIONS ── */}
+      <View style={screenStyles.bottomNavRow}>
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [
+            screenStyles.secondaryNavBtn,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.isDark
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(15,23,42,0.08)',
+            },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <AppIcon
+            name="arrow-left"
+            size={16}
+            color={theme.colors.textPrimary}
+          />
+          <Text
+            style={[
+              screenStyles.secondaryNavBtnText,
+              { color: theme.colors.textPrimary },
+            ]}
+          >
+            Back
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleNext}
+          style={({ pressed }) => [
+            screenStyles.primaryNavBtn,
+            { backgroundColor: theme.colors.primary },
+            pressed && { opacity: 0.9 },
+          ]}
+        >
+          <Text
+            style={[
+              screenStyles.primaryNavBtnText,
+              { color: theme.colors.textInverse },
+            ]}
+          >
+            Continue to Members
+          </Text>
+          <AppIcon
+            name="arrow-right"
+            size={16}
+            color={theme.colors.textInverse}
+          />
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -1175,7 +1896,7 @@ export default function CreateTripScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Add friends to split costs and sync itineraries.
+          Add friends to split bills and synchronize itineraries in real time.
         </Text>
       </View>
 
@@ -1233,7 +1954,7 @@ export default function CreateTripScreen() {
                   { color: theme.colors.textSecondary },
                 ]}
               >
-                INVITED MEMBERS ({selectedUsers.length})
+                INVITED CREW ({selectedUsers.length})
               </Text>
               <Pressable
                 onPress={() => {
@@ -1390,7 +2111,9 @@ export default function CreateTripScreen() {
                         name={isSelected ? 'check' : 'plus'}
                         size={13}
                         color={
-                          isSelected ? '#FFFFFF' : theme.colors.textSecondary
+                          isSelected
+                            ? theme.colors.textInverse
+                            : theme.colors.textSecondary
                         }
                       />
                     </View>
@@ -1493,7 +2216,9 @@ export default function CreateTripScreen() {
                         name={isSelected ? 'check' : 'plus'}
                         size={13}
                         color={
-                          isSelected ? '#FFFFFF' : theme.colors.textSecondary
+                          isSelected
+                            ? theme.colors.textInverse
+                            : theme.colors.textSecondary
                         }
                       />
                     </View>
@@ -1505,16 +2230,59 @@ export default function CreateTripScreen() {
         )}
       </View>
 
-      <Pressable
-        onPress={handleNext}
-        style={[
-          screenStyles.primaryActionBtn,
-          { backgroundColor: theme.colors.primary },
-        ]}
-      >
-        <Text style={screenStyles.primaryActionBtnText}>Review & Confirm</Text>
-        <AppIcon name="arrow-right" size={16} color="#FFFFFF" />
-      </Pressable>
+      {/* Navigation Actions */}
+      <View style={screenStyles.bottomNavRow}>
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [
+            screenStyles.secondaryNavBtn,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.isDark
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(15,23,42,0.08)',
+            },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <AppIcon
+            name="arrow-left"
+            size={16}
+            color={theme.colors.textPrimary}
+          />
+          <Text
+            style={[
+              screenStyles.secondaryNavBtnText,
+              { color: theme.colors.textPrimary },
+            ]}
+          >
+            Back
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleNext}
+          style={({ pressed }) => [
+            screenStyles.primaryNavBtn,
+            { backgroundColor: theme.colors.primary },
+            pressed && { opacity: 0.9 },
+          ]}
+        >
+          <Text
+            style={[
+              screenStyles.primaryNavBtnText,
+              { color: theme.colors.textInverse },
+            ]}
+          >
+            Review & Confirm
+          </Text>
+          <AppIcon
+            name="arrow-right"
+            size={16}
+            color={theme.colors.textInverse}
+          />
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -1533,7 +2301,7 @@ export default function CreateTripScreen() {
             { color: theme.colors.textSecondary },
           ]}
         >
-          Verify expedition parameters before initialization.
+          Verify your expedition configuration before initialization.
         </Text>
       </View>
 
@@ -1579,7 +2347,7 @@ export default function CreateTripScreen() {
               { color: theme.colors.textSecondary },
             ]}
           >
-            Expedition Title
+            Trip Title
           </Text>
           <Text
             style={[
@@ -1629,7 +2397,7 @@ export default function CreateTripScreen() {
             ]}
           >
             {format(formData.startDate, 'MMM d')} —{' '}
-            {format(formData.endDate, 'MMM d, yyyy')}
+            {format(formData.endDate, 'MMM d, yyyy')} ({durationDays} days)
           </Text>
         </View>
 
@@ -1734,8 +2502,8 @@ export default function CreateTripScreen() {
               ]}
             >
               {formData.template === 'quick'
-                ? 'Primary stop will be created automatically.'
-                : 'Add multi-destination itinerary stops in trip view.'}
+                ? 'Primary destination stop will be generated automatically.'
+                : 'Add multi-destination itinerary stops anytime in trip view.'}
             </Text>
           </View>
         </View>
@@ -1771,50 +2539,86 @@ export default function CreateTripScreen() {
             >
               {selectedUsers.length > 0
                 ? `${selectedUsers.length} co-traveler${selectedUsers.length > 1 ? 's' : ''} ready to sync`
-                : 'You are the admin. Invite friends anytime later.'}
+                : 'You are the trip admin. You can invite friends anytime later.'}
             </Text>
           </View>
         </View>
       </View>
 
       {/* Launch Triggers */}
-      <Pressable
-        onPress={() => handleCreate('active')}
-        disabled={isPending || isSubmitting}
-        style={[
-          screenStyles.primaryActionBtn,
-          { backgroundColor: theme.colors.primary },
-        ]}
-      >
-        {isPending || isSubmitting ? (
-          <GlobalLoader variant="inline" size="small" color="#FFFFFF" />
-        ) : (
-          <>
-            <AppIcon name="zap" size={17} color="#FFFFFF" />
-            <Text style={screenStyles.primaryActionBtnText}>
-              Launch Active Expedition
-            </Text>
-          </>
-        )}
-      </Pressable>
-
-      <Pressable
-        onPress={() => handleCreate('planning')}
-        disabled={isPending || isSubmitting}
-        style={[
-          screenStyles.draftBtn,
-          { backgroundColor: theme.colors.surface },
-        ]}
-      >
-        <Text
-          style={[
-            screenStyles.draftBtnText,
-            { color: theme.colors.textSecondary },
+      <View style={{ gap: 10, marginTop: 4 }}>
+        <Pressable
+          onPress={() => handleCreate('active')}
+          disabled={isPending || isSubmitting}
+          style={({ pressed }) => [
+            screenStyles.primaryNavBtn,
+            { backgroundColor: theme.colors.primary, paddingVertical: 16 },
+            pressed && { opacity: 0.9 },
           ]}
         >
-          Save as Planning Draft
-        </Text>
-      </Pressable>
+          {isPending || isSubmitting ? (
+            <GlobalLoader
+              variant="inline"
+              size="small"
+              color={theme.colors.textInverse}
+            />
+          ) : (
+            <>
+              <AppIcon name="zap" size={17} color={theme.colors.textInverse} />
+              <Text
+                style={[
+                  screenStyles.primaryNavBtnText,
+                  { color: theme.colors.textInverse, fontSize: 15 },
+                ]}
+              >
+                Launch Active Expedition
+              </Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => handleCreate('planning')}
+          disabled={isPending || isSubmitting}
+          style={({ pressed }) => [
+            screenStyles.draftBtn,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.isDark
+                ? 'rgba(255,255,255,0.08)'
+                : 'rgba(15,23,42,0.08)',
+            },
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text
+            style={[
+              screenStyles.draftBtnText,
+              { color: theme.colors.textSecondary },
+            ]}
+          >
+            Save as Planning Draft
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [
+            { alignItems: 'center', paddingVertical: 8 },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '700',
+              color: theme.colors.textTertiary,
+            }}
+          >
+            Back to Edit Members
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -1856,7 +2660,12 @@ export default function CreateTripScreen() {
               onPress={handleBack}
               style={[
                 screenStyles.navIconBtn,
-                { backgroundColor: theme.colors.surface },
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.isDark
+                    ? 'rgba(255,255,255,0.08)'
+                    : 'rgba(15,23,42,0.06)',
+                },
               ]}
               hitSlop={8}
             >
@@ -1873,7 +2682,6 @@ export default function CreateTripScreen() {
                   screenStyles.navTitle,
                   { color: theme.colors.textPrimary },
                 ]}
-                numberOfLines={1}
               >
                 {currentStep === 0
                   ? 'Create an Expedition'
@@ -1912,10 +2720,88 @@ export default function CreateTripScreen() {
             { paddingBottom: Math.max(insets.bottom, 20) + 40 },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
+          {tripsStatus.total !== null &&
+            (tripsStatus.isApproaching || tripsStatus.isReached) && (
+              <View
+                style={[
+                  screenStyles.limitWarningBanner,
+                  {
+                    backgroundColor: tripsStatus.isReached
+                      ? `${theme.colors.danger}15`
+                      : `${theme.colors.warning}15`,
+                    borderColor: tripsStatus.isReached
+                      ? `${theme.colors.danger}40`
+                      : `${theme.colors.warning}40`,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    flex: 1,
+                  }}
+                >
+                  <AppIcon
+                    name="shield"
+                    size={14}
+                    color={
+                      tripsStatus.isReached
+                        ? theme.colors.danger
+                        : theme.colors.warning
+                    }
+                  />
+                  <Text
+                    style={[
+                      screenStyles.limitWarningText,
+                      { color: theme.colors.textPrimary },
+                    ]}
+                  >
+                    {tripsStatus.isReached
+                      ? `You have reached your limit of ${tripsStatus.total} trips on ${planName}.`
+                      : `${tripsStatus.used}/${tripsStatus.total} trips created on ${planName}.`}
+                  </Text>
+                </View>
+                <Pressable onPress={() => router.push('/(app)/plans' as any)}>
+                  <Text
+                    style={[
+                      screenStyles.limitUpgradeLink,
+                      { color: theme.colors.primary },
+                    ]}
+                  >
+                    Upgrade
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
           {renderStepContent()}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Dedicated Currency Picker Modal */}
+      <CurrencyPickerModal
+        visible={showCurrencies}
+        onClose={() => setShowCurrencies(false)}
+        selectedCurrency={formData.baseCurrency}
+        onSelect={code => handleUpdateField('baseCurrency', code)}
+        currencies={currencies}
+      />
+
+      {/* Plan Limit Modal */}
+      <PlanLimitModal
+        visible={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        title="Trip Limit Reached"
+        limitKey="trips"
+        currentPlanName={planName}
+        limitValue={limitModalData.limitValue ?? tripsStatus.total ?? 5}
+        currentUsage={limitModalData.currentUsage ?? tripsStatus.used}
+        message={limitModalData.message}
+      />
     </View>
   );
 }
@@ -1923,6 +2809,30 @@ export default function CreateTripScreen() {
 // ─── STYLES ──────────────────────────────────────────────────
 const screenStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
+
+  limitWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 16,
+    maxWidth: FORM_MAX_WIDTH,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  limitWarningText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    flex: 1,
+  },
+  limitUpgradeLink: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    marginLeft: 12,
+  },
 
   topBar: {
     paddingHorizontal: 16,
@@ -1940,13 +2850,12 @@ const screenStyles = StyleSheet.create({
     width: '100%',
   },
   navIconBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.06)',
   },
   navTitle: {
     fontSize: 17,
@@ -1982,14 +2891,15 @@ const screenStyles = StyleSheet.create({
     marginBottom: 2,
   },
   stepTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
     letterSpacing: -0.5,
   },
   stepSubtitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '500',
-    marginTop: 3,
+    marginTop: 4,
+    lineHeight: 18,
   },
 
   // Templates
@@ -2012,215 +2922,317 @@ const screenStyles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // Forms
+  // ─── Bento Section Cards ──────────────────────────────────
+  sectionCard: {
+    padding: 18,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(15,23,42,0.06)',
+    gap: 16,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 18px rgba(0,0,0,0.02)',
+      } as any,
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+        elevation: 3,
+      },
+    }),
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sectionIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+
   formCard: {
     padding: 18,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: 'rgba(15,23,42,0.05)',
-
+    gap: 14,
     ...Platform.select({
       web: {
         boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
       } as any,
-
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 4,
       },
     }),
-
-    gap: 14,
   },
   fieldGroup: {
-    gap: 6,
+    gap: 8,
   },
   fieldLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
+  },
+  fieldHelperText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.04)',
   },
   textInput: {
     flex: 1,
-    fontSize: 13.5,
-    fontWeight: '600',
+    fontSize: 14.5,
+    fontWeight: '700',
     padding: 0,
   },
   notesBox: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.04)',
   },
   notesInput: {
     fontSize: 13,
     fontWeight: '500',
-    minHeight: 56,
+    minHeight: 64,
     textAlignVertical: 'top',
     padding: 0,
   },
-  dateRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  dateBtn: {
+
+  // Dates & Duration
+  durationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.04)',
-  },
-  dateText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  // Currency
-  currencySelectBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.04)',
-  },
-  currencySymbolBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  currencySymbolText: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  currencyNameText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  currencyDropdown: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.08)',
-    overflow: 'hidden',
-    marginTop: 6,
-
-    ...Platform.select({
-      web: {
-        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-      } as any,
-
-      default: {
-        shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
-      },
-    }),
-  },
-  currencyOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  currencyOptionSymbol: {
-    fontWeight: '800',
-    width: 28,
-  },
-  currencyOptionName: {
-    fontSize: 13,
-    flex: 1,
-  },
-  currencyOptionCode: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-
-  // Budget
-  budgetSymbolPrefix: {
-    fontSize: 15,
-    fontWeight: '900',
-    marginRight: 4,
-  },
-  quickBudgetRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 4,
-  },
-  quickBudgetChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  quickBudgetText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  // Splits
-  splitGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  splitChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
   },
-  splitChipText: {
-    fontSize: 12,
+  durationBannerText: {
+    fontSize: 12.5,
+    fontWeight: '600',
   },
-
-  // Toggles
-  toggleRow: {
+  dateTilesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateTile: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  dateTileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(15,23,42,0.05)',
+    marginBottom: 6,
   },
-  toggleTitle: {
+  dateTileCaption: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  dateTileDay: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  dateTileYear: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  dateArrowWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Currency Card Trigger
+  currencyCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  currencySymbolBadgeLarge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currencySymbolTextLarge: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  currencyNameTextLarge: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  currencyCodeSub: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  changeCurrencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  changeCurrencyText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+
+  // Budget
+  budgetInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  budgetPrefixBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  budgetSymbolPrefixLarge: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  budgetTextInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  quickBudgetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
+  },
+  quickBudgetPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  quickBudgetText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+
+  // Split Options 2x2 Grid
+  splitGrid2x2: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  splitOptionCard: {
+    width: '48%',
+    flexGrow: 1,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    gap: 4,
+  },
+  splitOptionTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  splitIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splitCheckmarkPill: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splitOptionTitle: {
+    fontSize: 13,
+    letterSpacing: -0.2,
+  },
+  splitOptionDesc: {
+    fontSize: 11,
+    fontWeight: '500',
+    lineHeight: 15,
+  },
+
+  // Payer Permission
+  permissionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  permissionIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  permissionTitle: {
     fontSize: 13,
     fontWeight: '800',
   },
-  toggleSub: {
+  permissionSub: {
     fontSize: 11,
     fontWeight: '500',
     marginTop: 2,
+    lineHeight: 15,
   },
   toggleTrack: {
     width: 48,
@@ -2234,57 +3246,63 @@ const screenStyles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
-
     ...Platform.select({
       web: {
         boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
       } as any,
-
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 3,
       },
     }),
   },
 
-  // Actions
-  primaryActionBtn: {
+  // ─── Bottom Navigation Row ─────────────────────────────────
+  bottomNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+  },
+  secondaryNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  secondaryNavBtnText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  primaryNavBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 14,
     borderRadius: 16,
-
     ...Platform.select({
       web: {
         boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
       } as any,
-
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
-        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
         shadowRadius: 10,
         elevation: 4,
       },
     }),
   },
-  primaryActionBtnText: {
-    color: '#FFFFFF',
+  primaryNavBtnText: {
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: -0.2,
@@ -2386,20 +3404,13 @@ const screenStyles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: 'rgba(15,23,42,0.05)',
-
     ...Platform.select({
       web: {
         boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
       } as any,
-
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 4,
@@ -2423,15 +3434,14 @@ const screenStyles = StyleSheet.create({
     marginTop: 2,
   },
   draftBtn: {
-    paddingVertical: 13,
+    paddingVertical: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(15,23,42,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   draftBtnText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 });
@@ -2485,20 +3495,13 @@ const cardStyles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1.5,
     padding: 16,
-
     ...Platform.select({
       web: {
         boxShadow: '0 4px 16px rgba(0,0,0,0.02)',
       } as any,
-
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 4,
@@ -2510,15 +3513,9 @@ const cardStyles = StyleSheet.create({
       web: {
         boxShadow: '0 6px 20px rgba(0,0,0,0.06)',
       } as any,
-
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 4,
@@ -2606,20 +3603,13 @@ const modalStyles = StyleSheet.create({
     padding: 20,
     borderRadius: 22,
     borderWidth: 1,
-
     ...Platform.select({
       web: {
         boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
       } as any,
-
       default: {
         shadowColor: '#000',
-
-        shadowOffset: {
-          width: 0,
-          height: 4,
-        },
-
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 4,
@@ -2660,1754 +3650,130 @@ const modalStyles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '800',
   },
+
+  // ─── Dedicated Currency Picker Modal Styles ───────────────
+  currencyModalContent: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '80%',
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 24px 48px rgba(0,0,0,0.3)',
+      } as any,
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        elevation: 10,
+      },
+    }),
+  },
+  currencyHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  currencyModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  currencyModalSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '600',
+    padding: 0,
+  },
+  popularSection: {
+    marginBottom: 12,
+    gap: 6,
+  },
+  popularTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  popularScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  popularChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  popularChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  currencyList: {
+    maxHeight: 280,
+  },
+  currencyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    marginBottom: 4,
+  },
+  currencyFlagBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  currencyItemName: {
+    fontSize: 13.5,
+  },
+  currencyItemCode: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  checkBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySearch: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
-// // src/app/(app)/create-trip.tsx
-
-// import React, { useState, useMemo, useRef, useEffect } from 'react';
-// import {
-//     View,
-//     Text,
-//     StyleSheet,
-//     ScrollView,
-//     TextInput,
-//     Alert,
-//     KeyboardAvoidingView,
-//     Platform,
-//     useWindowDimensions,
-//     Pressable,
-//     Modal,
-//     TouchableWithoutFeedback,
-//     Animated,
-// } from 'react-native';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { router } from 'expo-router';
-// import { useTripTemplates, useCreateTrip, useSearchUsers, useDebounce, useFriends } from '../../hooks';
-// import DateTimePicker from '@react-native-community/datetimepicker';
-// import { format } from 'date-fns';
-// import { useQuery } from '@tanstack/react-query';
-// import { LinearGradient } from 'expo-linear-gradient';
-
-// import { useTheme } from '../../providers/ThemeProvider';
-// import { GlobalBackground } from '../../components/ui/GlobalBackground';
-// import { Typography } from '../../components/ui/Typography';
-// import { Avatar } from '../../components/ui/Avatar';
-// import { haptics } from '../../utils/haptics';
-// import { locationApi } from '../../services/api/location.api';
-// import AppIcon from '../../components/common/AppIcon';
-// import GlobalLoader from '../../components/common/GlobalLoader';
-// import type { Theme } from '../../theme';
-
-// // ============================================================
-// // Types & Constants
-// // ============================================================
-
-// type Step = 'template' | 'details' | 'members' | 'review';
-
-// interface TripFormData {
-//     template?: string;
-//     title: string;
-//     description: string;
-//     coverImage?: string;
-//     startDate: Date;
-//     endDate: Date;
-//     baseCurrency: string;
-//     totalBudget: string;
-//     defaultSplitMethod: 'equal' | 'percentage' | 'exact' | 'shares';
-//     allowAnyPayer: boolean;
-//     memberIds: string[];
-// }
-
-// const STEPS = [
-//     { key: 'template', label: 'Template', icon: 'sparkles' },
-//     { key: 'details', label: 'Details', icon: 'file-text' },
-//     { key: 'members', label: 'Members', icon: 'users' },
-//     { key: 'review', label: 'Review', icon: 'check-circle' }
-// ];
-
-// const FORM_MAX_WIDTH = 700;
-
-// const TEMPLATE_META: Record<string, { emoji: string; icon: string; gradient: [string, string]; color: string }> = {
-//     quick: { emoji: '⚡', icon: 'zap', gradient: ['#F59E0B', '#D97706'], color: '#F59E0B' },
-//     domestic: { emoji: '🗺️', icon: 'map', gradient: ['#3B82F6', '#1D4ED8'], color: '#3B82F6' },
-//     international: { emoji: '✈️', icon: 'plane', gradient: ['#8B5CF6', '#6D28D9'], color: '#8B5CF6' },
-// };
-
-// const QUICK_BUDGETS = [20000, 50000, 100000, 250000];
-
-// // ============================================================
-// // Step Indicator Component
-// // ============================================================
-
-// function StepIndicator({ currentStep, onStepPress }: { currentStep: number; onStepPress?: (step: number) => void }) {
-//     const theme = useTheme();
-
-//     return (
-//         <View style={indicatorStyles.container}>
-//             <View style={indicatorStyles.stepperRow}>
-//                 {STEPS.map((s, index) => {
-//                     const isActive = index === currentStep;
-//                     const isCompleted = index < currentStep;
-
-//                     return (
-//                         <React.Fragment key={s.key}>
-//                             <Pressable
-//                                 onPress={() => isCompleted && onStepPress?.(index)}
-//                                 style={({ pressed }: any) => [
-//                                     indicatorStyles.stepItem,
-//                                     isCompleted && { cursor: 'pointer' },
-//                                     pressed && isCompleted && { opacity: 0.7 }
-//                                 ]}
-//                             >
-//                                 <View style={[
-//                                     indicatorStyles.stepIconCircle,
-//                                     {
-//                                         backgroundColor: isActive
-//                                             ? '#EA580C'
-//                                             : (isCompleted
-//                                                 ? (theme.isDark ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5')
-//                                                 : (theme.isDark ? 'rgba(255,255,255,0.06)' : '#F1F5F9')),
-//                                         borderColor: isActive
-//                                             ? '#EA580C'
-//                                             : (isCompleted
-//                                                 ? '#10B981'
-//                                                 : (theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')),
-//                                     }
-//                                 ]}>
-//                                     {isCompleted ? (
-//                                         <AppIcon name="check" size={13} color="#10B981" />
-//                                     ) : (
-//                                         <Text style={[
-//                                             indicatorStyles.stepNumber,
-//                                             { color: isActive ? '#FFFFFF' : theme.colors.textTertiary }
-//                                         ]}>
-//                                             {index + 1}
-//                                         </Text>
-//                                     )}
-//                                 </View>
-//                                 <Text style={[
-//                                     indicatorStyles.stepText,
-//                                     {
-//                                         color: isActive
-//                                             ? theme.colors.textPrimary
-//                                             : (isCompleted ? theme.colors.textSecondary : theme.colors.textTertiary),
-//                                         fontWeight: isActive ? '800' : '600'
-//                                     }
-//                                 ]}>
-//                                     {s.label}
-//                                 </Text>
-//                             </Pressable>
-
-//                             {index < STEPS.length - 1 && (
-//                                 <View style={[
-//                                     indicatorStyles.stepConnectingLine,
-//                                     {
-//                                         backgroundColor: index < currentStep
-//                                             ? '#10B981'
-//                                             : (theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
-//                                     }
-//                                 ]} />
-//                             )}
-//                         </React.Fragment>
-//                     );
-//                 })}
-//             </View>
-//         </View>
-//     );
-// }
-
-// const indicatorStyles = StyleSheet.create({
-//     container: {
-//         width: '100%',
-//         maxWidth: FORM_MAX_WIDTH,
-//         alignSelf: 'center',
-//         paddingHorizontal: 20,
-//         paddingVertical: 12,
-//     },
-//     stepperRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//     },
-//     stepItem: {
-//         alignItems: 'center',
-//         gap: 6,
-//     },
-//     stepIconCircle: {
-//         width: 32,
-//         height: 32,
-//         borderRadius: 16,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         borderWidth: 1.5,
-//     },
-//     stepNumber: {
-//         fontSize: 12,
-//         fontWeight: '800',
-//     },
-//     stepText: {
-//         fontSize: 11,
-//         letterSpacing: -0.2,
-//     },
-//     stepConnectingLine: {
-//         flex: 1,
-//         height: 2,
-//         marginHorizontal: 8,
-//         marginBottom: 18,
-//         borderRadius: 1,
-//     }
-// });
-
-// // ============================================================
-// // Template Card Component
-// // ============================================================
-
-// function TemplateCard({
-//     template,
-//     selected,
-//     onSelect,
-// }: {
-//     template: any;
-//     selected: boolean;
-//     onSelect: () => void;
-// }) {
-//     const theme = useTheme();
-//     const meta = TEMPLATE_META[template.id] || { emoji: '📍', icon: 'map-pin', gradient: ['#EA580C', '#C2410C'], color: '#EA580C' };
-
-//     return (
-//         <Pressable
-//             onPress={() => { haptics.light(); onSelect(); }}
-//             style={({ hovered, pressed }: any) => [
-//                 cardStyles.templateCard,
-//                 {
-//                     backgroundColor: theme.isDark
-//                         ? (selected ? 'rgba(234, 88, 12, 0.12)' : 'rgba(30, 41, 59, 0.75)')
-//                         : (selected ? '#FFF7ED' : '#FFFFFF'),
-//                     borderColor: selected
-//                         ? '#EA580C'
-//                         : (theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
-//                 },
-//                 Platform.OS === 'web' && hovered && !selected && { transform: [{ translateY: -2 }] },
-//                 pressed && { transform: [{ scale: 0.98 }] }
-//             ]}
-//         >
-//             <View style={cardStyles.cardTopRow}>
-//                 <LinearGradient
-//                     colors={meta.gradient}
-//                     style={cardStyles.emojiBubble}
-//                 >
-//                     <Text style={cardStyles.cardEmoji}>{meta.emoji}</Text>
-//                 </LinearGradient>
-
-//                 <View style={[
-//                     cardStyles.radioCircle,
-//                     {
-//                         backgroundColor: selected ? '#EA580C' : 'transparent',
-//                         borderColor: selected ? '#EA580C' : (theme.isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)'),
-//                     }
-//                 ]}>
-//                     {selected && <AppIcon name="check" size={12} color="#FFFFFF" />}
-//                 </View>
-//             </View>
-
-//             <View style={cardStyles.cardBody}>
-//                 <Text style={[cardStyles.templateName, { color: theme.colors.textPrimary }]}>
-//                     {template.name}
-//                 </Text>
-//                 <Text style={[cardStyles.templateDesc, { color: theme.colors.textSecondary }]} numberOfLines={3}>
-//                     {template.description}
-//                 </Text>
-
-//                 {template.autoCreateStop && (
-//                     <View style={[cardStyles.autoStopBadge, { backgroundColor: theme.isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
-//                         <AppIcon name="sparkles" size={11} color="#10B981" />
-//                         <Text style={cardStyles.autoStopText}>Auto-stop included</Text>
-//                     </View>
-//                 )}
-//             </View>
-//         </Pressable>
-//     );
-// }
-
-// const cardStyles = StyleSheet.create({
-//     templateCard: {
-//         flex: 1,
-//         minWidth: 200,
-//         borderRadius: 20,
-//         borderWidth: 1.5,
-//         padding: 18,
-//         cursor: 'pointer',
-//         boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
-//     } as any,
-//     cardTopRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//         marginBottom: 14,
-//     },
-//     emojiBubble: {
-//         width: 44,
-//         height: 44,
-//         borderRadius: 14,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-//     } as any,
-//     cardEmoji: {
-//         fontSize: 22,
-//     },
-//     radioCircle: {
-//         width: 22,
-//         height: 22,
-//         borderRadius: 11,
-//         borderWidth: 1.5,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//     },
-//     cardBody: {
-//         gap: 6,
-//     },
-//     templateName: {
-//         fontSize: 16,
-//         fontWeight: '800',
-//         letterSpacing: -0.3,
-//     },
-//     templateDesc: {
-//         fontSize: 12,
-//         fontWeight: '500',
-//         lineHeight: 17,
-//         minHeight: 34,
-//     },
-//     autoStopBadge: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 4,
-//         alignSelf: 'flex-start',
-//         paddingHorizontal: 8,
-//         paddingVertical: 3,
-//         borderRadius: 6,
-//         borderWidth: 1,
-//         marginTop: 4,
-//     },
-//     autoStopText: {
-//         fontSize: 10,
-//         fontWeight: '800',
-//         color: '#10B981',
-//     }
-// });
-
-// // ============================================================
-// // Web Date Modal
-// // ============================================================
-
-// function WebDateModal({
-//     currentDate,
-//     onClose,
-//     onSave,
-//     mode = 'date',
-// }: {
-//     currentDate: Date;
-//     onClose: () => void;
-//     onSave: (date: Date) => void;
-//     mode?: 'date' | 'datetime';
-// }) {
-//     const theme = useTheme();
-//     const [tempDate, setTempDate] = useState(currentDate);
-
-//     return (
-//         <Modal transparent animationType="fade" visible={true} onRequestClose={onClose}>
-//             <TouchableWithoutFeedback onPress={onClose}>
-//                 <View style={modalStyles.overlay}>
-//                     <TouchableWithoutFeedback>
-//                         <View style={[modalStyles.content, { backgroundColor: theme.isDark ? '#1E293B' : '#FFFFFF', borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
-//                             <View style={modalStyles.headerRow}>
-//                                 <Text style={[modalStyles.title, { color: theme.colors.textPrimary }]}>Select Date</Text>
-//                                 <Pressable onPress={onClose} hitSlop={8}>
-//                                     <AppIcon name="x" size={18} color={theme.colors.textTertiary} />
-//                                 </Pressable>
-//                             </View>
-
-//                             {/* @ts-ignore */}
-//                             <input
-//                                 type={mode === 'datetime' ? 'datetime-local' : 'date'}
-//                                 value={format(tempDate, mode === 'datetime' ? "yyyy-MM-dd'T'HH:mm" : 'yyyy-MM-dd')}
-//                                 onChange={(e: any) => {
-//                                     const newDate = new Date(e.target.value);
-//                                     if (!isNaN(newDate.getTime())) {
-//                                         setTempDate(newDate);
-//                                     }
-//                                 }}
-//                                 style={{
-//                                     width: '100%',
-//                                     padding: '12px',
-//                                     fontSize: '15px',
-//                                     borderRadius: '12px',
-//                                     border: `1px solid ${theme.isDark ? 'rgba(255,255,255,0.15)' : '#E2E8F0'}`,
-//                                     color: theme.colors.textPrimary,
-//                                     backgroundColor: theme.isDark ? 'rgba(15,23,42,0.6)' : '#F8FAFC',
-//                                     marginTop: '12px',
-//                                     marginBottom: '16px',
-//                                     outline: 'none',
-//                                     boxSizing: 'border-box',
-//                                 } as any}
-//                             />
-
-//                             <View style={modalStyles.actionRow}>
-//                                 <Pressable onPress={onClose} style={[modalStyles.cancelBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
-//                                     <Text style={[modalStyles.cancelBtnText, { color: theme.colors.textSecondary }]}>Cancel</Text>
-//                                 </Pressable>
-//                                 <Pressable onPress={() => { onSave(tempDate); onClose(); }} style={[modalStyles.saveBtn, { backgroundColor: '#EA580C' }]}>
-//                                     <Text style={modalStyles.saveBtnText}>Done</Text>
-//                                 </Pressable>
-//                             </View>
-//                         </View>
-//                     </TouchableWithoutFeedback>
-//                 </View>
-//             </TouchableWithoutFeedback>
-//         </Modal>
-//     );
-// }
-
-// const modalStyles = StyleSheet.create({
-//     overlay: {
-//         flex: 1,
-//         backgroundColor: 'rgba(0,0,0,0.6)',
-//         justifyContent: 'center',
-//         alignItems: 'center',
-//         padding: 20,
-//     },
-//     content: {
-//         width: '100%',
-//         maxWidth: 360,
-//         padding: 20,
-//         borderRadius: 24,
-//         borderWidth: 1,
-//         boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-//     } as any,
-//     headerRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//         marginBottom: 8,
-//     },
-//     title: {
-//         fontSize: 17,
-//         fontWeight: '800',
-//     },
-//     actionRow: {
-//         flexDirection: 'row',
-//         justifyContent: 'flex-end',
-//         gap: 10,
-//     },
-//     cancelBtn: {
-//         paddingHorizontal: 16,
-//         paddingVertical: 9,
-//         borderRadius: 10,
-//     },
-//     cancelBtnText: {
-//         fontSize: 13,
-//         fontWeight: '700',
-//     },
-//     saveBtn: {
-//         paddingHorizontal: 18,
-//         paddingVertical: 9,
-//         borderRadius: 10,
-//     },
-//     saveBtnText: {
-//         color: '#FFFFFF',
-//         fontSize: 13,
-//         fontWeight: '800',
-//     }
-// });
-
-// // ============================================================
-// // Main Create Trip Screen
-// // ============================================================
-
-// export default function CreateTripScreen() {
-//     const theme = useTheme();
-//     const insets = useSafeAreaInsets();
-//     const { width } = useWindowDimensions();
-//     const scrollViewRef = useRef<ScrollView>(null);
-
-//     const [currentStep, setCurrentStep] = useState<number>(0);
-//     const isWebDesktop = Platform.OS === 'web' && width > 768;
-
-//     // Form state
-//     const [formData, setFormData] = useState<TripFormData>({
-//         title: '',
-//         description: '',
-//         startDate: new Date(),
-//         endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-//         baseCurrency: 'INR',
-//         totalBudget: '',
-//         defaultSplitMethod: 'equal',
-//         allowAnyPayer: true,
-//         memberIds: [],
-//     });
-
-//     // Search state with debouncing
-//     const [searchQuery, setSearchQuery] = useState('');
-//     const debouncedSearchQuery = useDebounce(searchQuery.trim(), 250);
-//     const { data: searchResults = [], isFetching: isSearching } = useSearchUsers(debouncedSearchQuery);
-//     const { data: friendsList = [] } = useFriends();
-//     const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
-
-//     // Toggles
-//     const [showStartDate, setShowStartDate] = useState(false);
-//     const [showEndDate, setShowEndDate] = useState(false);
-//     const [showCurrencies, setShowCurrencies] = useState(false);
-//     const [isSubmitting, setIsSubmitting] = useState(false);
-
-//     // Hooks
-//     const { data: templatesData } = useTripTemplates();
-//     const templates = templatesData || [];
-//     const { mutate: createTrip, isPending } = useCreateTrip();
-
-//     // Fetch currencies
-//     const { data: countriesResponse } = useQuery({
-//         queryKey: ['countries'],
-//         queryFn: locationApi.getSupportedCountries,
-//     });
-
-//     const currencies = useMemo(() => {
-//         const raw = countriesResponse?.data?.data || [];
-//         const map = new Map();
-//         raw.forEach((c: any) => {
-//             if (!map.has(c.currency)) {
-//                 map.set(c.currency, {
-//                     code: c.currency,
-//                     symbol: c.currencySymbol || c.currency,
-//                     name: c.currencyName || c.currency,
-//                 });
-//             }
-//         });
-//         const arr = Array.from(map.values());
-//         return arr.length > 0 ? arr : [
-//             { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-//             { code: 'USD', symbol: '$', name: 'US Dollar' },
-//             { code: 'EUR', symbol: '€', name: 'Euro' },
-//             { code: 'GBP', symbol: '£', name: 'British Pound' },
-//         ];
-//     }, [countriesResponse]);
-
-//     // ── Handlers ──
-//     const handleSelectTemplate = (templateId: string) => {
-//         haptics.medium();
-//         setFormData((prev) => ({ ...prev, template: templateId }));
-//         setTimeout(() => setCurrentStep(1), 250);
-//     };
-
-//     const handleUpdateField = (field: keyof TripFormData, value: any) => {
-//         setFormData((prev) => ({ ...prev, [field]: value }));
-//     };
-
-//     const validateStep = (step: number): boolean => {
-//         switch (step) {
-//             case 1:
-//                 if (!formData.title.trim()) {
-//                     haptics.warning();
-//                     Alert.alert('Missing Title', 'Please enter a title for your trip.');
-//                     return false;
-//                 }
-//                 if (formData.endDate < formData.startDate) {
-//                     haptics.warning();
-//                     Alert.alert('Invalid Dates', 'End date must be after start date.');
-//                     return false;
-//                 }
-//                 return true;
-//             default:
-//                 return true;
-//         }
-//     };
-
-//     const handleNext = () => {
-//         if (!validateStep(currentStep)) return;
-//         haptics.light();
-//         if (currentStep < STEPS.length - 1) {
-//             setCurrentStep((prev) => prev + 1);
-//             scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-//         }
-//     };
-
-//     const handleBack = () => {
-//         haptics.light();
-//         if (currentStep === 0) {
-//             router.back();
-//         } else {
-//             setCurrentStep((prev) => prev - 1);
-//             scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-//         }
-//     };
-
-//     const handleAddBudget = (val: number) => {
-//         haptics.light();
-//         const cur = Number(formData.totalBudget) || 0;
-//         handleUpdateField('totalBudget', String(cur + val));
-//     };
-
-//     // Fast trip creation
-//     const handleCreate = async (status: 'planning' | 'active') => {
-//         haptics.medium();
-//         setIsSubmitting(true);
-
-//         try {
-//             const initialStop = {
-//                 name: formData.title.trim(),
-//                 currency: formData.baseCurrency,
-//                 currentExchangeRate: 1.0,
-//                 startDate: formData.startDate.toISOString(),
-//                 endDate: formData.endDate.toISOString(),
-//             };
-
-//             createTrip(
-//                 {
-//                     template: formData.template,
-//                     data: {
-//                         title: formData.title.trim(),
-//                         description: formData.description.trim() || undefined,
-//                         coverImage: formData.coverImage?.trim() || undefined,
-//                         startDate: formData.startDate.toISOString(),
-//                         endDate: formData.endDate.toISOString(),
-//                         baseCurrency: formData.baseCurrency,
-//                         totalBudget: formData.totalBudget ? parseFloat(formData.totalBudget) : undefined,
-//                         defaultSplitMethod: formData.defaultSplitMethod,
-//                         allowAnyPayer: formData.allowAnyPayer,
-//                         memberIds: formData.memberIds,
-//                         status,
-//                         initialStop,
-//                     },
-//                 },
-//                 {
-//                     onSuccess: (trip: any) => {
-//                         haptics.success();
-//                         setIsSubmitting(false);
-//                         router.replace(`/(app)/trips/${trip._id}`);
-//                     },
-//                     onError: (error: any) => {
-//                         setIsSubmitting(false);
-//                         Alert.alert('Error', error.message || 'Failed to create trip');
-//                     },
-//                 }
-//             );
-//         } catch (error: any) {
-//             setIsSubmitting(false);
-//             Alert.alert('Error', error.message || 'Something went wrong');
-//         }
-//     };
-
-//     // ── STEP 1: CHOOSE A TEMPLATE ──
-//     const renderTemplateStep = () => (
-//         <View style={screenStyles.stepBox}>
-//             <View style={screenStyles.stepHeader}>
-//                 <Text style={[screenStyles.stepTitle, { color: theme.colors.textPrimary }]}>
-//                     Choose a Template
-//                 </Text>
-//                 <Text style={[screenStyles.stepSubtitle, { color: theme.colors.textSecondary }]}>
-//                     Pick the style that best matches your upcoming journey.
-//                 </Text>
-//             </View>
-
-//             <View style={screenStyles.templatesGrid}>
-//                 {templates.map((tpl: any) => (
-//                     <TemplateCard
-//                         key={tpl.id}
-//                         template={tpl}
-//                         selected={formData.template === tpl.id}
-//                         onSelect={() => handleSelectTemplate(tpl.id)}
-//                     />
-//                 ))}
-//             </View>
-
-//             <Pressable
-//                 onPress={() => {
-//                     handleUpdateField('template', undefined);
-//                     setCurrentStep(1);
-//                 }}
-//                 style={({ pressed, hovered }: any) => [
-//                     screenStyles.skipBtn,
-//                     {
-//                         backgroundColor: theme.isDark ? 'rgba(30, 41, 59, 0.6)' : '#FFFFFF',
-//                         borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-//                     },
-//                     Platform.OS === 'web' && hovered && { transform: [{ translateY: -1 }] },
-//                     pressed && { opacity: 0.7 }
-//                 ]}
-//             >
-//                 <AppIcon name="sparkles" size={16} color={theme.colors.textSecondary} />
-//                 <Text style={[screenStyles.skipBtnText, { color: theme.colors.textPrimary }]}>
-//                     Skip & Start from Scratch
-//                 </Text>
-//             </Pressable>
-//         </View>
-//     );
-
-//     // ── STEP 2: TRIP DETAILS ──
-//     const renderDetailsStep = () => (
-//         <View style={screenStyles.stepBox}>
-//             <View style={screenStyles.stepHeader}>
-//                 <Text style={[screenStyles.stepTitle, { color: theme.colors.textPrimary }]}>
-//                     Trip Details
-//                 </Text>
-//                 <Text style={[screenStyles.stepSubtitle, { color: theme.colors.textSecondary }]}>
-//                     Fill in the essential information for your journey.
-//                 </Text>
-//             </View>
-
-//             <View style={[
-//                 screenStyles.formCard,
-//                 {
-//                     backgroundColor: theme.isDark ? 'rgba(30, 41, 59, 0.75)' : '#FFFFFF',
-//                     borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
-//                 }
-//             ]}>
-//                 {/* Title */}
-//                 <View style={screenStyles.fieldGroup}>
-//                     <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                         TRIP TITLE *
-//                     </Text>
-//                     <View style={[screenStyles.inputBox, { backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-//                         <AppIcon name="compass" size={16} color={theme.colors.textTertiary} />
-//                         <TextInput
-//                             style={[screenStyles.textInput, { color: theme.colors.textPrimary }]}
-//                             placeholder="e.g. Goa Beach Vacation, Tokyo Exploration..."
-//                             placeholderTextColor={theme.colors.textTertiary}
-//                             value={formData.title}
-//                             onChangeText={(text) => handleUpdateField('title', text)}
-//                         />
-//                     </View>
-//                 </View>
-
-//                 {/* Description */}
-//                 <View style={screenStyles.fieldGroup}>
-//                     <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                         DESCRIPTION (OPTIONAL)
-//                     </Text>
-//                     <View style={[screenStyles.notesBox, { backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-//                         <TextInput
-//                             style={[screenStyles.notesInput, { color: theme.colors.textPrimary }]}
-//                             placeholder="Add trip itinerary highlights or travel notes..."
-//                             placeholderTextColor={theme.colors.textTertiary}
-//                             value={formData.description}
-//                             onChangeText={(text) => handleUpdateField('description', text)}
-//                             multiline
-//                             numberOfLines={3}
-//                         />
-//                     </View>
-//                 </View>
-
-//                 {/* Dates Row */}
-//                 <View style={screenStyles.dateRow}>
-//                     <View style={[screenStyles.fieldGroup, { flex: 1 }]}>
-//                         <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                             START DATE *
-//                         </Text>
-//                         <Pressable
-//                             onPress={() => { haptics.light(); setShowStartDate(true); }}
-//                             style={({ pressed }) => [
-//                                 screenStyles.dateBtn,
-//                                 { backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
-//                                 pressed && { opacity: 0.7 }
-//                             ]}
-//                         >
-//                             <AppIcon name="calendar" size={15} color="#EA580C" />
-//                             <Text style={[screenStyles.dateText, { color: theme.colors.textPrimary }]}>
-//                                 {format(formData.startDate, 'MMM d, yyyy')}
-//                             </Text>
-//                         </Pressable>
-
-//                         {Platform.OS !== 'web' && showStartDate && (
-//                             <DateTimePicker
-//                                 value={formData.startDate}
-//                                 mode="date"
-//                                 display="default"
-//                                 onChange={(event, selectedDate) => {
-//                                     setShowStartDate(false);
-//                                     if (selectedDate) handleUpdateField('startDate', selectedDate);
-//                                 }}
-//                             />
-//                         )}
-//                         {Platform.OS === 'web' && showStartDate && (
-//                             <WebDateModal
-//                                 currentDate={formData.startDate}
-//                                 onClose={() => setShowStartDate(false)}
-//                                 onSave={(date) => handleUpdateField('startDate', date)}
-//                             />
-//                         )}
-//                     </View>
-
-//                     <View style={[screenStyles.fieldGroup, { flex: 1 }]}>
-//                         <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                             END DATE *
-//                         </Text>
-//                         <Pressable
-//                             onPress={() => { haptics.light(); setShowEndDate(true); }}
-//                             style={({ pressed }) => [
-//                                 screenStyles.dateBtn,
-//                                 { backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
-//                                 pressed && { opacity: 0.7 }
-//                             ]}
-//                         >
-//                             <AppIcon name="calendar" size={15} color="#EA580C" />
-//                             <Text style={[screenStyles.dateText, { color: theme.colors.textPrimary }]}>
-//                                 {format(formData.endDate, 'MMM d, yyyy')}
-//                             </Text>
-//                         </Pressable>
-
-//                         {Platform.OS !== 'web' && showEndDate && (
-//                             <DateTimePicker
-//                                 value={formData.endDate}
-//                                 mode="date"
-//                                 display="default"
-//                                 onChange={(event, selectedDate) => {
-//                                     setShowEndDate(false);
-//                                     if (selectedDate) handleUpdateField('endDate', selectedDate);
-//                                 }}
-//                             />
-//                         )}
-//                         {Platform.OS === 'web' && showEndDate && (
-//                             <WebDateModal
-//                                 currentDate={formData.endDate}
-//                                 onClose={() => setShowEndDate(false)}
-//                                 onSave={(date) => handleUpdateField('endDate', date)}
-//                             />
-//                         )}
-//                     </View>
-//                 </View>
-
-//                 {/* Base Currency */}
-//                 <View style={screenStyles.fieldGroup}>
-//                     <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                         BASE CURRENCY
-//                     </Text>
-//                     <Pressable
-//                         onPress={() => { haptics.light(); setShowCurrencies(!showCurrencies); }}
-//                         style={[
-//                             screenStyles.currencySelectBtn,
-//                             { backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }
-//                         ]}
-//                     >
-//                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-//                             <View style={screenStyles.currencySymbolBadge}>
-//                                 <Text style={screenStyles.currencySymbolText}>
-//                                     {currencies.find((c: any) => c.code === formData.baseCurrency)?.symbol}
-//                                 </Text>
-//                             </View>
-//                             <Text style={[screenStyles.currencyNameText, { color: theme.colors.textPrimary }]}>
-//                                 {currencies.find((c: any) => c.code === formData.baseCurrency)?.name} ({formData.baseCurrency})
-//                             </Text>
-//                         </View>
-//                         <AppIcon name={showCurrencies ? 'chevron-up' : 'chevron-down'} size={16} color={theme.colors.textTertiary} />
-//                     </Pressable>
-
-//                     {showCurrencies && (
-//                         <View style={[screenStyles.currencyDropdown, { backgroundColor: theme.isDark ? '#1E293B' : '#FFFFFF', borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
-//                             <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
-//                                 {currencies.map((c: any) => (
-//                                     <Pressable
-//                                         key={c.code}
-//                                         onPress={() => {
-//                                             haptics.light();
-//                                             handleUpdateField('baseCurrency', c.code);
-//                                             setShowCurrencies(false);
-//                                         }}
-//                                         style={({ hovered }: any) => [
-//                                             screenStyles.currencyOption,
-//                                             formData.baseCurrency === c.code && { backgroundColor: theme.isDark ? 'rgba(234,88,12,0.15)' : '#FFF7ED' },
-//                                             Platform.OS === 'web' && hovered && { opacity: 0.8 }
-//                                         ]}
-//                                     >
-//                                         <Text style={{ fontWeight: '800', color: '#EA580C', width: 28 }}>{c.symbol}</Text>
-//                                         <Text style={{ fontSize: 13, color: theme.colors.textPrimary, flex: 1 }}>{c.name}</Text>
-//                                         <Text style={{ fontSize: 12, color: theme.colors.textTertiary, fontWeight: '700' }}>{c.code}</Text>
-//                                     </Pressable>
-//                                 ))}
-//                             </ScrollView>
-//                         </View>
-//                     )}
-//                 </View>
-
-//                 {/* Total Budget */}
-//                 <View style={screenStyles.fieldGroup}>
-//                     <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                         TOTAL BUDGET (OPTIONAL)
-//                     </Text>
-//                     <View style={[screenStyles.inputBox, { backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-//                         <Text style={{ fontSize: 15, fontWeight: '900', color: '#EA580C', marginRight: 4 }}>
-//                             {currencies.find((c: any) => c.code === formData.baseCurrency)?.symbol}
-//                         </Text>
-//                         <TextInput
-//                             style={[screenStyles.textInput, { color: theme.colors.textPrimary }]}
-//                             placeholder="e.g. 50,000"
-//                             placeholderTextColor={theme.colors.textTertiary}
-//                             value={formData.totalBudget}
-//                             onChangeText={(text) => handleUpdateField('totalBudget', text.replace(/[^0-9]/g, ''))}
-//                             keyboardType="numeric"
-//                         />
-//                     </View>
-
-//                     {/* Quick Budget Chips */}
-//                     <View style={screenStyles.quickBudgetRow}>
-//                         {QUICK_BUDGETS.map((amt) => (
-//                             <Pressable
-//                                 key={amt}
-//                                 onPress={() => handleAddBudget(amt)}
-//                                 style={({ pressed }) => [
-//                                     screenStyles.quickBudgetChip,
-//                                     { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : '#F1F5F9' },
-//                                     pressed && { opacity: 0.6 }
-//                                 ]}
-//                             >
-//                                 <Text style={[screenStyles.quickBudgetText, { color: theme.colors.textSecondary }]}>
-//                                     +₹{(amt / 1000).toFixed(0)}k
-//                                 </Text>
-//                             </Pressable>
-//                         ))}
-//                     </View>
-//                 </View>
-
-//                 {/* Default Split Method */}
-//                 <View style={screenStyles.fieldGroup}>
-//                     <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                         DEFAULT EXPENSE SPLIT
-//                     </Text>
-//                     <View style={screenStyles.splitGrid}>
-//                         {([
-//                             { id: 'equal', label: 'Equal ⚖️' },
-//                             { id: 'percentage', label: 'Percentage 📊' },
-//                             { id: 'exact', label: 'Exact 🔢' },
-//                             { id: 'shares', label: 'Shares 🤝' }
-//                         ] as const).map((m) => {
-//                             const isSelected = formData.defaultSplitMethod === m.id;
-//                             return (
-//                                 <Pressable
-//                                     key={m.id}
-//                                     onPress={() => { haptics.light(); handleUpdateField('defaultSplitMethod', m.id); }}
-//                                     style={({ pressed }: any) => [
-//                                         screenStyles.splitChip,
-//                                         {
-//                                             backgroundColor: isSelected
-//                                                 ? '#EA580C'
-//                                                 : (theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC'),
-//                                             borderColor: isSelected
-//                                                 ? '#EA580C'
-//                                                 : (theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
-//                                         },
-//                                         pressed && { transform: [{ scale: 0.96 }] }
-//                                     ]}
-//                                 >
-//                                     <Text style={[
-//                                         screenStyles.splitChipText,
-//                                         { color: isSelected ? '#FFFFFF' : theme.colors.textPrimary, fontWeight: isSelected ? '800' : '600' }
-//                                     ]}>
-//                                         {m.label}
-//                                     </Text>
-//                                 </Pressable>
-//                             );
-//                         })}
-//                     </View>
-//                 </View>
-
-//                 {/* Allow Anyone to Pay Toggle */}
-//                 <View style={[screenStyles.toggleRow, { borderTopColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <View style={{ flex: 1, paddingRight: 16 }}>
-//                         <Text style={[screenStyles.toggleTitle, { color: theme.colors.textPrimary }]}>
-//                             Allow Anyone to Pay
-//                         </Text>
-//                         <Text style={[screenStyles.toggleSub, { color: theme.colors.textTertiary }]}>
-//                             When enabled, any member can record an expense paid by them or others.
-//                         </Text>
-//                     </View>
-//                     <Pressable
-//                         onPress={() => { haptics.light(); handleUpdateField('allowAnyPayer', !formData.allowAnyPayer); }}
-//                         style={[
-//                             screenStyles.toggleTrack,
-//                             { backgroundColor: formData.allowAnyPayer ? '#10B981' : (theme.isDark ? 'rgba(255,255,255,0.15)' : '#CBD5E1') }
-//                         ]}
-//                     >
-//                         <View style={[
-//                             screenStyles.toggleThumb,
-//                             formData.allowAnyPayer ? { alignSelf: 'flex-end' } : { alignSelf: 'flex-start' }
-//                         ]} />
-//                     </Pressable>
-//                 </View>
-//             </View>
-
-//             {/* Next Step Button */}
-//             <Pressable
-//                 onPress={handleNext}
-//                 style={({ pressed, hovered }: any) => [
-//                     screenStyles.primaryActionBtn,
-//                     Platform.OS === 'web' && hovered && { transform: [{ translateY: -1 }], opacity: 0.95 },
-//                     pressed && { transform: [{ scale: 0.98 }] }
-//                 ]}
-//             >
-//                 <Text style={screenStyles.primaryActionBtnText}>Continue to Members</Text>
-//                 <AppIcon name="arrow-right" size={16} color="#FFFFFF" />
-//             </Pressable>
-//         </View>
-//     );
-
-//     // ── STEP 3: INVITE MEMBERS ──
-//     const renderMembersStep = () => (
-//         <View style={screenStyles.stepBox}>
-//             <View style={screenStyles.stepHeader}>
-//                 <Text style={[screenStyles.stepTitle, { color: theme.colors.textPrimary }]}>
-//                     Invite Trip Members
-//                 </Text>
-//                 <Text style={[screenStyles.stepSubtitle, { color: theme.colors.textSecondary }]}>
-//                     Add friends and co-travelers to split expenses smoothly.
-//                 </Text>
-//             </View>
-
-//             <View style={[
-//                 screenStyles.formCard,
-//                 {
-//                     backgroundColor: theme.isDark ? 'rgba(30, 41, 59, 0.75)' : '#FFFFFF',
-//                     borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
-//                 }
-//             ]}>
-//                 {/* Search Bar */}
-//                 <View style={[screenStyles.inputBox, { backgroundColor: theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <AppIcon name="search" size={16} color={theme.colors.textTertiary} />
-//                     <TextInput
-//                         style={[screenStyles.textInput, { color: theme.colors.textPrimary }]}
-//                         placeholder="Search by name or email..."
-//                         placeholderTextColor={theme.colors.textTertiary}
-//                         value={searchQuery}
-//                         onChangeText={setSearchQuery}
-//                     />
-//                     {searchQuery.length > 0 && (
-//                         <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-//                             <AppIcon name="x" size={15} color={theme.colors.textTertiary} />
-//                         </Pressable>
-//                     )}
-//                 </View>
-
-//                 {isSearching && (
-//                     <View style={screenStyles.searchingWrap}>
-//                         <GlobalLoader variant="inline" size="small" color="#EA580C" />
-//                         <Text style={{ fontSize: 12, color: theme.colors.textTertiary }}>Searching directory...</Text>
-//                     </View>
-//                 )}
-
-//                 {/* Selected Members Rack */}
-//                 {selectedUsers.length > 0 && (
-//                     <View style={screenStyles.selectedMembersBox}>
-//                         <View style={screenStyles.selectedMembersHeader}>
-//                             <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary }]}>
-//                                 INVITED ({selectedUsers.length})
-//                             </Text>
-//                             <Pressable onPress={() => {
-//                                 haptics.light();
-//                                 setSelectedUsers([]);
-//                                 handleUpdateField('memberIds', []);
-//                             }}>
-//                                 <Text style={{ fontSize: 11, fontWeight: '700', color: theme.colors.danger }}>Clear all</Text>
-//                             </Pressable>
-//                         </View>
-//                         <View style={screenStyles.selectedChipsWrap}>
-//                             {selectedUsers.map((user) => {
-//                                 const uid = user._id || user.userId;
-//                                 return (
-//                                     <View key={uid} style={[screenStyles.memberChip, { backgroundColor: theme.isDark ? 'rgba(234, 88, 12, 0.15)' : '#FFF7ED', borderColor: 'rgba(234, 88, 12, 0.3)' }]}>
-//                                         <Avatar size="sm" fallback={user.displayName?.charAt(0) || 'U'} url={user.photoURL} />
-//                                         <Text style={[screenStyles.memberChipName, { color: theme.colors.textPrimary }]}>
-//                                             {user.displayName}
-//                                         </Text>
-//                                         <Pressable
-//                                             onPress={() => {
-//                                                 haptics.light();
-//                                                 setSelectedUsers(prev => prev.filter(u => (u._id || u.userId) !== uid));
-//                                                 handleUpdateField('memberIds', formData.memberIds.filter(id => id !== uid));
-//                                             }}
-//                                             hitSlop={8}
-//                                         >
-//                                             <AppIcon name="x" size={13} color={theme.colors.textSecondary} />
-//                                         </Pressable>
-//                                     </View>
-//                                 );
-//                             })}
-//                         </View>
-//                     </View>
-//                 )}
-
-//                 {/* Search Results */}
-//                 {searchQuery.trim().length >= 2 && searchResults.length > 0 && !isSearching && (
-//                     <View style={screenStyles.userList}>
-//                         {searchResults.map((user: any) => {
-//                             const uid = user._id || user.userId;
-//                             const isSelected = selectedUsers.some(u => (u._id || u.userId) === uid);
-//                             return (
-//                                 <Pressable
-//                                     key={uid}
-//                                     onPress={() => {
-//                                         haptics.light();
-//                                         if (isSelected) {
-//                                             setSelectedUsers(prev => prev.filter(u => (u._id || u.userId) !== uid));
-//                                             handleUpdateField('memberIds', formData.memberIds.filter(id => id !== uid));
-//                                         } else {
-//                                             setSelectedUsers(prev => [...prev, user]);
-//                                             handleUpdateField('memberIds', [...formData.memberIds, uid]);
-//                                         }
-//                                     }}
-//                                     style={({ hovered }: any) => [
-//                                         screenStyles.userItem,
-//                                         {
-//                                             backgroundColor: isSelected
-//                                                 ? (theme.isDark ? 'rgba(234, 88, 12, 0.12)' : '#FFF7ED')
-//                                                 : (theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC'),
-//                                             borderColor: isSelected ? '#EA580C' : (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)')
-//                                         },
-//                                         Platform.OS === 'web' && hovered && !isSelected && { transform: [{ translateY: -1 }] }
-//                                     ]}
-//                                 >
-//                                     <Avatar size="sm" fallback={user.displayName?.charAt(0) || 'U'} url={user.photoURL} />
-//                                     <View style={{ flex: 1, marginLeft: 10 }}>
-//                                         <Text style={[screenStyles.userName, { color: theme.colors.textPrimary }]}>{user.displayName}</Text>
-//                                         {user.email && <Text style={[screenStyles.userEmail, { color: theme.colors.textTertiary }]}>{user.email}</Text>}
-//                                     </View>
-//                                     <View style={[screenStyles.addIconCircle, { backgroundColor: isSelected ? '#EA580C' : (theme.isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0') }]}>
-//                                         <AppIcon name={isSelected ? 'check' : 'plus'} size={13} color={isSelected ? '#FFFFFF' : theme.colors.textSecondary} />
-//                                     </View>
-//                                 </Pressable>
-//                             );
-//                         })}
-//                     </View>
-//                 )}
-
-//                 {/* Quick Add Friends List */}
-//                 {searchQuery.trim().length === 0 && friendsList.length > 0 && (
-//                     <View style={{ marginTop: 12 }}>
-//                         <Text style={[screenStyles.fieldLabel, { color: theme.colors.textSecondary, marginBottom: 8 }]}>
-//                             QUICK ADD FRIENDS ({friendsList.length})
-//                         </Text>
-//                         <View style={screenStyles.userList}>
-//                             {friendsList.map((friend: any) => {
-//                                 const friendId = friend.userId || friend._id;
-//                                 const isSelected = selectedUsers.some(u => (u.userId || u._id) === friendId);
-//                                 return (
-//                                     <Pressable
-//                                         key={friendId}
-//                                         onPress={() => {
-//                                             haptics.light();
-//                                             if (isSelected) {
-//                                                 setSelectedUsers(prev => prev.filter(u => (u.userId || u._id) !== friendId));
-//                                                 handleUpdateField('memberIds', formData.memberIds.filter(id => id !== friendId));
-//                                             } else {
-//                                                 setSelectedUsers(prev => [...prev, { ...friend, _id: friendId }]);
-//                                                 handleUpdateField('memberIds', [...formData.memberIds, friendId]);
-//                                             }
-//                                         }}
-//                                         style={({ hovered }: any) => [
-//                                             screenStyles.userItem,
-//                                             {
-//                                                 backgroundColor: isSelected
-//                                                     ? (theme.isDark ? 'rgba(234, 88, 12, 0.12)' : '#FFF7ED')
-//                                                     : (theme.isDark ? 'rgba(15, 23, 42, 0.6)' : '#F8FAFC'),
-//                                                 borderColor: isSelected ? '#EA580C' : (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)')
-//                                             },
-//                                             Platform.OS === 'web' && hovered && !isSelected && { transform: [{ translateY: -1 }] }
-//                                         ]}
-//                                     >
-//                                         <Avatar size="sm" fallback={friend.displayName?.charAt(0) || 'U'} url={friend.photoURL} />
-//                                         <View style={{ flex: 1, marginLeft: 10 }}>
-//                                             <Text style={[screenStyles.userName, { color: theme.colors.textPrimary }]}>{friend.displayName}</Text>
-//                                             {friend.email && <Text style={[screenStyles.userEmail, { color: theme.colors.textTertiary }]}>{friend.email}</Text>}
-//                                         </View>
-//                                         <View style={[screenStyles.addIconCircle, { backgroundColor: isSelected ? '#EA580C' : (theme.isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0') }]}>
-//                                             <AppIcon name={isSelected ? 'check' : 'plus'} size={13} color={isSelected ? '#FFFFFF' : theme.colors.textSecondary} />
-//                                         </View>
-//                                     </Pressable>
-//                                 );
-//                             })}
-//                         </View>
-//                     </View>
-//                 )}
-//             </View>
-
-//             {/* Next Button */}
-//             <Pressable
-//                 onPress={handleNext}
-//                 style={({ pressed, hovered }: any) => [
-//                     screenStyles.primaryActionBtn,
-//                     Platform.OS === 'web' && hovered && { transform: [{ translateY: -1 }], opacity: 0.95 },
-//                     pressed && { transform: [{ scale: 0.98 }] }
-//                 ]}
-//             >
-//                 <Text style={screenStyles.primaryActionBtnText}>Review & Confirm</Text>
-//                 <AppIcon name="arrow-right" size={16} color="#FFFFFF" />
-//             </Pressable>
-//         </View>
-//     );
-
-//     // ── STEP 4: REVIEW & CREATE ──
-//     const renderReviewStep = () => (
-//         <View style={screenStyles.stepBox}>
-//             <View style={screenStyles.stepHeader}>
-//                 <Text style={[screenStyles.stepTitle, { color: theme.colors.textPrimary }]}>
-//                     Review Your Trip
-//                 </Text>
-//                 <Text style={[screenStyles.stepSubtitle, { color: theme.colors.textSecondary }]}>
-//                     Verify all details before we initialize your workspace.
-//                 </Text>
-//             </View>
-
-//             <View style={[
-//                 screenStyles.formCard,
-//                 {
-//                     backgroundColor: theme.isDark ? 'rgba(30, 41, 59, 0.75)' : '#FFFFFF',
-//                     borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
-//                 }
-//             ]}>
-//                 {formData.template && (
-//                     <View style={[screenStyles.reviewRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                         <Text style={[screenStyles.reviewLabel, { color: theme.colors.textSecondary }]}>Template</Text>
-//                         <View style={[screenStyles.reviewTag, { backgroundColor: theme.isDark ? 'rgba(234, 88, 12, 0.18)' : '#FFF7ED' }]}>
-//                             <Text style={screenStyles.reviewTagText}>
-//                                 {TEMPLATE_META[formData.template]?.emoji || '📍'} {formData.template.toUpperCase()}
-//                             </Text>
-//                         </View>
-//                     </View>
-//                 )}
-
-//                 <View style={[screenStyles.reviewRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <Text style={[screenStyles.reviewLabel, { color: theme.colors.textSecondary }]}>Trip Name</Text>
-//                     <Text style={[screenStyles.reviewValue, { color: theme.colors.textPrimary, fontWeight: '800' }]}>
-//                         {formData.title || '—'}
-//                     </Text>
-//                 </View>
-
-//                 {formData.description ? (
-//                     <View style={[screenStyles.reviewRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                         <Text style={[screenStyles.reviewLabel, { color: theme.colors.textSecondary }]}>Description</Text>
-//                         <Text style={[screenStyles.reviewValue, { color: theme.colors.textSecondary }]} numberOfLines={2}>
-//                             {formData.description}
-//                         </Text>
-//                     </View>
-//                 ) : null}
-
-//                 <View style={[screenStyles.reviewRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <Text style={[screenStyles.reviewLabel, { color: theme.colors.textSecondary }]}>Dates</Text>
-//                     <Text style={[screenStyles.reviewValue, { color: theme.colors.textPrimary, fontWeight: '700' }]}>
-//                         {format(formData.startDate, 'MMM d')} — {format(formData.endDate, 'MMM d, yyyy')}
-//                     </Text>
-//                 </View>
-
-//                 <View style={[screenStyles.reviewRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <Text style={[screenStyles.reviewLabel, { color: theme.colors.textSecondary }]}>Currency</Text>
-//                     <Text style={[screenStyles.reviewValue, { color: theme.colors.textPrimary, fontWeight: '700' }]}>
-//                         {currencies.find((c: any) => c.code === formData.baseCurrency)?.symbol} {formData.baseCurrency}
-//                     </Text>
-//                 </View>
-
-//                 {formData.totalBudget ? (
-//                     <View style={[screenStyles.reviewRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                         <Text style={[screenStyles.reviewLabel, { color: theme.colors.textSecondary }]}>Total Budget</Text>
-//                         <Text style={[screenStyles.reviewValue, { color: '#EA580C', fontWeight: '900' }]}>
-//                             {currencies.find((c: any) => c.code === formData.baseCurrency)?.symbol} {parseInt(formData.totalBudget).toLocaleString()}
-//                         </Text>
-//                     </View>
-//                 ) : null}
-
-//                 <View style={[screenStyles.reviewRow, { borderBottomWidth: 0 }]}>
-//                     <Text style={[screenStyles.reviewLabel, { color: theme.colors.textSecondary }]}>Split Method</Text>
-//                     <Text style={[screenStyles.reviewValue, { color: theme.colors.textPrimary, fontWeight: '700' }]}>
-//                         {formData.defaultSplitMethod.charAt(0).toUpperCase() + formData.defaultSplitMethod.slice(1)}
-//                     </Text>
-//                 </View>
-//             </View>
-
-//             {/* Quick Summary Cards */}
-//             <View style={screenStyles.summaryCardsRow}>
-//                 <View style={[screenStyles.miniSummaryCard, { backgroundColor: theme.isDark ? 'rgba(30, 41, 59, 0.6)' : '#FFFFFF', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <Text style={{ fontSize: 20 }}>📍</Text>
-//                     <View style={{ flex: 1 }}>
-//                         <Text style={[screenStyles.miniSummaryTitle, { color: theme.colors.textPrimary }]}>Stops & Itinerary</Text>
-//                         <Text style={[screenStyles.miniSummarySub, { color: theme.colors.textTertiary }]}>
-//                             {formData.template === 'quick' ? '1 initial stop created automatically.' : 'Add custom stops anytime in trip view.'}
-//                         </Text>
-//                     </View>
-//                 </View>
-
-//                 <View style={[screenStyles.miniSummaryCard, { backgroundColor: theme.isDark ? 'rgba(30, 41, 59, 0.6)' : '#FFFFFF', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <Text style={{ fontSize: 20 }}>👥</Text>
-//                     <View style={{ flex: 1 }}>
-//                         <Text style={[screenStyles.miniSummaryTitle, { color: theme.colors.textPrimary }]}>Members</Text>
-//                         <Text style={[screenStyles.miniSummarySub, { color: theme.colors.textTertiary }]}>
-//                             {selectedUsers.length > 0 ? `${selectedUsers.length} member${selectedUsers.length > 1 ? 's' : ''} invited` : 'You are the admin. Invite co-travelers anytime.'}
-//                         </Text>
-//                     </View>
-//                 </View>
-//             </View>
-
-//             {/* Final Action Buttons */}
-//             <Pressable
-//                 onPress={() => handleCreate('active')}
-//                 disabled={isPending || isSubmitting}
-//                 style={({ pressed, hovered }: any) => [
-//                     screenStyles.primaryActionBtn,
-//                     Platform.OS === 'web' && hovered && { transform: [{ translateY: -1 }], opacity: 0.95 },
-//                     pressed && { transform: [{ scale: 0.98 }] }
-//                 ]}
-//             >
-//                 {isPending || isSubmitting ? (
-//                     <GlobalLoader variant="inline" size="small" color="#FFFFFF" />
-//                 ) : (
-//                     <>
-//                         <AppIcon name="circle-check" size={18} color="#FFFFFF" />
-//                         <Text style={screenStyles.primaryActionBtnText}>Launch Active Trip</Text>
-//                     </>
-//                 )}
-//             </Pressable>
-
-//             <Pressable
-//                 onPress={() => handleCreate('planning')}
-//                 disabled={isPending || isSubmitting}
-//                 style={({ pressed, hovered }: any) => [
-//                     screenStyles.draftBtn,
-//                     { backgroundColor: theme.isDark ? 'rgba(30, 41, 59, 0.6)' : '#FFFFFF', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
-//                     Platform.OS === 'web' && hovered && { opacity: 0.9 },
-//                     pressed && { opacity: 0.7 }
-//                 ]}
-//             >
-//                 <Text style={[screenStyles.draftBtnText, { color: theme.colors.textSecondary }]}>
-//                     Save as Draft (Planning Only)
-//                 </Text>
-//             </Pressable>
-//         </View>
-//     );
-
-//     const renderStepContent = () => {
-//         switch (currentStep) {
-//             case 0: return renderTemplateStep();
-//             case 1: return renderDetailsStep();
-//             case 2: return renderMembersStep();
-//             case 3: return renderReviewStep();
-//             default: return null;
-//         }
-//     };
-
-//     return (
-//         <GlobalBackground>
-//             <KeyboardAvoidingView
-//                 style={screenStyles.container}
-//                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-//             >
-//                 {/* Top Nav Bar */}
-//                 <View style={[screenStyles.topBar, { paddingTop: Math.max(insets.top, 12), borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-//                     <View style={[screenStyles.topBarInner, isWebDesktop && { maxWidth: FORM_MAX_WIDTH, alignSelf: 'center', width: '100%' }]}>
-//                         <Pressable
-//                             onPress={handleBack}
-//                             style={({ pressed }) => [
-//                                 screenStyles.navIconBtn,
-//                                 { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9' },
-//                                 pressed && { opacity: 0.6 }
-//                             ]}
-//                         >
-//                             <AppIcon name="arrow-left" size={18} color={theme.colors.textPrimary} />
-//                         </Pressable>
-
-//                         <Text style={[screenStyles.navTitle, { color: theme.colors.textPrimary }]}>
-//                             {currentStep === 0 ? 'Create a Trip' : (formData.title || 'New Trip')}
-//                         </Text>
-
-//                         <View style={screenStyles.stepCounterPill}>
-//                             <Text style={screenStyles.stepCounterText}>Step {currentStep + 1}/4</Text>
-//                         </View>
-//                     </View>
-//                 </View>
-
-//                 {/* Step Indicator */}
-//                 <StepIndicator currentStep={currentStep} onStepPress={setCurrentStep} />
-
-//                 {/* Main Scroll Content */}
-//                 <ScrollView
-//                     ref={scrollViewRef}
-//                     style={screenStyles.scrollView}
-//                     contentContainerStyle={[
-//                         screenStyles.scrollContent,
-//                         isWebDesktop && { maxWidth: FORM_MAX_WIDTH, alignSelf: 'center', width: '100%' },
-//                         { paddingBottom: Math.max(insets.bottom, 20) + 40 }
-//                     ]}
-//                     showsVerticalScrollIndicator={false}
-//                 >
-//                     {renderStepContent()}
-//                 </ScrollView>
-//             </KeyboardAvoidingView>
-//         </GlobalBackground>
-//     );
-// }
-
-// // ============================================================
-// // Styles
-// // ============================================================
-
-// const screenStyles = StyleSheet.create({
-//     container: { flex: 1 },
-//     topBar: {
-//         paddingHorizontal: 20,
-//         paddingBottom: 12,
-//         borderBottomWidth: 1,
-//     },
-//     topBarInner: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//     },
-//     navIconBtn: {
-//         width: 36,
-//         height: 36,
-//         borderRadius: 10,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//     },
-//     navTitle: {
-//         fontSize: 17,
-//         fontWeight: '900',
-//         letterSpacing: -0.3,
-//     },
-//     stepCounterPill: {
-//         paddingHorizontal: 10,
-//         paddingVertical: 4,
-//         borderRadius: 8,
-//         backgroundColor: 'rgba(234, 88, 12, 0.15)',
-//     },
-//     stepCounterText: {
-//         fontSize: 11,
-//         fontWeight: '800',
-//         color: '#EA580C',
-//     },
-//     scrollView: { flex: 1 },
-//     scrollContent: {
-//         paddingHorizontal: 20,
-//         paddingTop: 8,
-//     },
-//     stepBox: {
-//         width: '100%',
-//         gap: 16,
-//     },
-//     stepHeader: {
-//         marginBottom: 4,
-//     },
-//     stepTitle: {
-//         fontSize: 22,
-//         fontWeight: '900',
-//         letterSpacing: -0.5,
-//     },
-//     stepSubtitle: {
-//         fontSize: 13,
-//         fontWeight: '500',
-//         marginTop: 4,
-//     },
-//     templatesGrid: {
-//         flexDirection: 'row',
-//         flexWrap: 'wrap',
-//         gap: 12,
-//     },
-//     skipBtn: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         gap: 8,
-//         paddingVertical: 14,
-//         borderRadius: 16,
-//         borderWidth: 1.5,
-//         cursor: 'pointer',
-//     } as any,
-//     skipBtnText: {
-//         fontSize: 14,
-//         fontWeight: '800',
-//     },
-//     formCard: {
-//         padding: 20,
-//         borderRadius: 24,
-//         borderWidth: 1.5,
-//         gap: 16,
-//         boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-//     } as any,
-//     fieldGroup: {
-//         gap: 6,
-//     },
-//     fieldLabel: {
-//         fontSize: 11,
-//         fontWeight: '800',
-//         letterSpacing: 0.6,
-//         textTransform: 'uppercase',
-//     },
-//     inputBox: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 10,
-//         paddingHorizontal: 14,
-//         paddingVertical: 11,
-//         borderRadius: 14,
-//         borderWidth: 1,
-//     },
-//     textInput: {
-//         flex: 1,
-//         fontSize: 14,
-//         fontWeight: '600',
-//         padding: 0,
-//     },
-//     notesBox: {
-//         paddingHorizontal: 14,
-//         paddingVertical: 11,
-//         borderRadius: 14,
-//         borderWidth: 1,
-//     },
-//     notesInput: {
-//         fontSize: 13,
-//         fontWeight: '500',
-//         minHeight: 56,
-//         textAlignVertical: 'top',
-//         padding: 0,
-//     },
-//     dateRow: {
-//         flexDirection: 'row',
-//         gap: 12,
-//     },
-//     dateBtn: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 8,
-//         paddingHorizontal: 14,
-//         paddingVertical: 11,
-//         borderRadius: 14,
-//         borderWidth: 1,
-//     },
-//     dateText: {
-//         fontSize: 13,
-//         fontWeight: '700',
-//     },
-//     currencySelectBtn: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//         paddingHorizontal: 14,
-//         paddingVertical: 11,
-//         borderRadius: 14,
-//         borderWidth: 1,
-//     },
-//     currencySymbolBadge: {
-//         paddingHorizontal: 7,
-//         paddingVertical: 2,
-//         borderRadius: 6,
-//         backgroundColor: 'rgba(234, 88, 12, 0.15)',
-//     },
-//     currencySymbolText: {
-//         fontSize: 12,
-//         fontWeight: '900',
-//         color: '#EA580C',
-//     },
-//     currencyNameText: {
-//         fontSize: 13,
-//         fontWeight: '700',
-//     },
-//     currencyDropdown: {
-//         borderRadius: 16,
-//         borderWidth: 1,
-//         overflow: 'hidden',
-//         marginTop: 6,
-//         boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-//     } as any,
-//     currencyOption: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         paddingHorizontal: 14,
-//         paddingVertical: 10,
-//         cursor: 'pointer',
-//     } as any,
-//     quickBudgetRow: {
-//         flexDirection: 'row',
-//         flexWrap: 'wrap',
-//         gap: 6,
-//         marginTop: 4,
-//     },
-//     quickBudgetChip: {
-//         paddingHorizontal: 10,
-//         paddingVertical: 4,
-//         borderRadius: 8,
-//     },
-//     quickBudgetText: {
-//         fontSize: 11,
-//         fontWeight: '700',
-//     },
-//     splitGrid: {
-//         flexDirection: 'row',
-//         flexWrap: 'wrap',
-//         gap: 8,
-//     },
-//     splitChip: {
-//         paddingHorizontal: 12,
-//         paddingVertical: 8,
-//         borderRadius: 12,
-//         borderWidth: 1,
-//         cursor: 'pointer',
-//     } as any,
-//     splitChipText: {
-//         fontSize: 12,
-//     },
-//     toggleRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//         paddingTop: 12,
-//         borderTopWidth: 1,
-//     },
-//     toggleTitle: {
-//         fontSize: 13,
-//         fontWeight: '800',
-//     },
-//     toggleSub: {
-//         fontSize: 11,
-//         fontWeight: '500',
-//         marginTop: 2,
-//     },
-//     toggleTrack: {
-//         width: 48,
-//         height: 28,
-//         borderRadius: 14,
-//         justifyContent: 'center',
-//         padding: 2,
-//     },
-//     toggleThumb: {
-//         width: 24,
-//         height: 24,
-//         borderRadius: 12,
-//         backgroundColor: '#FFFFFF',
-//         boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-//     } as any,
-//     primaryActionBtn: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         gap: 8,
-//         backgroundColor: '#EA580C',
-//         paddingVertical: 15,
-//         borderRadius: 16,
-//         boxShadow: '0 8px 24px rgba(234, 88, 12, 0.4)',
-//         cursor: 'pointer',
-//         marginTop: 4,
-//     } as any,
-//     primaryActionBtnText: {
-//         color: '#FFFFFF',
-//         fontSize: 15,
-//         fontWeight: '800',
-//         letterSpacing: -0.2,
-//     },
-//     searchingWrap: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 8,
-//         paddingVertical: 8,
-//     },
-//     selectedMembersBox: {
-//         gap: 6,
-//     },
-//     selectedMembersHeader: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//     },
-//     selectedChipsWrap: {
-//         flexDirection: 'row',
-//         flexWrap: 'wrap',
-//         gap: 6,
-//     },
-//     memberChip: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 6,
-//         paddingHorizontal: 8,
-//         paddingVertical: 4,
-//         borderRadius: 999,
-//         borderWidth: 1,
-//     },
-//     memberChipName: {
-//         fontSize: 11,
-//         fontWeight: '700',
-//     },
-//     userList: {
-//         gap: 6,
-//     },
-//     userItem: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         padding: 10,
-//         borderRadius: 14,
-//         borderWidth: 1,
-//         cursor: 'pointer',
-//     } as any,
-//     userName: {
-//         fontSize: 13,
-//         fontWeight: '700',
-//     },
-//     userEmail: {
-//         fontSize: 11,
-//     },
-//     addIconCircle: {
-//         width: 26,
-//         height: 26,
-//         borderRadius: 13,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//     },
-//     reviewRow: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         justifyContent: 'space-between',
-//         paddingVertical: 10,
-//         borderBottomWidth: 1,
-//     },
-//     reviewLabel: {
-//         fontSize: 12,
-//         fontWeight: '700',
-//     },
-//     reviewValue: {
-//         fontSize: 13,
-//         maxWidth: '65%',
-//         textAlign: 'right',
-//     },
-//     reviewTag: {
-//         paddingHorizontal: 8,
-//         paddingVertical: 3,
-//         borderRadius: 6,
-//     },
-//     reviewTagText: {
-//         fontSize: 11,
-//         fontWeight: '900',
-//         color: '#EA580C',
-//     },
-//     summaryCardsRow: {
-//         gap: 10,
-//     },
-//     miniSummaryCard: {
-//         flexDirection: 'row',
-//         alignItems: 'center',
-//         gap: 12,
-//         padding: 12,
-//         borderRadius: 16,
-//         borderWidth: 1,
-//     },
-//     miniSummaryTitle: {
-//         fontSize: 13,
-//         fontWeight: '800',
-//     },
-//     miniSummarySub: {
-//         fontSize: 11,
-//         fontWeight: '500',
-//         marginTop: 2,
-//     },
-//     draftBtn: {
-//         paddingVertical: 13,
-//         borderRadius: 16,
-//         borderWidth: 1,
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//         cursor: 'pointer',
-//     } as any,
-//     draftBtnText: {
-//         fontSize: 13,
-//         fontWeight: '700',
-//     }
-// });

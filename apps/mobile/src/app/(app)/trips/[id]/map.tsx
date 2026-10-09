@@ -27,11 +27,13 @@ import {
   LeafletMap,
   LeafletMapRef,
 } from '../../../../components/map/LeafletMap';
+import { MapTravelSuggestions } from '../../../../components/map/MapTravelSuggestions';
 import { useTheme } from '../../../../providers/ThemeProvider';
 import {
   useTrip,
-  useTripExpenses,
+  useInfiniteTripExpenses,
   useDeleteExpensePermanent,
+  useDebounce,
 } from '../../../../hooks';
 import { useAuthStore } from '../../../../stores/auth.store';
 import { haptics } from '../../../../utils/haptics';
@@ -99,16 +101,28 @@ export default function TripMapScreen() {
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: trip } = useTrip(id);
-  const { data: expensesData } = useTripExpenses(id);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
+  const {
+    data: expensesData,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteTripExpenses(id, { search: debouncedSearch });
   const { mutate: deleteExpense } = useDeleteExpensePermanent();
   const user = useAuthStore(state => state.user);
-  const expenses =
-    (expensesData as any)?.expenses ||
-    (Array.isArray(expensesData) ? expensesData : []);
+  const expenses = useMemo(
+    () => (expensesData?.pages || []).flatMap((page: any) => page.expenses),
+    [expensesData],
+  );
   const mapRef = useRef<LeafletMapRef>(null);
 
+  React.useEffect(() => {
+    if (hasNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, fetchNextPage]);
+
   // Filter states
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(
@@ -170,14 +184,13 @@ export default function TripMapScreen() {
       expenses
         .map((e: any) => {
           const stop = stops.find((s: any) => s._id === e.stopId);
-          const lat = e.latitude || e.location?.latitude || stop?.location?.lat;
-          const lng =
-            e.longitude || e.location?.longitude || stop?.location?.lng;
+          const lat = e.location?.latitude || stop?.location?.lat;
+          const lng = e.location?.longitude || stop?.location?.lng;
           return {
             ...e,
             mapLat: lat,
             mapLng: lng,
-            isPrecise: !!(e.latitude || e.location?.latitude),
+            isPrecise: !!e.location?.latitude,
             stopName: stop?.name || 'Main Stop',
           };
         })
@@ -269,11 +282,11 @@ export default function TripMapScreen() {
   const initialRegion = useMemo(() => {
     const allLats = [
       ...stopsWithLocation.map((s: any) => s.location.lat),
-      ...leafletExpenseMarkers.map((e: any) => e.latitude),
+      ...leafletExpenseMarkers.map(e => e.latitude),
     ];
     const allLngs = [
       ...stopsWithLocation.map((s: any) => s.location.lng),
-      ...leafletExpenseMarkers.map((e: any) => e.longitude),
+      ...leafletExpenseMarkers.map(e => e.longitude),
     ];
 
     if (allLats.length === 0)
@@ -297,12 +310,9 @@ export default function TripMapScreen() {
     };
   }, [stopsWithLocation, leafletExpenseMarkers]);
 
-  // Filters
+  // Filters — use ALL expenses for the list (not just ones with map coords)
   const filteredExpenses = useMemo(() => {
-    return expensesWithMapData.filter((e: any) => {
-      const matchesSearch =
-        searchQuery.trim() === '' ||
-        e.title.toLowerCase().includes(searchQuery.toLowerCase());
+    return expenses.filter((e: any) => {
       const matchesCat = selectedCategory
         ? e.category === selectedCategory
         : true;
@@ -310,15 +320,24 @@ export default function TripMapScreen() {
         selectedDay && e.date
           ? format(new Date(e.date), 'yyyy-MM-dd') === selectedDay
           : true;
-      return matchesSearch && matchesCat && matchesDay;
+      const matchesSearch = debouncedSearch
+        ? e.title?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          e.category?.toLowerCase().includes(debouncedSearch.toLowerCase())
+        : true;
+      return matchesCat && matchesDay && matchesSearch;
     });
-  }, [expensesWithMapData, searchQuery, selectedCategory, selectedDay]);
+  }, [expenses, selectedCategory, selectedDay, debouncedSearch]);
 
   const handleExpensePress = (exp: any) => {
     haptics.light();
     setSelectedExpenseId(exp._id);
-    if (exp.mapLat && exp.mapLng && mapRef.current) {
-      mapRef.current.flyTo({ latitude: exp.mapLat, longitude: exp.mapLng }, 15);
+    // Only fly to map if this expense has resolved coordinates (from GPS or stop fallback)
+    const mappedExp = expensesWithMapData.find((e: any) => e._id === exp._id);
+    if (mappedExp?.mapLat && mappedExp?.mapLng && mapRef.current) {
+      mapRef.current.flyTo(
+        { latitude: mappedExp.mapLat, longitude: mappedExp.mapLng },
+        15,
+      );
       mapRef.current.selectMarker(`exp-${exp._id}`);
     }
   };
@@ -345,7 +364,7 @@ export default function TripMapScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <GlobalBackground />
       </View>
 
@@ -375,12 +394,12 @@ export default function TripMapScreen() {
             autoFitOnUpdate={false}
             showControls={false}
             controls={{
-              showZoom: true,
+              showZoom: isWebDesktop,
               showFullscreen: false,
               showLocate: true,
-              showScale: true,
+              showScale: isWebDesktop,
               showAttribution: false,
-              showLayerToggle: true,
+              showLayerToggle: isWebDesktop,
             }}
             onMarkerPress={id => {
               haptics.light();
@@ -452,6 +471,21 @@ export default function TripMapScreen() {
               />
             </Pressable>
           </View>
+
+          {/* Floating Contextual Travel Deals based on Map / GPS Location */}
+          <MapTravelSuggestions
+            trip={trip}
+            stops={stops}
+            selectedStopId={
+              selectedExpenseId
+                ? expenses.find((e: any) => e._id === selectedExpenseId)?.stopId
+                : undefined
+            }
+            selectedExpenseId={selectedExpenseId}
+            expenses={expenses}
+            variant="floating"
+            topOffset={insets.top + (Platform.OS === 'web' ? 68 : 72)}
+          />
 
           {/* Centered Floating Timeline Dock (Desktop/Tablet) */}
           {(isWebDesktop || isWebTablet) && timelineDays.length > 0 && (
@@ -832,6 +866,21 @@ export default function TripMapScreen() {
               contentContainerStyle={styles.expensesListContent}
               showsVerticalScrollIndicator={false}
             >
+              {/* Contextual Travel Recommendations for Active Stop / Location */}
+              <MapTravelSuggestions
+                trip={trip}
+                stops={stops}
+                selectedStopId={
+                  selectedExpenseId
+                    ? expenses.find((e: any) => e._id === selectedExpenseId)
+                        ?.stopId
+                    : undefined
+                }
+                selectedExpenseId={selectedExpenseId}
+                expenses={expenses}
+                variant="embedded"
+              />
+
               {filteredExpenses.length === 0 ? (
                 <Animated.View entering={FadeInDown.duration(300)}>
                   <EmptyState
@@ -844,7 +893,8 @@ export default function TripMapScreen() {
                 <View style={styles.listHeaderRow}>
                   <Typography variant="overline" color="textTertiary">
                     {filteredExpenses.length} EXPENSE
-                    {filteredExpenses.length === 1 ? '' : 'S'} ON MAP
+                    {filteredExpenses.length === 1 ? '' : 'S'} •{' '}
+                    {expensesWithMapData.length} PINNED
                   </Typography>
                   {selectedExpenseId && (
                     <Pressable
@@ -1322,6 +1372,8 @@ const useStyles = () => {
         },
         statCardGlass: {
           flex: 1,
+          minHeight: 68,
+          justifyContent: 'center',
           borderRadius: 14,
           borderWidth: 1,
           borderColor: theme.isDark

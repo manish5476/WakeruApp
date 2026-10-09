@@ -31,9 +31,14 @@ import { useUpdateStop, useTrip } from '../../../../hooks';
 import { useTheme } from '../../../../providers/ThemeProvider';
 import { useThemeStore } from '../../../../stores/theme.store';
 import { haptics } from '../../../../utils/haptics';
+import { showToast } from '../../../../utils/toast';
 import { LeafletMap } from '../../../../components/map/LeafletMap';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { locationApi } from '../../../../services/api/location.api';
+import {
+  COUNTRY_CURRENCY_MAP as DEFAULT_COUNTRY_MAP,
+  getCurrencyInfo,
+} from '../../../../constants/countries';
 
 // Safe web pressable type
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -80,6 +85,8 @@ export default function EditStopScreen() {
   const insets = useSafeAreaInsets();
 
   const { data: trip } = useTrip(tripId);
+  const baseTripCurrency =
+    trip?.baseCurrency || (trip as any)?.currency || 'INR';
   const stop = useMemo(
     () => trip?.stops?.find((s: any) => s._id === stopId || s.id === stopId),
     [trip, stopId],
@@ -97,7 +104,7 @@ export default function EditStopScreen() {
     const map: Record<
       string,
       { currency: string; emoji: string; name: string }
-    > = {};
+    > = { ...DEFAULT_COUNTRY_MAP };
     raw.forEach((c: any) => {
       map[c.code] = { currency: c.currency, emoji: c.emoji, name: c.name };
     });
@@ -184,7 +191,7 @@ export default function EditStopScreen() {
 
   // Derived state
   const selectedCountry = COUNTRY_CURRENCY_MAP[country];
-  const isSameCurrency = currency === 'INR';
+  const isSameCurrency = currency === baseTripCurrency;
 
   // Location search handler
   const handleLocationSearch = (text: string) => {
@@ -217,7 +224,7 @@ export default function EditStopScreen() {
       if (mapped) {
         setCountry(result.countryCode);
         setCurrency(mapped.currency);
-        if (mapped.currency === 'INR') setExchangeRate('1.0');
+        if (mapped.currency === baseTripCurrency) setExchangeRate('1.0');
       }
     }
     if (result.lat && result.lng) {
@@ -239,7 +246,7 @@ export default function EditStopScreen() {
     const countryData = COUNTRY_CURRENCY_MAP[code];
     if (countryData) {
       setCurrency(countryData.currency);
-      if (countryData.currency === 'INR') {
+      if (countryData.currency === baseTripCurrency) {
         setExchangeRate('1.0');
       }
     }
@@ -249,11 +256,11 @@ export default function EditStopScreen() {
   const handleSubmit = () => {
     haptics.medium();
     if (!name.trim()) {
-      Alert.alert('Missing Name', 'Please enter a stop name.');
+      showToast.warning('Missing Name', 'Please enter a stop name.');
       return;
     }
     if (!currency) {
-      Alert.alert(
+      showToast.warning(
         'Missing Currency',
         'Please select a currency for this stop.',
       );
@@ -288,7 +295,7 @@ export default function EditStopScreen() {
           router.back();
         },
         onError: (error: any) => {
-          Alert.alert('Error', error.message || 'Failed to update stop');
+          showToast.fromError(error, 'Failed to update stop');
         },
       },
     );
@@ -300,7 +307,7 @@ export default function EditStopScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Global Background */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <GlobalBackground />
       </View>
 
@@ -908,9 +915,9 @@ export default function EditStopScreen() {
                                     ]}
                                   >
                                     {c.currency}{' '}
-                                    {c.currency !== 'INR'
+                                    {c.currency !== baseTripCurrency
                                       ? '• Foreign'
-                                      : '• Local'}
+                                      : '• Trip Base'}
                                   </Text>
                                 </View>
                                 {isActive && (
@@ -1007,7 +1014,7 @@ export default function EditStopScreen() {
                       ]}
                       placeholder="1.0"
                       placeholderTextColor={theme.colors.textTertiary}
-                      value={exchangeRate}
+                      value={isSameCurrency ? '1.0' : exchangeRate}
                       onChangeText={setExchangeRate}
                       onFocus={() => {
                         haptics.light();
@@ -1017,14 +1024,23 @@ export default function EditStopScreen() {
                       keyboardType="decimal-pad"
                       editable={!isSameCurrency}
                     />
-                    {!isSameCurrency && (
+                    {!isSameCurrency ? (
                       <Text
                         style={[
                           styles.fieldHint,
                           { color: theme.colors.textTertiary },
                         ]}
                       >
-                        1 {currency} = ? INR
+                        1 {currency} = ? {baseTripCurrency}
+                      </Text>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.fieldHint,
+                          { color: theme.colors.primary },
+                        ]}
+                      >
+                        Same as trip base ({baseTripCurrency})
                       </Text>
                     )}
                   </View>
@@ -1085,7 +1101,7 @@ export default function EditStopScreen() {
                         { color: theme.colors.textTertiary },
                       ]}
                     >
-                      {currency === 'INR' ? '₹' : currency}
+                      {getCurrencyInfo(currency).symbol.trim() || currency}
                     </Text>
                     <TextInput
                       style={[

@@ -16,6 +16,8 @@ import {
   useWindowDimensions,
   Modal,
   TouchableWithoutFeedback,
+  Image,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -41,8 +43,10 @@ import {
 import { useTheme } from '../../../../providers/ThemeProvider';
 import { useAuthStore } from '../../../../stores/auth.store';
 import { haptics } from '../../../../utils/haptics';
+import { showToast } from '../../../../utils/toast';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { Badge } from '../../../../components/ui/Badge';
+import { isUserTripAdmin } from '../../../../utils/tripPermissions';
 
 // Safe web pressable type
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -130,7 +134,9 @@ function DateDisplay({
         styles.dateButton,
         {
           borderColor: theme.colors.borderLight,
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.isDark
+            ? 'rgba(255, 255, 255, 0.05)'
+            : 'rgba(0, 0, 0, 0.03)',
         },
         Platform.OS === 'web' &&
           hovered &&
@@ -185,6 +191,8 @@ export default function TripSettingsScreen() {
   const deleteMutation = useDeleteTripPermanent();
   const updateMemberRole = useUpdateMemberRole();
   const removeMember = useRemoveMember();
+  const { user } = useAuthStore();
+  const isTripAdmin = useMemo(() => isUserTripAdmin(trip, user), [trip, user]);
 
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -238,6 +246,13 @@ export default function TripSettingsScreen() {
 
   const handleSave = async () => {
     haptics.medium();
+    if (!isTripAdmin) {
+      showToast.warning(
+        'Read Only',
+        'Only trip admins can save trip settings.',
+      );
+      return;
+    }
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a trip title');
       return;
@@ -262,25 +277,26 @@ export default function TripSettingsScreen() {
           allowOthersToArchiveTrip,
         },
       });
-      Alert.alert('Success', 'Trip settings updated successfully', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (error: any) {
-      Alert.alert(
-        'Error',
-        error?.response?.data?.message || 'Failed to update trip settings',
+      showToast.success(
+        'Settings Saved',
+        'Trip settings updated successfully.',
       );
+      router.back();
+    } catch (error: any) {
+      showToast.fromError(error, 'Failed to Update Settings');
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleArchive = async () => {
+    if (!isTripAdmin && !allowOthersToArchiveTrip) {
+      showToast.warning('Read Only', 'Only trip admins can archive this trip.');
+      return;
+    }
     if (Platform.OS === 'web') {
       if (
+        typeof window !== 'undefined' &&
         window.confirm(
           'This trip will be moved to the Archive tab and hidden from active lists. Are you sure?',
         )
@@ -289,7 +305,7 @@ export default function TripSettingsScreen() {
           await archiveMutation.mutateAsync(id as string);
           router.replace('/(app)/(tabs)/home');
         } catch (e: any) {
-          window.alert(e?.response?.data?.message || 'Failed to archive');
+          showToast.fromError(e, 'Failed to Archive Trip');
         }
       }
       return;
@@ -308,10 +324,7 @@ export default function TripSettingsScreen() {
               await archiveMutation.mutateAsync(id as string);
               router.replace('/(app)/(tabs)/home');
             } catch (e: any) {
-              Alert.alert(
-                'Error',
-                e?.response?.data?.message || 'Failed to archive',
-              );
+              showToast.fromError(e, 'Failed to Archive Trip');
             }
           },
         },
@@ -322,6 +335,7 @@ export default function TripSettingsScreen() {
   const handleUnarchive = async () => {
     if (Platform.OS === 'web') {
       if (
+        typeof window !== 'undefined' &&
         window.confirm(
           'This trip will be restored to your active list. Are you sure?',
         )
@@ -329,7 +343,7 @@ export default function TripSettingsScreen() {
         try {
           await unarchiveMutation.mutateAsync(id as string);
         } catch (e: any) {
-          window.alert(e?.response?.data?.message || 'Failed to unarchive');
+          showToast.fromError(e, 'Failed to Unarchive Trip');
         }
       }
       return;
@@ -347,10 +361,7 @@ export default function TripSettingsScreen() {
             try {
               await unarchiveMutation.mutateAsync(id as string);
             } catch (e: any) {
-              Alert.alert(
-                'Error',
-                e?.response?.data?.message || 'Failed to unarchive',
-              );
+              showToast.fromError(e, 'Failed to Unarchive Trip');
             }
           },
         },
@@ -359,8 +370,16 @@ export default function TripSettingsScreen() {
   };
 
   const handleDeletePermanent = async () => {
+    if (!isTripAdmin) {
+      showToast.warning(
+        'Read Only',
+        'Only trip admins can permanently delete this trip.',
+      );
+      return;
+    }
     if (Platform.OS === 'web') {
       if (
+        typeof window !== 'undefined' &&
         window.confirm(
           'This will permanently delete the trip and all related expenses. This action cannot be undone. Are you sure?',
         )
@@ -369,7 +388,7 @@ export default function TripSettingsScreen() {
           await deleteMutation.mutateAsync(id as string);
           router.replace('/(app)/(tabs)/home');
         } catch (e: any) {
-          window.alert(e?.response?.data?.message || 'Failed to delete');
+          showToast.fromError(e, 'Failed to Delete Trip');
         }
       }
       return;
@@ -388,10 +407,7 @@ export default function TripSettingsScreen() {
               await deleteMutation.mutateAsync(id as string);
               router.replace('/(app)/(tabs)/home');
             } catch (e: any) {
-              Alert.alert(
-                'Error',
-                e?.response?.data?.message || 'Failed to delete',
-              );
+              showToast.fromError(e, 'Failed to Delete Trip');
             }
           },
         },
@@ -515,7 +531,12 @@ export default function TripSettingsScreen() {
                       },
                     ]}
                   >
-                    <Text style={[styles.webModalBtnText, { color: '#FFF' }]}>
+                    <Text
+                      style={[
+                        styles.webModalBtnText,
+                        { color: theme.colors.textInverse },
+                      ]}
+                    >
                       Save
                     </Text>
                   </Pressable>
@@ -528,14 +549,26 @@ export default function TripSettingsScreen() {
     );
   };
 
-  const handleRoleChange = (userId: string, newRole: string) => {
+  const handleRoleChange = async (userId: string, newRole: string) => {
     haptics.light();
-    updateMemberRole.mutate({ tripId: id as string, userId, role: newRole });
+    try {
+      await updateMemberRole.mutateAsync({
+        tripId: id as string,
+        userId,
+        role: newRole,
+      });
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Could not update role';
+      Alert.alert('Role Update Failed', msg);
+    }
   };
 
   const handleRemoveMember = (userId: string, userName: string) => {
     haptics.warning();
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (
         window.confirm(
           `Are you sure you want to remove ${userName} from this trip?`,
@@ -562,7 +595,7 @@ export default function TripSettingsScreen() {
     );
   };
 
-  if (isLoading || !trip) {
+  if (!trip && isLoading) {
     return (
       <View
         style={[
@@ -575,6 +608,51 @@ export default function TripSettingsScreen() {
           size="large"
           color={theme.colors.primary}
         />
+      </View>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { justifyContent: 'center', alignItems: 'center', padding: 24 },
+        ]}
+      >
+        <AppIcon name="alert-circle" size={48} color={theme.colors.warning} />
+        <Text
+          style={{
+            color: theme.colors.textPrimary,
+            fontSize: 18,
+            fontWeight: '700',
+            marginTop: 16,
+          }}
+        >
+          Trip Settings Unavailable
+        </Text>
+        <Text
+          style={{
+            color: theme.colors.textSecondary,
+            fontSize: 14,
+            textAlign: 'center',
+            marginTop: 8,
+          }}
+        >
+          Could not find details for this trip offline.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            marginTop: 24,
+            paddingVertical: 10,
+            paddingHorizontal: 20,
+            backgroundColor: theme.colors.primary,
+            borderRadius: 12,
+          }}
+        >
+          <Text style={{ color: '#FFF', fontWeight: '600' }}>Go Back</Text>
+        </Pressable>
       </View>
     );
   }
@@ -607,7 +685,11 @@ export default function TripSettingsScreen() {
       >
         General Info
       </Text>
-      <GlassCard style={styles.glassCard} intensity={theme.isDark ? 15 : 8}>
+      <GlassCard
+        style={styles.glassCard}
+        padding="none"
+        intensity={theme.isDark ? 20 : 35}
+      >
         <View style={styles.cardInner}>
           <View style={styles.fieldContainer}>
             <Text
@@ -631,7 +713,9 @@ export default function TripSettingsScreen() {
                   borderColor: isTitleFocused
                     ? theme.colors.primary
                     : theme.colors.borderLight,
-                  backgroundColor: theme.colors.surface,
+                  backgroundColor: theme.isDark
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(0, 0, 0, 0.03)',
                 },
                 isTitleFocused && styles.inputFocused,
                 Platform.OS === 'web'
@@ -674,7 +758,9 @@ export default function TripSettingsScreen() {
                   borderColor: isDescFocused
                     ? theme.colors.primary
                     : theme.colors.borderLight,
-                  backgroundColor: theme.colors.surface,
+                  backgroundColor: theme.isDark
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(0, 0, 0, 0.03)',
                 },
                 isDescFocused && styles.inputFocused,
                 Platform.OS === 'web'
@@ -718,7 +804,9 @@ export default function TripSettingsScreen() {
                   borderColor: isCoverFocused
                     ? theme.colors.primary
                     : theme.colors.borderLight,
-                  backgroundColor: theme.colors.surface,
+                  backgroundColor: theme.isDark
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(0, 0, 0, 0.03)',
                 },
                 isCoverFocused && styles.inputFocused,
                 Platform.OS === 'web'
@@ -750,7 +838,11 @@ export default function TripSettingsScreen() {
       >
         Schedule & Status
       </Text>
-      <GlassCard style={styles.glassCard} intensity={theme.isDark ? 15 : 8}>
+      <GlassCard
+        style={styles.glassCard}
+        padding="none"
+        intensity={theme.isDark ? 20 : 35}
+      >
         <View style={styles.cardInner}>
           <View style={styles.dateRow}>
             <DateDisplay
@@ -849,7 +941,9 @@ export default function TripSettingsScreen() {
                       backgroundColor:
                         status === s
                           ? theme.colors.primary
-                          : theme.colors.surface,
+                          : theme.isDark
+                            ? 'rgba(255, 255, 255, 0.05)'
+                            : 'rgba(0, 0, 0, 0.03)',
                     },
                     Platform.OS === 'web' &&
                       hovered &&
@@ -893,15 +987,31 @@ export default function TripSettingsScreen() {
       >
         Member Roles & Access
       </Text>
-      <GlassCard style={styles.glassCard} intensity={theme.isDark ? 15 : 8}>
+      <GlassCard
+        style={styles.glassCard}
+        padding="none"
+        intensity={theme.isDark ? 20 : 35}
+      >
         <View style={styles.cardInner}>
           {trip.members.map((member: any, index: number) => {
-            const isOwner = member.role === 'admin';
+            const isCreator = member.userId === trip.createdBy;
+            const isSelf =
+              member.userId === user?.firebaseUid ||
+              member.userId === (user as any)?._id ||
+              member.userId === (user as any)?.userId;
+            const isModifying =
+              updateMemberRole.isPending &&
+              (updateMemberRole.variables as any)?.userId === member.userId;
+            const avatarUri = member.avatarUrl || member.photoURL;
+            const initials = (member.displayName || 'U')
+              .charAt(0)
+              .toUpperCase();
+
             return (
               <View
                 key={member.userId}
                 style={[
-                  styles.permissionRow,
+                  styles.memberCardRow,
                   {
                     borderBottomWidth:
                       index === trip.members.length - 1 ? 0 : 1,
@@ -909,81 +1019,95 @@ export default function TripSettingsScreen() {
                   },
                 ]}
               >
-                <View style={styles.permissionTextWrap}>
-                  <Text
-                    style={[
-                      styles.permissionTitle,
-                      { color: theme.colors.textPrimary },
-                    ]}
-                  >
-                    {member.displayName || 'Unknown User'}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.permissionDesc,
-                      { color: theme.colors.textTertiary },
-                    ]}
-                  >
-                    Joined {new Date(member.joinedAt).toLocaleDateString()}
-                  </Text>
-                </View>
-
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}
-                >
-                  {isOwner ? (
-                    <Badge label="Admin" variant="primary" />
-                  ) : (
-                    <>
-                      <View style={styles.statusOptions}>
-                        {(['admin', 'member', 'viewer'] as const).map(r => {
-                          const isActive = member.role === r;
-                          return (
-                            <Pressable
-                              key={r}
-                              style={({ hovered }: WebPressableState) => [
-                                styles.statusOption,
-                                { paddingVertical: 4, paddingHorizontal: 8 },
-                                {
-                                  borderColor: isActive
-                                    ? theme.colors.primary
-                                    : theme.colors.borderLight,
-                                  backgroundColor: isActive
-                                    ? theme.colors.primary
-                                    : theme.colors.surface,
-                                },
-                                Platform.OS === 'web' &&
-                                  hovered &&
-                                  !isActive &&
-                                  ({
-                                    backgroundColor: theme.colors.primaryBg,
-                                  } as any),
-                              ]}
-                              onPress={() => handleRoleChange(member.userId, r)}
-                            >
-                              <Text
-                                style={[
-                                  {
-                                    fontSize: 12,
-                                    color: isActive
-                                      ? theme.colors.textInverse
-                                      : theme.colors.textSecondary,
-                                  },
-                                ]}
-                              >
-                                {r.charAt(0).toUpperCase() + r.slice(1)}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
+                <View style={styles.memberTopRow}>
+                  {/* Avatar */}
+                  <View style={styles.memberAvatarWrap}>
+                    {avatarUri ? (
+                      <Image
+                        source={{ uri: avatarUri }}
+                        style={styles.memberAvatarImg}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.memberAvatarFallback,
+                          { backgroundColor: theme.colors.primary },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.memberAvatarInitial,
+                            { color: theme.colors.textInverse },
+                          ]}
+                        >
+                          {initials}
+                        </Text>
                       </View>
+                    )}
+                  </View>
+
+                  {/* Member Info */}
+                  <View style={styles.memberInfoCol}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.permissionTitle,
+                          { color: theme.colors.textPrimary },
+                        ]}
+                      >
+                        {member.displayName || 'Unknown User'}
+                      </Text>
+                      {isCreator && <Badge label="Owner" variant="primary" />}
+                      {isSelf && <Badge label="You" variant="neutral" />}
+                    </View>
+                    <Text
+                      style={[
+                        styles.permissionDesc,
+                        { color: theme.colors.textTertiary },
+                      ]}
+                    >
+                      Joined{' '}
+                      {member.joinedAt
+                        ? format(new Date(member.joinedAt), 'MMM d, yyyy')
+                        : 'Recently'}
+                    </Text>
+                  </View>
+
+                  {/* Right Action / Role Badge */}
+                  <View
+                    style={{ alignItems: 'flex-end', justifyContent: 'center' }}
+                  >
+                    {isCreator ? (
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: theme.colors.textTertiary,
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        Trip Creator
+                      </Text>
+                    ) : isSelf ? (
+                      <Badge
+                        label={
+                          member.role
+                            ? member.role.charAt(0).toUpperCase() +
+                              member.role.slice(1)
+                            : 'Member'
+                        }
+                        variant="neutral"
+                      />
+                    ) : (
                       <Pressable
                         style={({ hovered }: WebPressableState) => [
-                          { padding: 8, borderRadius: 8 },
+                          styles.removeMemberBtn,
                           Platform.OS === 'web' &&
                             hovered &&
                             ({
@@ -996,16 +1120,66 @@ export default function TripSettingsScreen() {
                             member.displayName || 'User',
                           )
                         }
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <AppIcon
                           name="user-minus"
-                          size={18}
+                          size={16}
                           color={theme.colors.danger}
                         />
                       </Pressable>
-                    </>
-                  )}
+                    )}
+                  </View>
                 </View>
+
+                {/* Role Selector for other editable members */}
+                {!isCreator && !isSelf && (
+                  <View style={styles.roleSelectorRow}>
+                    {(['admin', 'member', 'viewer'] as const).map(r => {
+                      const isActive = member.role === r;
+                      return (
+                        <Pressable
+                          key={r}
+                          disabled={isModifying}
+                          style={({ hovered }: WebPressableState) => [
+                            styles.roleOptionBtn,
+                            {
+                              borderColor: isActive
+                                ? theme.colors.primary
+                                : theme.colors.borderLight,
+                              backgroundColor: isActive
+                                ? theme.colors.primary
+                                : theme.isDark
+                                  ? 'rgba(255, 255, 255, 0.05)'
+                                  : 'rgba(0, 0, 0, 0.03)',
+                              opacity: isModifying ? 0.6 : 1,
+                            },
+                            Platform.OS === 'web' &&
+                              hovered &&
+                              !isActive &&
+                              ({
+                                backgroundColor: theme.colors.primaryBg,
+                              } as any),
+                          ]}
+                          onPress={() => handleRoleChange(member.userId, r)}
+                        >
+                          <Text
+                            style={[
+                              styles.roleOptionText,
+                              {
+                                color: isActive
+                                  ? theme.colors.textInverse
+                                  : theme.colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             );
           })}
@@ -1021,7 +1195,11 @@ export default function TripSettingsScreen() {
       >
         Permissions
       </Text>
-      <GlassCard style={styles.glassCard} intensity={theme.isDark ? 15 : 8}>
+      <GlassCard
+        style={styles.glassCard}
+        padding="none"
+        intensity={theme.isDark ? 20 : 35}
+      >
         <View style={styles.cardInner}>
           <View
             style={[
@@ -1057,7 +1235,7 @@ export default function TripSettingsScreen() {
           <View
             style={[
               styles.permissionRow,
-              { borderBottomWidth: 0, paddingBottom: 0 },
+              { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 },
             ]}
           >
             <View style={styles.permissionTextWrap}>
@@ -1097,7 +1275,8 @@ export default function TripSettingsScreen() {
       </Text>
       <GlassCard
         style={[styles.glassCard, { borderColor: theme.colors.danger + '33' }]}
-        intensity={theme.isDark ? 15 : 8}
+        padding="none"
+        intensity={theme.isDark ? 20 : 35}
       >
         <View style={styles.cardInner}>
           {isArchived ? (
@@ -1147,9 +1326,17 @@ export default function TripSettingsScreen() {
                 disabled={deleteMutation.isPending}
               >
                 {deleteMutation.isPending ? (
-                  <GlobalLoader variant="inline" color="#FFF" />
+                  <GlobalLoader
+                    variant="inline"
+                    color={theme.colors.textInverse}
+                  />
                 ) : (
-                  <Text style={styles.dangerButtonText}>
+                  <Text
+                    style={[
+                      styles.dangerButtonText,
+                      { color: theme.colors.textInverse },
+                    ]}
+                  >
                     Delete Permanently
                   </Text>
                 )}
@@ -1172,9 +1359,19 @@ export default function TripSettingsScreen() {
               disabled={archiveMutation.isPending}
             >
               {archiveMutation.isPending ? (
-                <GlobalLoader variant="inline" color="#FFF" />
+                <GlobalLoader
+                  variant="inline"
+                  color={theme.colors.textInverse}
+                />
               ) : (
-                <Text style={styles.dangerButtonText}>Move to Archive</Text>
+                <Text
+                  style={[
+                    styles.dangerButtonText,
+                    { color: theme.colors.textInverse },
+                  ]}
+                >
+                  Move to Archive
+                </Text>
               )}
             </Pressable>
           )}
@@ -1203,9 +1400,16 @@ export default function TripSettingsScreen() {
           style={styles.primaryGradient}
         >
           {isUpdating ? (
-            <GlobalLoader variant="inline" color="#FFF" />
+            <GlobalLoader variant="inline" color={theme.colors.textInverse} />
           ) : (
-            <Text style={styles.primaryButtonText}>Save Changes</Text>
+            <Text
+              style={[
+                styles.primaryButtonText,
+                { color: theme.colors.textInverse },
+              ]}
+            >
+              Save Changes
+            </Text>
           )}
         </LinearGradient>
       </AnimatedPressable>
@@ -1215,29 +1419,31 @@ export default function TripSettingsScreen() {
   return (
     <View style={styles.container}>
       {/* Global Background */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}>
         <GlobalBackground />
       </View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Header */}
         <View
           style={[
             styles.header,
             {
-              paddingTop: insets.top + 16,
+              paddingTop:
+                Math.max(insets.top, StatusBar.currentHeight ?? 38) + 12,
               borderBottomColor: theme.colors.borderLight,
             },
           ]}
         >
           <Pressable
             onPress={() => router.back()}
-            style={({ hovered }: WebPressableState) => [
+            style={({ hovered, pressed }: WebPressableState) => [
               styles.headerBtn,
-              Platform.OS === 'web' && hovered && ({ opacity: 0.6 } as any),
+              pressed && { opacity: 0.7 },
+              Platform.OS === 'web' && hovered && ({ opacity: 0.8 } as any),
             ]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -1254,12 +1460,17 @@ export default function TripSettingsScreen() {
           </Text>
           <Pressable
             style={({ hovered, pressed }: WebPressableState) => [
-              styles.headerBtnEnd,
+              styles.headerSaveBtn,
+              {
+                backgroundColor: isUpdating
+                  ? theme.colors.borderLight
+                  : theme.colors.primary,
+              },
               Platform.OS === 'web' &&
                 hovered &&
                 !isUpdating &&
-                ({ opacity: 0.8 } as any),
-              pressed && !isUpdating && { opacity: 0.6 },
+                ({ opacity: 0.9 } as any),
+              pressed && !isUpdating && { opacity: 0.8 },
             ]}
             onPress={handleSave}
             disabled={isUpdating}
@@ -1269,11 +1480,14 @@ export default function TripSettingsScreen() {
               <GlobalLoader
                 variant="inline"
                 size="small"
-                color={theme.colors.primary}
+                color={theme.colors.textInverse}
               />
             ) : (
               <Text
-                style={[styles.headerSaveText, { color: theme.colors.primary }]}
+                style={[
+                  styles.headerSaveText,
+                  { color: theme.colors.textInverse },
+                ]}
               >
                 Save
               </Text>
@@ -1342,10 +1556,25 @@ const useStyles = () => {
           borderBottomWidth: 1,
           borderBottomColor: theme.colors.borderLight,
         },
-        headerBtn: { width: 50, alignItems: 'flex-start' },
-        headerBtnEnd: { width: 50, alignItems: 'flex-end' },
-        headerTitle: { fontSize: 16, fontWeight: '800' },
-        headerSaveText: { fontSize: 15, fontWeight: '700' },
+        headerBtn: {
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: theme.isDark
+            ? 'rgba(255, 255, 255, 0.10)'
+            : 'rgba(0, 0, 0, 0.06)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        headerSaveBtn: {
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          borderRadius: 12,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        headerTitle: { fontSize: 17, fontWeight: '800' },
+        headerSaveText: { fontSize: 14, fontWeight: '700' },
 
         content: { flex: 1 },
         contentInner: { paddingHorizontal: 20, paddingTop: 24 },
@@ -1377,9 +1606,9 @@ const useStyles = () => {
           overflow: 'hidden',
           borderWidth: 1,
           borderColor: theme.isDark
-            ? 'rgba(255,255,255,0.06)'
-            : 'rgba(255,255,255,0.2)',
-          marginBottom: 32,
+            ? 'rgba(255,255,255,0.08)'
+            : 'rgba(0,0,0,0.05)',
+          marginBottom: 24,
         },
         cardInner: { padding: 20 },
 
@@ -1460,6 +1689,73 @@ const useStyles = () => {
         } as any,
         statusOptionText: { fontSize: 12, fontWeight: '700' },
 
+        // Member Management Rows
+        memberCardRow: {
+          paddingBottom: 16,
+          marginBottom: 16,
+        },
+        memberTopRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        },
+        memberAvatarWrap: {
+          position: 'relative',
+        },
+        memberAvatarImg: {
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+        },
+        memberAvatarFallback: {
+          width: 42,
+          height: 42,
+          borderRadius: 21,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        memberAvatarInitial: {
+          fontSize: 16,
+          fontWeight: '800',
+        },
+        memberInfoCol: {
+          flex: 1,
+          gap: 2,
+        },
+        removeMemberBtn: {
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: `${theme.colors.danger}15`,
+        },
+        roleSelectorRow: {
+          flexDirection: 'row',
+          gap: 8,
+          marginTop: 12,
+          width: '100%',
+        },
+        roleOptionBtn: {
+          flex: 1,
+          paddingVertical: 8,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderRadius: 10,
+          ...(Platform.OS === 'web'
+            ? {
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
+              }
+            : {}),
+        } as any,
+        roleOptionText: {
+          fontSize: 12,
+          fontWeight: '700',
+        },
+
         // Permissions Toggles
         permissionRow: {
           flexDirection: 'row',
@@ -1517,7 +1813,7 @@ const useStyles = () => {
             : {}),
         } as any,
         dangerButtonText: {
-          color: '#FFF',
+          color: theme.colors.textInverse,
           fontSize: 13,
           fontWeight: '800',
           letterSpacing: 0.5,
@@ -1540,7 +1836,7 @@ const useStyles = () => {
           justifyContent: 'center',
         },
         primaryButtonText: {
-          color: '#FFF',
+          color: theme.colors.textInverse,
           fontSize: 16,
           fontWeight: '800',
           letterSpacing: 0.5,

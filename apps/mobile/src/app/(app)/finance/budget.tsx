@@ -170,6 +170,7 @@ function BentoHeroCard({
                   amount={currentSpent}
                   currency="INR"
                   size="md"
+                  compact
                   variant="default"
                 />
               </View>
@@ -186,6 +187,7 @@ function BentoHeroCard({
                   amount={Math.abs(budgetRemaining)}
                   currency="INR"
                   size="md"
+                  compact
                   variant={budgetRemaining < 0 ? 'negative' : 'positive'}
                 />
               </View>
@@ -309,20 +311,20 @@ function TopSpendingCard({
                 : '0';
             return (
               <View key={category.id} style={{ flex: 1, minWidth: 0 }}>
-                <GlassCard variant="subtle" padding="md">
-                  <View style={{ gap: theme.spacing[3] }}>
+                <GlassCard variant="subtle" padding="sm">
+                  <View style={{ gap: theme.spacing[2] }}>
                     <View
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
-                        gap: theme.spacing[3],
+                        gap: theme.spacing[2],
                       }}
                     >
                       <View
                         style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: theme.borderRadius.full,
+                          width: 32,
+                          height: 32,
+                          borderRadius: theme.borderRadius.md,
                           backgroundColor: `${category.color}20`,
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -330,7 +332,7 @@ function TopSpendingCard({
                       >
                         <AppIcon
                           name={category.icon as any}
-                          size={18}
+                          size={15}
                           color={category.color}
                         />
                       </View>
@@ -351,7 +353,8 @@ function TopSpendingCard({
                     <AmountDisplay
                       amount={category.spent}
                       currency="INR"
-                      size="md"
+                      size="sm"
+                      compact
                       variant="default"
                     />
                   </View>

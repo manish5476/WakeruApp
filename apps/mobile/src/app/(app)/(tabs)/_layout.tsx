@@ -20,7 +20,7 @@ import { useTheme } from '../../../providers/ThemeProvider';
 import AppIcon from '../../../components/common/AppIcon';
 import { haptics } from '../../../utils/haptics';
 import type { Theme } from '../../../theme';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 // ============================================================
 // SIDEBAR MENU CONTEXT — exposes openSidebar to the bottom bar
@@ -51,7 +51,12 @@ const BOTTOM_NAV_ITEMS: TabNavItem[] = [
     icon: 'arrow-left-right',
     routeName: 'expenses',
   },
-  { key: 'finance', label: 'Budget', icon: 'wallet', routeName: 'finance' },
+  {
+    key: 'notifications',
+    label: 'Alerts',
+    icon: 'bell',
+    routeName: 'notifications',
+  },
   { key: 'profile', label: 'Profile', icon: 'user', routeName: 'profile' },
 ];
 
@@ -84,16 +89,17 @@ function CustomBottomTabBar({
       : Math.max(insets.bottom, 18);
   const styles = tabStyles(theme, bottomInset);
 
+  const showAllLabels = width >= 520;
+
   return (
     <View style={styles.floatingWrapper} pointerEvents="box-none">
       <View style={styles.barContainer}>
-        {/* Glass blur (native only) */}
-        {Platform.OS !== 'web' && (
+        {/* Glass blur (iOS only) */}
+        {Platform.OS === 'ios' && (
           <BlurView
             tint={theme.isDark ? 'dark' : 'light'}
             intensity={theme.glass.blur || 35}
             style={StyleSheet.absoluteFill}
-            experimentalBlurMethod="dimezisBlurView"
           />
         )}
         <View style={styles.glassTint} />
@@ -120,13 +126,7 @@ function CustomBottomTabBar({
         )}
 
         {/* ── Tab pills ── */}
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+        <View style={styles.tabsRow}>
           {BOTTOM_NAV_ITEMS.map(item => {
             const isExternal = item.isExternalRoute;
             const isFocused = isExternal
@@ -135,7 +135,7 @@ function CustomBottomTabBar({
                 !pathname.includes('/profile/dashboard');
 
             const badge =
-              item.key === 'profile' && unreadCount > 0
+              item.key === 'notifications' && unreadCount > 0
                 ? unreadCount
                 : undefined;
 
@@ -160,6 +160,8 @@ function CustomBottomTabBar({
                 }
               }
             };
+
+            const shouldShowLabel = isFocused || showAllLabels;
 
             return (
               <Pressable
@@ -192,19 +194,21 @@ function CustomBottomTabBar({
                     </View>
                   )}
                 </View>
-                <Text
-                  style={[
-                    styles.tabText,
-                    isFocused ? styles.tabTextActive : styles.tabTextInactive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
+                {shouldShowLabel && (
+                  <Text
+                    style={[
+                      styles.tabText,
+                      isFocused ? styles.tabTextActive : styles.tabTextInactive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.label}
+                  </Text>
+                )}
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -222,7 +226,8 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      tabBar={(props: any) => <CustomBottomTabBar {...props} />}
+      initialRouteName="dashboard"
+      tabBar={(props: BottomTabBarProps) => <CustomBottomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen
@@ -254,6 +259,14 @@ export default function TabLayout() {
           title: '',
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{ title: 'Alerts' }}
+        listeners={{
+          focus: () =>
+            queryClient.invalidateQueries({ queryKey: ['notifications'] }),
         }}
       />
       <Tabs.Screen
@@ -303,16 +316,20 @@ function tabStyles(theme: Theme, bottomInset: number) {
       borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)',
       ...theme.shadows.lg,
       shadowColor: '#000',
-      shadowOpacity: theme.isDark ? 0.45 : 0.12,
-      shadowOffset: { width: 0, height: 8 },
-      shadowRadius: 20,
-      elevation: 12,
+      shadowOpacity: theme.isDark ? 0.35 : 0.1,
+      shadowOffset: { width: 0, height: 6 },
+      shadowRadius: 16,
+      ...(Platform.OS === 'android' ? {} : { elevation: 12 }),
     },
     glassTint: {
       ...StyleSheet.absoluteFill,
       backgroundColor: theme.isDark
-        ? 'rgba(22,22,28,0.85)'
-        : 'rgba(255,255,255,0.88)',
+        ? Platform.OS === 'android'
+          ? 'rgba(15, 23, 42, 0.65)'
+          : 'rgba(22,22,28,0.75)'
+        : Platform.OS === 'android'
+          ? 'rgba(255,255,255,0.72)'
+          : 'rgba(255,255,255,0.80)',
       ...(Platform.OS === 'web'
         ? { backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }
         : {}),
@@ -334,22 +351,23 @@ function tabStyles(theme: Theme, bottomInset: number) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    scrollContent: {
+    tabsRow: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 6,
-      gap: 2,
-      minWidth: '100%',
+      justifyContent: 'space-around',
+      paddingHorizontal: 4,
+      height: '100%',
     },
     tabPill: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
       borderRadius: 22,
       gap: 5,
-      minHeight: 40,
+      minHeight: 38,
     },
     tabPillActive: {
       backgroundColor: theme.colors.primary,

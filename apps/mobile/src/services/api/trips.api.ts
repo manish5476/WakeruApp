@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from './client';
+import apiClient, { ApiResponse, PaginatedResponse } from './client';
 import { ITrip } from '../../types/trip.types';
 import { IContact, ITravelPlan } from '../../types/travelPlan.types';
 
@@ -169,6 +169,12 @@ export const tripsApi = {
   // ───────────────────────────────────────────────────────────────────────────
   // INVITES API
   // ───────────────────────────────────────────────────────────────────────────
+
+  getTripPreview: async (
+    inviteCode: string,
+  ): Promise<ApiResponse<{ trip: any }>> => {
+    return apiClient.get(`/trips/join/${inviteCode}`);
+  },
 
   joinTrip: async (
     inviteCode: string,
@@ -388,6 +394,17 @@ export const tripsApi = {
     data: any,
   ): Promise<ApiResponse<{ plan: ITravelPlan }>> => {
     return apiClient.post(`/trips/${tripId}/plan/transport`, data);
+  },
+
+  updateTransport: async (
+    tripId: string,
+    transportId: string,
+    data: any,
+  ): Promise<ApiResponse<{ plan: ITravelPlan }>> => {
+    return apiClient.patch(
+      `/trips/${tripId}/plan/transport/${transportId}`,
+      data,
+    );
   },
 
   deleteTransport: async (

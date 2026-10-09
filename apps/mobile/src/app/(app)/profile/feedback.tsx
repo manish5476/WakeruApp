@@ -106,7 +106,7 @@ export default function GiveFeedbackScreen() {
     });
 
     if (!result.canceled && result.assets) {
-      const newUris = result.assets.map((a: any) => a.uri);
+      const newUris = result.assets.map(a => a.uri);
       setAttachments(prev => [...prev, ...newUris].slice(0, 3));
     }
   };
@@ -252,7 +252,6 @@ export default function GiveFeedbackScreen() {
           <BlurView
             intensity={isDesktop ? 20 : 0}
             style={StyleSheet.absoluteFill}
-            experimentalBlurMethod="dimezisBlurView"
           />
           <Pressable style={styles.backdrop} onPress={() => router.back()} />
 

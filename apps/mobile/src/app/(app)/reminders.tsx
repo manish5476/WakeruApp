@@ -24,6 +24,7 @@ import { haptics } from '../../utils/haptics';
 import AppIcon from '../../components/common/AppIcon';
 import GlobalLoader from '../../components/common/GlobalLoader';
 import { GlobalBackground } from '../../components/ui/GlobalBackground';
+import { GlassCard } from '../../components/ui/GlassCard';
 
 import {
   ReminderAPIModel,
@@ -94,23 +95,38 @@ export default function RemindersScreen() {
   // Mutations
   const pauseMutation = useMutation({
     mutationFn: (id: string) => remindersApi.pause(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
   });
 
   const resumeMutation = useMutation({
     mutationFn: (id: string) => remindersApi.resume(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
   });
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => remindersApi.cancel(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
   });
 
   const pingMutation = useMutation({
     mutationFn: (data: any) => remindersApi.pingUser(data),
     onSuccess: () => {
       haptics.success();
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       Alert.alert('Ping Sent!', 'They have been reminded successfully.');
     },
   });
@@ -495,11 +511,9 @@ export default function RemindersScreen() {
             </View>
 
             {/* ── SLEEK SEARCH & FILTER TOOLBAR ── */}
-            <View
-              style={[
-                styles.toolbarContainer,
-                { backgroundColor: theme.colors.surface },
-              ]}
+            <GlassCard
+              style={styles.toolbarContainer}
+              intensity={theme.isDark ? 15 : 10}
             >
               {/* Search Bar */}
               <View
@@ -538,7 +552,11 @@ export default function RemindersScreen() {
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filterPillsRow}
+                style={{ marginHorizontal: -4 }}
+                contentContainerStyle={[
+                  styles.filterPillsRow,
+                  { paddingHorizontal: 4, paddingRight: 16 },
+                ]}
               >
                 {FILTER_PILLS.map(pill => {
                   const isActive = activeFilter === pill.key;
@@ -560,7 +578,9 @@ export default function RemindersScreen() {
                         name={pill.icon as any}
                         size={12}
                         color={
-                          isActive ? '#FFFFFF' : theme.colors.textSecondary
+                          isActive
+                            ? theme.colors.textInverse
+                            : theme.colors.textSecondary
                         }
                       />
                       <Text
@@ -568,7 +588,7 @@ export default function RemindersScreen() {
                           styles.filterPillText,
                           {
                             color: isActive
-                              ? '#FFFFFF'
+                              ? theme.colors.textInverse
                               : theme.colors.textSecondary,
                             fontWeight: isActive ? '800' : '600',
                           },
@@ -580,7 +600,7 @@ export default function RemindersScreen() {
                   );
                 })}
               </ScrollView>
-            </View>
+            </GlassCard>
 
             {/* ── TIMELINE SECTIONS & BALANCED GRID ── */}
             {sections.length === 0 ? (
@@ -639,18 +659,17 @@ export default function RemindersScreen() {
 
         {/* Floating Action Button (Mobile Only) */}
         {!isDesktop && (
-          <View style={[styles.fabContainer, { bottom: insets.bottom + 20 }]}>
-            <ReminderFAB
-              onPress={() => {
-                haptics.light();
-                setShowCreate(true);
-              }}
-              onLongPress={() => {
-                haptics.light();
-                setShowCreate(true);
-              }}
-            />
-          </View>
+          <ReminderFAB
+            style={{ bottom: Math.max(insets.bottom, 16) + 16 }}
+            onPress={() => {
+              haptics.light();
+              setShowCreate(true);
+            }}
+            onLongPress={() => {
+              haptics.light();
+              setShowCreate(true);
+            }}
+          />
         )}
 
         <CreateReminderModal
@@ -682,11 +701,17 @@ function createStyles(theme: Theme) {
     headerBar: {
       paddingHorizontal: 16,
       paddingBottom: 12,
+      backgroundColor: theme.isDark
+        ? 'rgba(15, 23, 42, 0.88)'
+        : 'rgba(255, 255, 255, 0.90)',
       borderBottomWidth: 1,
       borderBottomColor: theme.isDark
-        ? 'rgba(255,255,255,0.06)'
-        : 'rgba(0,0,0,0.04)',
-      zIndex: 10,
+        ? 'rgba(255,255,255,0.08)'
+        : 'rgba(0,0,0,0.05)',
+      zIndex: 50,
+      ...(Platform.OS === 'web'
+        ? { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }
+        : {}),
     },
     headerInner: {
       flexDirection: 'row',
@@ -710,7 +735,10 @@ function createStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.06)'
+        : 'rgba(0,0,0,0.04)',
     },
     headerTitle: {
       fontSize: 18,
@@ -734,7 +762,10 @@ function createStyles(theme: Theme) {
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
-      borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+      backgroundColor: theme.isDark
+        ? 'rgba(255,255,255,0.06)'
+        : 'rgba(0,0,0,0.04)',
     },
     desktopCreateBtn: {
       flexDirection: 'row',
@@ -966,8 +997,10 @@ function createStyles(theme: Theme) {
       alignItems: 'center',
       gap: 10,
       paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingVertical: 9,
       borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
     },
     searchInput: {
       flex: 1,
@@ -985,11 +1018,12 @@ function createStyles(theme: Theme) {
       alignItems: 'center',
       gap: 6,
       paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingVertical: 7,
       borderRadius: 999,
+      flexShrink: 0,
     },
     filterPillText: {
-      fontSize: 11,
+      fontSize: 12,
     },
 
     // Timeline Sections
@@ -1049,328 +1083,4 @@ function createStyles(theme: Theme) {
       zIndex: 100,
     },
   });
-} // import React, { useState, useMemo } from 'react';
-// import {
-//     View,
-//     StyleSheet,
-//     Platform,
-//     Alert,
-//     RefreshControl,
-//     ScrollView,
-// } from 'react-native';
-// import { router } from 'expo-router';
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-// import { remindersApi } from '../../services/api/reminders.api';
-// import { useIncomingReminders } from '../../hooks/useReminders';
-// import { useTheme } from '../../providers/ThemeProvider';
-// import { useResponsive } from '../../hooks/useResponsive';
-// import { haptics } from '../../utils/haptics';
-
-// import AppIcon from '../../components/common/AppIcon';
-// import GlobalLoader from '../../components/common/GlobalLoader';
-// import { GlobalBackground } from '../../components/ui/GlobalBackground';
-// import { Typography } from '../../components/ui/Typography';
-// import { GlassCard } from '../../components/ui/GlassCard';
-// import { Grid } from '../../components/ui/Grid';
-// import { InteractiveWrapper } from '../../components/ui/InteractiveWrapper';
-
-// import { ReminderAPIModel, calculateCompletionRate, groupRemindersByTimeline, TimelineGroup } from '../../utils/reminder.utils';
-
-// import { ReminderSummaryCard } from '../../components/reminders/ReminderSummaryCard';
-// import { ReminderInsights } from '../../components/reminders/ReminderInsights';
-// import { ReminderFilterBar } from '../../components/reminders/ReminderFilterBar';
-// import { ReminderSearchBar } from '../../components/reminders/ReminderSearchBar';
-// import { ReminderCard } from '../../components/reminders/ReminderCard';
-// import { PaymentReminderCard } from '../../components/reminders/PaymentReminderCard';
-// import { ReminderEmptyState } from '../../components/reminders/ReminderEmptyState';
-// import { ReminderFAB } from '../../components/reminders/ReminderFAB';
-// import { CreateReminderModal } from './CreateReminderModal';
-
-// import type { Theme } from '../../theme';
-
-// export default function RemindersScreen() {
-//     const theme = useTheme();
-//     const styles = useMemo(() => createStyles(theme), [theme]);
-//     const insets = useSafeAreaInsets();
-//     const queryClient = useQueryClient();
-
-//     const { isDesktop, isTablet, width } = useResponsive();
-
-//     // State
-//     const [searchQuery, setSearchQuery] = useState('');
-//     const [activeFilter, setActiveFilter] = useState('All');
-//     const [showCreate, setShowCreate] = useState(false);
-
-//     // Queries
-//     const { data: remindersData, isLoading, refetch } = useQuery({
-//         queryKey: ['reminders'],
-//         queryFn: () => remindersApi.getMyReminders()
-//     });
-
-//     const { data: incomingRemindersData, isLoading: isLoadingIncoming, refetch: refetchIncoming } = useIncomingReminders();
-
-//     const handleRefetch = () => {
-//         refetch();
-//         refetchIncoming();
-//     };
-
-//     const allReminders: ReminderAPIModel[] = useMemo(() => {
-//         const myReminders = remindersData?.data?.reminders || [];
-//         const incomingReminders = incomingRemindersData || [];
-//         const combined = [...myReminders, ...incomingReminders];
-//         return Array.from(new Map(combined.map(item => [item._id, item])).values());
-//     }, [remindersData, incomingRemindersData]);
-
-//     // Mutations
-//     const pauseMutation = useMutation({
-//         mutationFn: (id: string) => remindersApi.pause(id),
-//         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] })
-//     });
-
-//     const resumeMutation = useMutation({
-//         mutationFn: (id: string) => remindersApi.resume(id),
-//         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] })
-//     });
-
-//     const cancelMutation = useMutation({
-//         mutationFn: (id: string) => remindersApi.cancel(id),
-//         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] })
-//     });
-
-//     const pingMutation = useMutation({
-//         mutationFn: (data: any) => remindersApi.pingUser(data),
-//         onSuccess: () => {
-//             haptics.success();
-//             Alert.alert('Ping Sent!', 'They have been reminded successfully.');
-//         }
-//     });
-
-//     // Filtering & Searching
-//     const filteredReminders = useMemo(() => {
-//         let filtered = [...allReminders];
-//         if (searchQuery.trim()) {
-//             const query = searchQuery.toLowerCase();
-//             filtered = filtered.filter(r =>
-//                 r.title.toLowerCase().includes(query) ||
-//                 r.message.toLowerCase().includes(query) ||
-//                 (r.targetUserName && r.targetUserName.toLowerCase().includes(query)) ||
-//                 (r.tripName && r.tripName.toLowerCase().includes(query))
-//             );
-//         }
-//         switch (activeFilter) {
-//             case 'Active': filtered = filtered.filter(r => r.status === 'active'); break;
-//             case 'Completed': filtered = filtered.filter(r => r.status === 'completed'); break;
-//             case 'Paused': filtered = filtered.filter(r => r.status === 'paused'); break;
-//             case 'Cancelled': filtered = filtered.filter(r => r.status === 'cancelled'); break;
-//             case 'Payment': filtered = filtered.filter(r => r.type === 'payment' || r.type === 'settlement'); break;
-//             case 'Custom': filtered = filtered.filter(r => r.type === 'custom'); break;
-//             case 'Recurring': filtered = filtered.filter(r => r.frequency !== 'once'); break;
-//             case 'One Time': filtered = filtered.filter(r => r.frequency === 'once'); break;
-//             case 'High Priority': filtered = filtered.filter(r => r.escalationLevel >= 2); break;
-//             default: break;
-//         }
-//         return filtered;
-//     }, [allReminders, searchQuery, activeFilter]);
-
-//     const sections = useMemo(() => {
-//         const grouped = groupRemindersByTimeline(filteredReminders);
-//         const order: TimelineGroup[] = ['Overdue', 'Today', 'Tomorrow', 'This Week', 'Later', 'Completed', 'Paused', 'Cancelled'];
-//         return order
-//             .filter(key => grouped[key] && grouped[key].length > 0)
-//             .map(key => ({ title: key, data: grouped[key] }));
-//     }, [filteredReminders]);
-
-//     const completionRate = useMemo(() => calculateCompletionRate(allReminders), [allReminders]);
-
-//     // Render Helpers
-//     const renderItem = ({ item, index }: { item: ReminderAPIModel, index: number }) => {
-//         const handleCancel = () => {
-//             Alert.alert('Cancel Reminder', 'Are you sure?', [
-//                 { text: 'No', style: 'cancel' },
-//                 { text: 'Yes', onPress: () => cancelMutation.mutate(item._id), style: 'destructive' }
-//             ]);
-//         };
-
-//         const handlePing = () => {
-//             if (item.targetUserId) {
-//                 pingMutation.mutate({
-//                     targetUserId: item.targetUserId,
-//                     amount: 0,
-//                     tripName: item.tripName || 'Trip',
-//                     message: item.message,
-//                     expenseTitle: item.title
-//                 });
-//             }
-//         };
-
-//         if (item.type === 'payment' || item.type === 'settlement') {
-//             return (
-//                 <PaymentReminderCard
-//                     key={item._id}
-//                     reminder={item}
-//                     index={index}
-//                     onDone={() => cancelMutation.mutate(item._id)}
-//                     onPing={handlePing}
-//                 />
-//             );
-//         }
-
-//         return (
-//             <ReminderCard
-//                 key={item._id}
-//                 reminder={item}
-//                 index={index}
-//                 onDone={() => cancelMutation.mutate(item._id)}
-//                 onPause={() => pauseMutation.mutate(item._id)}
-//                 onResume={() => resumeMutation.mutate(item._id)}
-//                 onCancel={handleCancel}
-//             />
-//         );
-//     };
-
-//     if (isLoading) {
-//         return (
-//             <GlobalBackground>
-//                 <View style={styles.loadingContainer}>
-//                     <GlobalLoader variant="inline" size="large" color={theme.colors.primary} />
-//                     <Typography variant="bodySm" color="textSecondary" style={{ marginTop: theme.spacing[3] }}>
-//                         Loading reminders…
-//                     </Typography>
-//                 </View>
-//             </GlobalBackground>
-//         );
-//     }
-
-//     return (
-//         <GlobalBackground>
-//             <View style={styles.container}>
-//                 <ScrollView
-//                     style={styles.scrollView}
-//                     contentContainerStyle={[
-//                         styles.listContent,
-//                         { paddingTop: insets.top + theme.spacing[3] },
-//                     ]}
-//                     showsVerticalScrollIndicator={false}
-//                     refreshControl={
-//                         <RefreshControl
-//                             refreshing={isLoading || isLoadingIncoming}
-//                             onRefresh={handleRefetch}
-//                             tintColor={theme.colors.primary}
-//                         />
-//                     }
-//                 >
-//                     <View style={[styles.maxWidthContainer, { paddingHorizontal: isDesktop ? theme.spacing[8] : theme.spacing[4] }]}>
-
-//                         {/* ── HEADER ── */}
-//                         <View style={styles.headerRow}>
-//                             <InteractiveWrapper onPress={() => { haptics.light(); router.back(); }} hoverElevation={false}>
-//                                 <GlassCard variant="subtle" padding="sm" style={styles.headerBackBtn}>
-//                                     <AppIcon name="arrow-left" size={24} color={theme.colors.textPrimary} />
-//                                 </GlassCard>
-//                             </InteractiveWrapper>
-//                             <Typography variant="h2" weight="extrabold" color="textPrimary" style={{ flex: 1, textAlign: 'center' }}>
-//                                 Reminders
-//                             </Typography>
-//                             <View style={{ width: theme.spacing[11] }} />
-//                         </View>
-
-//                         {/* ── TOP INSIGHTS ── */}
-//                         <View style={styles.insightsWrapper}>
-//                             <ReminderSummaryCard reminders={allReminders} completionRate={completionRate} />
-//                             <ReminderInsights reminders={allReminders} />
-//                         </View>
-
-//                         {/* ── FILTERS & SEARCH ── */}
-//                         <View style={[styles.filtersWrapper, isDesktop && styles.filtersWrapperDesktop]}>
-//                             <ReminderFilterBar
-//                                 activeFilter={activeFilter}
-//                                 onSelectFilter={(f) => { haptics.light(); setActiveFilter(f); }}
-//                             />
-//                             <ReminderSearchBar searchQuery={searchQuery} onSearchChange={setSearchQuery} />
-//                         </View>
-
-//                         {/* ── REMINDER GRID ── */}
-//                         {sections.length === 0 ? (
-//                             <ReminderEmptyState filter={activeFilter} />
-//                         ) : (
-//                             sections.map((section) => (
-//                                 <View key={section.title} style={styles.sectionWrapper}>
-//                                     <Typography variant="h3" weight="extrabold" color="textPrimary" style={styles.sectionTitle}>
-//                                         {section.title}
-//                                     </Typography>
-//                                     <Grid cols={isDesktop ? 3 : isTablet ? 2 : 1} gap={theme.spacing[3]}>
-//                                         {section.data.map((item, index) => renderItem({ item, index }))}
-//                                     </Grid>
-//                                 </View>
-//                             ))
-//                         )}
-
-//                         <View style={{ height: theme.spacing['5xl'] }} />
-//                     </View>
-//                 </ScrollView>
-
-//                 {/* ── FAB ── */}
-//                 <View style={[styles.fabContainer, { bottom: insets.bottom + theme.spacing[10] }]}>
-//                     <ReminderFAB
-//                         onPress={() => { haptics.light(); setShowCreate(true); }}
-//                         onLongPress={() => { haptics.light(); setShowCreate(true); }}
-//                     />
-//                 </View>
-
-//                 <CreateReminderModal
-//                     visible={showCreate}
-//                     onClose={() => setShowCreate(false)}
-//                 />
-//             </View>
-//         </GlobalBackground>
-//     );
-// }
-
-// // ============================================================
-// // STYLES
-// // ============================================================
-
-// function createStyles(theme: Theme) {
-//     return StyleSheet.create({
-//         container: { flex: 1 },
-//         loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-//         scrollView: { flex: 1 },
-//         listContent: { paddingBottom: 120 }, // Specific large padding to clear the FAB
-//         maxWidthContainer: { width: '100%', maxWidth: 1400, alignSelf: 'center' },
-
-//         // Header
-//         headerRow: {
-//             flexDirection: 'row',
-//             alignItems: 'center',
-//             justifyContent: 'space-between',
-//             marginBottom: theme.spacing[6],
-//         },
-//         headerBackBtn: {
-//             width: theme.spacing[11], // 44px
-//             height: theme.spacing[11],
-//             borderRadius: theme.borderRadius.full,
-//             alignItems: 'center',
-//             justifyContent: 'center',
-//         },
-
-//         // Insights
-//         insightsWrapper: { marginBottom: theme.spacing[6], gap: theme.spacing[4] },
-
-//         // Filters
-//         filtersWrapper: { flexDirection: 'column', gap: theme.spacing[4], marginBottom: theme.spacing[8] },
-//         filtersWrapperDesktop: { flexDirection: 'row', alignItems: 'center', gap: theme.spacing[5] },
-
-//         // Sections
-//         sectionWrapper: { marginBottom: theme.spacing[8] },
-//         sectionTitle: { marginBottom: theme.spacing[4], marginLeft: theme.spacing[0.5] },
-
-//         // FAB
-//         fabContainer: {
-//             position: 'absolute',
-//             alignSelf: 'center',
-//             zIndex: 100,
-//         },
-//     });
-// }
+}

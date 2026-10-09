@@ -20,6 +20,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTheme } from '../../../providers/ThemeProvider';
+import { useAuthStore } from '../../../stores/auth.store';
 import { haptics } from '../../../utils/haptics';
 import { feedbackApi, IFeedbackItem } from '../../../services/api/feedback.api';
 
@@ -109,7 +110,7 @@ const ReviewCard = React.memo(
     const [expanded, setExpanded] = useState(false);
 
     const categoryInfo =
-      CATEGORY_MAP[item.category?.toLowerCase()] || CATEGORY_MAP.other;
+      CATEGORY_MAP[item.category?.toLowerCase()] || CATEGORY_MAP['other'];
     const relativeTime = formatDistanceToNow(new Date(item.createdAt), {
       addSuffix: true,
     });
@@ -273,8 +274,16 @@ export default function AdminFeedbackDashboard() {
   const [ratingFilter, setRatingFilter] = useState<string>('All');
   const [hasImagesFilter, setHasImagesFilter] = useState<boolean>(false);
 
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
+  const [isAuthorized, setIsAuthorized] = useState(isAdmin);
   const [passwordInput, setPasswordInput] = useState('');
+
+  useEffect(() => {
+    if (isAdmin) {
+      setIsAuthorized(true);
+    }
+  }, [isAdmin]);
 
   const isDesktop = width > 1024;
 
@@ -738,8 +747,8 @@ export default function AdminFeedbackDashboard() {
               ) : (
                 <FlashList
                   data={filteredFeedbacks}
-                  keyExtractor={(item: any) => item._id}
-                  renderItem={({ item }: { item: any }) => (
+                  keyExtractor={item => item._id}
+                  renderItem={({ item }) => (
                     <ReviewCard item={item} onPress={navigateToDetail} />
                   )}
                   contentContainerStyle={[
@@ -886,7 +895,12 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     marginBottom: 16,
-    marginHorizontal: Platform.OS === 'web' && window.innerWidth > 1024 ? 8 : 0, // margin for grid
+    marginHorizontal:
+      Platform.OS === 'web' &&
+      typeof window !== 'undefined' &&
+      window.innerWidth > 1024
+        ? 8
+        : 0, // margin for grid
     borderRadius: 16,
     overflow: 'hidden',
   },

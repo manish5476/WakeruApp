@@ -35,6 +35,9 @@ import { haptics } from '../../../../utils/haptics';
 import { GlassCard } from '../../../../components/ui/GlassCard';
 import { Badge } from '../../../../components/ui/Badge';
 import { TagSelector } from '../../../../components/expense/TagSelector';
+import { getCurrencySymbol } from '../../../../formatters/currency';
+import { showToast } from '../../../../utils/toast';
+import { receiptImageService } from '../../../../services/image/receiptImageService';
 
 // Safe web pressable type
 type WebPressableState = PressableStateCallbackType & { hovered?: boolean };
@@ -285,27 +288,92 @@ export default function AddExpenseScreen() {
   const { width } = useWindowDimensions();
 
   const isWebDesktop = Platform.OS === 'web' && width > 768;
-  const { id: tripId } = useLocalSearchParams<{ id: string }>();
+  const { id: tripId, stopId: paramStopId } = useLocalSearchParams<{
+    id: string;
+    stopId?: string;
+  }>();
   const [currentStep, setCurrentStep] = useState(0);
   const { user } = useAuthStore();
 
   const { data: trip, isLoading: isTripLoading } = useTrip(tripId);
   const { mutate: createExpense, isPending } = useCreateExpense();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [isScanningImage, setIsScanningImage] = useState(false);
   const isLoading = isPending || isSubmitting;
+
+  const handleScanReceipt = () => {
+    haptics.light();
+    setShowScanModal(true);
+  };
+
+  const handleCaptureReceipt = async () => {
+    setShowScanModal(false);
+    setIsScanningImage(true);
+    try {
+      const uri = await receiptImageService.captureReceipt();
+      if (uri) {
+        router.push({
+          pathname: '/(app)/receipts/confirm',
+          params: { imageUri: uri, tripId: tripId || '' },
+        } as any);
+      }
+    } catch (err: any) {
+      showToast.error('Camera Error', err?.message || 'Failed to open camera');
+    } finally {
+      setIsScanningImage(false);
+    }
+  };
+
+  const handlePickReceipt = async () => {
+    setShowScanModal(false);
+    setIsScanningImage(true);
+    try {
+      const uri = await receiptImageService.pickReceiptFromGallery();
+      if (uri) {
+        router.push({
+          pathname: '/(app)/receipts/confirm',
+          params: { imageUri: uri, tripId: tripId || '' },
+        } as any);
+      }
+    } catch (err: any) {
+      showToast.error(
+        'Gallery Error',
+        err?.message || 'Failed to select receipt',
+      );
+    } finally {
+      setIsScanningImage(false);
+    }
+  };
 
   const activeMembers = useMemo(
     () => trip?.members?.filter((m: any) => m.isActive) || [],
     [trip],
   );
-  const stops = useMemo(() => trip?.stops || [], [trip]);
+  const stops = useMemo(() => {
+    const rawStops = trip?.stops || [];
+    if (rawStops.length > 0) return rawStops;
+    return [
+      {
+        _id: `stop_${tripId || 'general'}`,
+        title: 'General',
+        city: '',
+        country: '',
+        currency: trip?.baseCurrency || 'INR',
+        currentExchangeRate: 1,
+      },
+    ];
+  }, [trip, tripId]);
 
   const [formData, setFormData] = useState<ExpenseFormData>({
-    stopId: stops[0]?._id || '',
+    stopId: paramStopId || stops[0]?._id || '',
     title: '',
     category: 'other',
     amountLocal: '',
-    paidBy: activeMembers[0]?.userId || '',
+    paidBy:
+      user?._id && activeMembers.some((m: any) => m.userId === user._id)
+        ? user._id
+        : activeMembers[0]?.userId || '',
     date: new Date(),
     notes: '',
     tags: [],
@@ -313,6 +381,60 @@ export default function AddExpenseScreen() {
     splitMethod: 'equal',
     splitData: { memberIds: activeMembers.map((m: any) => m.userId) },
   });
+
+  // Auto-select stop when stops load
+  useEffect(() => {
+    if (stops.length > 0) {
+      setFormData(prev => {
+        const isValidCurrent =
+          prev.stopId && stops.some((s: any) => s._id === prev.stopId);
+        const isValidParam =
+          paramStopId && stops.some((s: any) => s._id === paramStopId);
+        const targetStopId = isValidParam
+          ? paramStopId
+          : isValidCurrent
+            ? prev.stopId
+            : stops[0]._id;
+        if (prev.stopId !== targetStopId) {
+          return { ...prev, stopId: targetStopId };
+        }
+        return prev;
+      });
+    }
+  }, [stops, paramStopId]);
+
+  // Auto-select paidBy and split members when activeMembers load
+  useEffect(() => {
+    if (activeMembers.length > 0) {
+      setFormData(prev => {
+        const currentPaidByValid = activeMembers.some(
+          (m: any) => m.userId === prev.paidBy,
+        );
+        const defaultPaidBy =
+          user?._id && activeMembers.some((m: any) => m.userId === user._id)
+            ? user._id
+            : activeMembers[0].userId;
+
+        const updatedPaidBy = currentPaidByValid ? prev.paidBy : defaultPaidBy;
+        const updatedMemberIds =
+          !prev.splitData?.memberIds || prev.splitData.memberIds.length === 0
+            ? activeMembers.map((m: any) => m.userId)
+            : prev.splitData.memberIds;
+
+        if (
+          prev.paidBy !== updatedPaidBy ||
+          prev.splitData?.memberIds?.length !== updatedMemberIds.length
+        ) {
+          return {
+            ...prev,
+            paidBy: updatedPaidBy,
+            splitData: { ...prev.splitData, memberIds: updatedMemberIds },
+          };
+        }
+        return prev;
+      });
+    }
+  }, [activeMembers, user]);
 
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [tempLocation, setTempLocation] = useState<{
@@ -499,29 +621,74 @@ export default function AddExpenseScreen() {
     haptics.medium();
     if (currentStep === 0) {
       if (!formData.title.trim()) {
-        Alert.alert('Missing Title', 'Please enter what this expense was for.');
+        showToast.warning(
+          'Missing Title',
+          'Please enter what this expense was for.',
+        );
         return;
       }
       if (!formData.amountLocal || parseFloat(formData.amountLocal) <= 0) {
-        Alert.alert('Invalid Amount', 'Please enter a valid expense amount.');
+        showToast.warning(
+          'Invalid Amount',
+          'Please enter a valid expense amount.',
+        );
         return;
       }
       if (stops.length === 0) {
-        Alert.alert(
+        showToast.warning(
           'No Stops Found',
-          'This trip has no stops. Every expense must belong to a location/stop. Please add a stop from the trip dashboard first.',
+          'This trip has no stops. Please add a stop from the trip dashboard first.',
         );
         return;
       }
       if (!formData.stopId) {
-        Alert.alert('No Stop', 'Please select a location/stop.');
+        showToast.warning('No Stop Selected', 'Please select a location/stop.');
         return;
+      }
+    } else if (currentStep === 1) {
+      const amount = parseFloat(formData.amountLocal) || 0;
+      if (formData.splitMethod === 'equal') {
+        if (
+          !formData.splitData.memberIds ||
+          formData.splitData.memberIds.length === 0
+        ) {
+          showToast.warning(
+            'Select Members',
+            'Please select at least one member to split this expense with.',
+          );
+          return;
+        }
+      } else if (formData.splitMethod === 'percentage') {
+        const totalPercent = (formData.splitData.members || []).reduce(
+          (acc: number, m: any) => acc + (m.percentage || 0),
+          0,
+        );
+        if (Math.abs(totalPercent - 100) > 0.05) {
+          showToast.warning(
+            'Invalid Percentage',
+            `Percentages must add up to 100%. (Current total: ${totalPercent}%)`,
+          );
+          return;
+        }
+      } else if (formData.splitMethod === 'exact') {
+        const totalExact = (formData.splitData.members || []).reduce(
+          (acc: number, m: any) => acc + (m.amountLocal || 0),
+          0,
+        );
+        if (Math.abs(totalExact - amount) > 0.05) {
+          showToast.warning(
+            'Amount Mismatch',
+            `Split amounts must sum to ${amount}. (Current sum: ${totalExact})`,
+          );
+          return;
+        }
       }
     }
     if (currentStep < 2) setCurrentStep(prev => prev + 1);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
+    if (isLoading || isSubmitting) return;
     haptics.medium();
     if (
       formData.splitMethod !== 'personal' &&
@@ -531,7 +698,7 @@ export default function AddExpenseScreen() {
         !formData.splitData.members ||
         formData.splitData.members.length === 0
       ) {
-        Alert.alert(
+        showToast.warning(
           'Invalid Split',
           'Please configure the split details before saving.',
         );
@@ -541,47 +708,19 @@ export default function AddExpenseScreen() {
 
     setIsSubmitting(true);
 
-    let locationData:
-      { latitude: number; longitude: number; name?: string } | undefined;
-
-    try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        locationData = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        };
-      }
-    } catch (error) {
-      console.log('Location fetch skipped/failed', error);
-    }
-
-    // FALLBACK: If user denied location (or it failed), use the Stop's location
-    if (!locationData && formData.stopId && trip?.stops) {
-      const stop = trip.stops.find((s: any) => s._id === formData.stopId);
-      if (stop?.location) {
-        locationData = {
-          latitude: stop.location.lat,
-          longitude: stop.location.lng,
-        };
-      }
-    }
-
+    // Submit immediately with the manually pinned location (map picker).
+    // GPS auto-fetch is skipped from the critical path to avoid blocking submission.
     const payload = {
+      tripId,
       stopId: formData.stopId,
       title: formData.title.trim(),
       category: formData.category,
       amountLocal: parseFloat(formData.amountLocal),
       paidBy: formData.paidBy,
       date: formData.date.toISOString(),
-      latitude: locationData?.latitude,
-      longitude: locationData?.longitude,
       notes: formData.notes || undefined,
       tags: formData.tags.length > 0 ? formData.tags : undefined,
-      location: formData.location || locationData,
+      location: formData.location || undefined,
       split:
         formData.splitMethod === 'equal'
           ? { method: 'equal', memberIds: formData.splitData.memberIds }
@@ -600,13 +739,13 @@ export default function AddExpenseScreen() {
         router.back();
       },
       onError: (error: any) => {
-        Alert.alert('Error', error.message || 'Failed to create expense');
+        showToast.fromError(error, 'Failed to create expense');
         setIsSubmitting(false);
       },
     });
   };
 
-  if (isTripLoading) {
+  if (isTripLoading && !trip) {
     return <GlobalLoader />;
   }
 
@@ -704,15 +843,7 @@ export default function AddExpenseScreen() {
                         },
                       ]}
                     >
-                      {currency === 'INR'
-                        ? '₹'
-                        : currency === 'USD'
-                          ? '$'
-                          : currency === 'EUR'
-                            ? '€'
-                            : currency === 'GBP'
-                              ? '£'
-                              : ''}
+                      {getCurrencySymbol(currency)}
                     </Text>
                     <TextInput
                       style={[
@@ -771,7 +902,7 @@ export default function AddExpenseScreen() {
                         { color: theme.colors.textSecondary },
                       ]}
                     >
-                      ≈ {baseCurrency === 'INR' ? '₹' : ''}
+                      ≈ {getCurrencySymbol(baseCurrency)}
                       {(
                         parseFloat(formData.amountLocal) * exchangeRate
                       ).toLocaleString()}{' '}
@@ -781,6 +912,65 @@ export default function AddExpenseScreen() {
                     <Text style={styles.heroConversion}> </Text>
                   )}
                 </GlassCard>
+              </Animated.View>
+
+              {/* Scan Receipt Action Trigger */}
+              <Animated.View
+                entering={FadeInDown.delay(150).duration(400).springify()}
+              >
+                <Pressable
+                  style={({ hovered }: WebPressableState) => [
+                    styles.scanReceiptButton,
+                    {
+                      backgroundColor: theme.isDark
+                        ? 'rgba(59, 130, 246, 0.12)'
+                        : 'rgba(37, 99, 235, 0.08)',
+                      borderColor: theme.isDark
+                        ? 'rgba(59, 130, 246, 0.3)'
+                        : 'rgba(37, 99, 235, 0.25)',
+                    },
+                    Platform.OS === 'web' &&
+                      hovered &&
+                      ({ opacity: 0.85, transform: [{ scale: 1.01 }] } as any),
+                  ]}
+                  onPress={handleScanReceipt}
+                  accessibilityRole="button"
+                  accessibilityLabel="Scan receipt using offline AI OCR"
+                >
+                  <View style={styles.scanReceiptInner}>
+                    <View
+                      style={[
+                        styles.scanReceiptIconWrap,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    >
+                      <AppIcon name="camera" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.scanReceiptTextWrap}>
+                      <Text
+                        style={[
+                          styles.scanReceiptTitle,
+                          { color: theme.colors.textPrimary },
+                        ]}
+                      >
+                        Scan Receipt
+                      </Text>
+                      <Text
+                        style={[
+                          styles.scanReceiptSub,
+                          { color: theme.colors.textSecondary },
+                        ]}
+                      >
+                        Auto-detect ₹ total, merchant, date & GST offline
+                      </Text>
+                    </View>
+                    <AppIcon
+                      name="chevron-right"
+                      size={18}
+                      color={theme.colors.textTertiary}
+                    />
+                  </View>
+                </Pressable>
               </Animated.View>
 
               <Animated.View
@@ -824,7 +1014,7 @@ export default function AddExpenseScreen() {
                     />
 
                     {/* Stops Chips */}
-                    {stops.length > 1 && (
+                    {stops.length > 1 ? (
                       <View style={styles.fieldWrapper}>
                         <Text
                           style={[
@@ -883,7 +1073,46 @@ export default function AddExpenseScreen() {
                           })}
                         </ScrollView>
                       </View>
-                    )}
+                    ) : stops.length === 1 ? (
+                      <View style={styles.fieldWrapper}>
+                        <Text
+                          style={[
+                            styles.fieldLabel,
+                            { color: theme.colors.textSecondary },
+                          ]}
+                        >
+                          Location / Stop
+                        </Text>
+                        <View
+                          style={[
+                            styles.pill,
+                            {
+                              borderColor: theme.colors.primary,
+                              backgroundColor: theme.isDark
+                                ? 'rgba(37,99,235,0.15)'
+                                : 'rgba(37,99,235,0.08)',
+                              alignSelf: 'flex-start',
+                            },
+                          ]}
+                        >
+                          <Text style={styles.pillEmoji}>
+                            {(stops[0] as any).emoji || '📍'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.pillText,
+                              {
+                                color: theme.colors.primary,
+                                fontWeight: '700',
+                              },
+                            ]}
+                          >
+                            {(stops[0] as any).name || (stops[0] as any).title}{' '}
+                            ({stops[0].currency || 'INR'})
+                          </Text>
+                        </View>
+                      </View>
+                    ) : null}
 
                     {/* Category Grid */}
                     <View style={styles.fieldWrapper}>
@@ -1774,10 +2003,16 @@ export default function AddExpenseScreen() {
                           { color: theme.colors.textPrimary },
                         ]}
                       >
-                        {
-                          stops.find((s: any) => s._id === formData.stopId)
-                            ?.name
-                        }
+                        {(
+                          stops.find(
+                            (s: any) => s._id === formData.stopId,
+                          ) as any
+                        )?.name ||
+                          (
+                            stops.find(
+                              (s: any) => s._id === formData.stopId,
+                            ) as any
+                          )?.title}
                       </Text>
                     </View>
                     {formData.location && (
@@ -1998,11 +2233,11 @@ export default function AddExpenseScreen() {
             initialRegion={{
               latitude:
                 formData.location?.latitude ||
-                selectedStop?.location?.lat ||
+                (selectedStop as any)?.location?.lat ||
                 20.5937,
               longitude:
                 formData.location?.longitude ||
-                selectedStop?.location?.lng ||
+                (selectedStop as any)?.location?.lng ||
                 78.9629,
             }}
             markers={
@@ -2023,6 +2258,180 @@ export default function AddExpenseScreen() {
             darkMode={theme.isDark}
           />
         </View>
+      </Modal>
+
+      {/* Scan Receipt Action Modal */}
+      <Modal
+        visible={showScanModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowScanModal(false)}
+      >
+        <Pressable
+          style={styles.scanModalBackdrop}
+          onPress={() => setShowScanModal(false)}
+        >
+          <Pressable
+            style={{ width: '100%', maxWidth: 440 }}
+            onPress={e => e.stopPropagation()}
+          >
+            <GlassCard
+              style={styles.scanModalContent}
+              intensity={theme.isDark ? 25 : 15}
+            >
+              <View style={styles.scanModalHeader}>
+                <View
+                  style={[
+                    styles.scanModalBadge,
+                    { backgroundColor: theme.colors.primaryBg },
+                  ]}
+                >
+                  <AppIcon
+                    name="camera"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.scanModalTitle,
+                    { color: theme.colors.textPrimary },
+                  ]}
+                >
+                  Scan Receipt
+                </Text>
+                <Text
+                  style={[
+                    styles.scanModalSubtitle,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Take a photo or choose from gallery to automatically parse
+                  merchant, ₹ total, date & GST offline.
+                </Text>
+              </View>
+
+              <View style={styles.scanModalOptions}>
+                <Pressable
+                  style={({ hovered }: WebPressableState) => [
+                    styles.scanModalOption,
+                    {
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.borderLight,
+                    },
+                    Platform.OS === 'web' &&
+                      hovered &&
+                      ({ backgroundColor: theme.colors.primaryBg } as any),
+                  ]}
+                  onPress={handleCaptureReceipt}
+                >
+                  <View
+                    style={[
+                      styles.scanOptionIconWrap,
+                      { backgroundColor: theme.colors.primaryBg },
+                    ]}
+                  >
+                    <AppIcon
+                      name="camera"
+                      size={20}
+                      color={theme.colors.primary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.scanOptionTitle,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      Take Photo
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scanOptionSub,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Capture receipt directly with camera
+                    </Text>
+                  </View>
+                  <AppIcon
+                    name="chevron-right"
+                    size={18}
+                    color={theme.colors.textTertiary}
+                  />
+                </Pressable>
+
+                <Pressable
+                  style={({ hovered }: WebPressableState) => [
+                    styles.scanModalOption,
+                    {
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.borderLight,
+                    },
+                    Platform.OS === 'web' &&
+                      hovered &&
+                      ({ backgroundColor: theme.colors.primaryBg } as any),
+                  ]}
+                  onPress={handlePickReceipt}
+                >
+                  <View
+                    style={[
+                      styles.scanOptionIconWrap,
+                      { backgroundColor: theme.colors.primaryBg },
+                    ]}
+                  >
+                    <AppIcon
+                      name="image"
+                      size={20}
+                      color={theme.colors.primary}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.scanOptionTitle,
+                        { color: theme.colors.textPrimary },
+                      ]}
+                    >
+                      Choose from Gallery
+                    </Text>
+                    <Text
+                      style={[
+                        styles.scanOptionSub,
+                        { color: theme.colors.textSecondary },
+                      ]}
+                    >
+                      Pick an image or screenshot from photos
+                    </Text>
+                  </View>
+                  <AppIcon
+                    name="chevron-right"
+                    size={18}
+                    color={theme.colors.textTertiary}
+                  />
+                </Pressable>
+              </View>
+
+              <Pressable
+                style={[
+                  styles.scanModalCancelBtn,
+                  { borderColor: theme.colors.borderLight },
+                ]}
+                onPress={() => setShowScanModal(false)}
+              >
+                <Text
+                  style={[
+                    styles.scanModalCancelText,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  Cancel
+                </Text>
+              </Pressable>
+            </GlassCard>
+          </Pressable>
+        </Pressable>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -2485,6 +2894,116 @@ const useStyles = () => {
         mapInstructionBar: { paddingVertical: 12, alignItems: 'center' },
         mapInstructionText: { fontSize: 12, fontWeight: '700' },
         mapModalMap: { flex: 1 },
+
+        // Scan Receipt Trigger Button
+        scanReceiptButton: {
+          borderRadius: 16,
+          borderWidth: 1,
+          padding: 14,
+          marginBottom: 16,
+        },
+        scanReceiptInner: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 12,
+        },
+        scanReceiptIconWrap: {
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        scanReceiptTextWrap: {
+          flex: 1,
+        },
+        scanReceiptTitle: {
+          fontSize: 14,
+          fontWeight: '700',
+        },
+        scanReceiptSub: {
+          fontSize: 11,
+          fontWeight: '500',
+          marginTop: 2,
+        },
+
+        // Scan Receipt Modal
+        scanModalBackdrop: {
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        },
+        scanModalContent: {
+          borderRadius: 24,
+          padding: 24,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+        },
+        scanModalHeader: {
+          alignItems: 'center',
+          marginBottom: 20,
+        },
+        scanModalBadge: {
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 12,
+        },
+        scanModalTitle: {
+          fontSize: 18,
+          fontWeight: '800',
+          marginBottom: 6,
+          textAlign: 'center',
+        },
+        scanModalSubtitle: {
+          fontSize: 12,
+          fontWeight: '500',
+          textAlign: 'center',
+          lineHeight: 18,
+        },
+        scanModalOptions: {
+          gap: 12,
+          marginBottom: 20,
+        },
+        scanModalOption: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          padding: 16,
+          borderRadius: 16,
+          borderWidth: 1,
+          gap: 14,
+        },
+        scanOptionIconWrap: {
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        scanOptionTitle: {
+          fontSize: 14,
+          fontWeight: '700',
+        },
+        scanOptionSub: {
+          fontSize: 11,
+          fontWeight: '500',
+          marginTop: 2,
+        },
+        scanModalCancelBtn: {
+          height: 48,
+          borderRadius: 14,
+          borderWidth: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        scanModalCancelText: {
+          fontSize: 14,
+          fontWeight: '600',
+        },
       }),
     [theme],
   );
